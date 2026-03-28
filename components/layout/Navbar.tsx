@@ -9,6 +9,7 @@ const navLinks = [
   { label: 'Тухай', href: '/#about' },
   { label: 'Эмч нар', href: '/#doctors' },
   { label: 'Үйлчилгээ', href: '/#services' },
+  { label: 'Байгууллага', href: '/organization' },
   { label: 'Технологи', href: '/#technology' },
   { label: 'Холбоо барих', href: '/#contact' },
 ]
@@ -43,7 +44,7 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
   return (
     <header className={headerClassName}>
       <div className="mx-auto max-w-6xl px-4">
-        <div className="flex h-[80px] items-center justify-between">
+        <div className="flex h-[72px] items-center justify-between md:h-[76px]">
           <Link href="/" className="flex shrink-0 items-center">
             <span className="relative block h-16 w-44 overflow-visible md:h-[4.5rem] md:w-52">
               <Image

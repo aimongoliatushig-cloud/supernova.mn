@@ -1,25 +1,38 @@
 import type { Metadata } from 'next'
+import { Noto_Sans } from 'next/font/google'
 import './globals.css'
 
+const notoSans = Noto_Sans({
+  subsets: ['latin', 'cyrillic'],
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
-  title: 'Супернова — Япон Улсын Жишиг Эмнэлэг',
+  title: 'СУПЕРНОВА | Япон Улсын Жишиг Эмнэлэг',
   description:
-    'Японы стандартын дагуу иж бүрэн эрүүл мэндийн шинжилгээ. Цусны шинжилгээ, хэт авиа, дуран болон бусад дэвшилтэт оношлогоо.',
-  keywords: 'Супернова, эмнэлэг, шинжилгээ, оношлогоо, Япон, Улаанбаатар',
+    'Япон стандартын эрт илрүүлэг, урьдчилан сэргийлэх үзлэг, оношилгоо, цаг захиалга болон эрүүл мэндийн зөвлөгөө.',
+  keywords: [
+    'СУПЕРНОВА',
+    'эмнэлэг',
+    'эрт илрүүлэг',
+    'оношилгоо',
+    'Улаанбаатар',
+    'Япон стандарт',
+  ],
 }
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode
-}) {
+}>) {
   return (
     <html
       lang="mn"
-      className="h-full antialiased scroll-smooth"
+      className={`${notoSans.className} h-full antialiased scroll-smooth`}
       data-scroll-behavior="smooth"
     >
-      <body className="min-h-full flex flex-col bg-white text-[#1F2937]">
+      <body className="flex min-h-full flex-col bg-white text-[#1F2937]">
         {children}
       </body>
     </html>

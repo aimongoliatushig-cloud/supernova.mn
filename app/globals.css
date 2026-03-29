@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
+/* ─── Supernova Brand Tokens ─────────────────────────────────────────────── */
+@theme inline {
+  --color-brand-blue:       #1E63B5;
+  --color-brand-blue-dark:  #154d8f;
+  --color-brand-blue-light: #EAF3FF;
+  --color-brand-red:        #E8323F;
+  --color-brand-red-dark:   #c0272d;
+  --color-brand-red-light:  #FEE9EB;
+
+  --color-text-primary:     #1F2937;
+  --color-text-secondary:   #6B7280;
+  --color-text-muted:       #9CA3AF;
+
+  --color-success:          #16A34A;
+  --color-warning:          #F59E0B;
+  --color-border:           #E5E7EB;
+}
+
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1F2937;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Range input ────────────────────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: #E5E7EB;
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: #1E63B5;
+  cursor: pointer;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
 }

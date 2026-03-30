@@ -7,6 +7,8 @@ import { Suspense, useState } from 'react'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 
+const FALLBACK_SUPER_ADMIN_EMAIL = 'admin@gmail.com'
+
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -56,7 +58,9 @@ function LoginContent() {
       .eq('id', user.id)
       .single()
 
-    const role = profile?.role ?? 'patient'
+    const role =
+      profile?.role ??
+      (user.email?.toLowerCase() === FALLBACK_SUPER_ADMIN_EMAIL ? 'super_admin' : 'patient')
     const nextPath = searchParams.get('next')
     const safeNextPath = nextPath?.startsWith('/dashboard') ? nextPath : null
 

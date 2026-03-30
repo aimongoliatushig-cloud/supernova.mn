@@ -56,13 +56,13 @@ export default function Footer({
         <div className="grid gap-8 rounded-[2rem] border border-white/10 bg-white/6 p-6 shadow-[0_24px_70px_rgba(5,14,28,0.25)] backdrop-blur md:grid-cols-[1.1fr_0.9fr_0.9fr] md:p-8">
           <div>
             <Link href="/" className="inline-flex items-center">
-              <span className="relative block h-14 w-40">
+              <span className="relative block h-20 w-56 overflow-visible">
                 <Image
                   src="/logo.png"
                   alt="СУПЕРНОВА эмнэлэг"
                   fill
-                  sizes="160px"
-                  className="object-contain brightness-0 invert"
+                  sizes="224px"
+                  className="object-contain object-left brightness-0 invert scale-[1.65] origin-left"
                 />
               </span>
             </Link>

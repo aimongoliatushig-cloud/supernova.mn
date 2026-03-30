@@ -43,15 +43,15 @@ export default function Navbar({ phone = '1330-033' }: NavbarProps) {
   return (
     <header className={headerClassName}>
       <div className="mx-auto max-w-6xl px-4">
-        <div className="flex h-[72px] items-center justify-between">
+        <div className="flex h-[80px] items-center justify-between">
           <Link href="/" className="flex shrink-0 items-center">
-            <span className="relative block h-14 w-40">
+            <span className="relative block h-16 w-44 overflow-visible md:h-[4.5rem] md:w-52">
               <Image
                 src="/logo.png"
                 alt="СУПЕРНОВА эмнэлэг"
                 fill
-                sizes="160px"
-                className="object-contain"
+                sizes="(max-width: 768px) 176px, 208px"
+                className="object-contain object-left scale-[1.55] origin-left md:scale-[1.7]"
                 priority
               />
             </span>

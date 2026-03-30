@@ -10,6 +10,12 @@ export type LeadStatus =
   | 'pending'
   | 'confirmed'
   | 'blacklisted'
+export type ConsultationWorkflowStatus =
+  | 'new'
+  | 'assigned'
+  | 'answered'
+  | 'called'
+  | 'closed'
 
 export interface AdminViewer {
   id: string
@@ -327,7 +333,13 @@ export interface ConsultationSummary {
   id: string
   preferred_callback_time: string
   question: string | null
-  status: string
+  status: ConsultationWorkflowStatus
+  assigned_doctor_id?: string | null
+  assigned_at?: string | null
+  doctors?: {
+    full_name: string | null
+    specialization?: string | null
+  } | null
   doctor_responses?: Array<{
     id: string
     response_text: string

@@ -28,6 +28,7 @@ import type {
 const ADMIN_PATHS = [
   '/dashboard/admin',
   '/dashboard/admin/cms',
+  '/dashboard/admin/accounts',
   '/dashboard/admin/doctors',
   '/dashboard/admin/services',
   '/dashboard/admin/packages',
@@ -37,6 +38,7 @@ const ADMIN_PATHS = [
 ]
 
 const PUBLIC_PATHS = ['/', '/check', '/appointment', '/consultation', '/result', '/results']
+const FALLBACK_SUPER_ADMIN_EMAIL = 'admin@gmail.com'
 
 async function getAdminSupabase() {
   await requireRole(['super_admin'])
@@ -426,6 +428,123 @@ export async function deleteDoctor(id: string): Promise<AdminActionResult> {
 
   revalidateAdminAndPublic()
   return ok('Эмчийн бүртгэл устгагдлаа.')
+}
+
+export async function saveStaffAccount(input: {
+  id?: string
+  full_name: string
+  email: string
+  role: 'office_assistant' | 'super_admin'
+  password: string
+}): Promise<AdminActionResult> {
+  await requireRole(['super_admin'])
+
+  if (!hasServiceRoleConfig()) {
+    return fail('SUPABASE_SERVICE_ROLE_KEY тохируулаагүй байна.')
+  }
+
+  const email = normalizeEmail(input.email)
+  if (!input.full_name.trim() || !email) {
+    return fail('Нэр болон и-мэйл шаардлагатай.')
+  }
+
+  if (!input.id && !trimToNull(input.password)) {
+    return fail('Шинэ staff account үүсгэхдээ нууц үг заавал оруулна.')
+  }
+
+  const serviceRole = createServiceRoleClient()
+  let userId = trimToNull(input.id)
+
+  if (!userId) {
+    const { user, error } = await findAuthUserByEmail(email)
+    if (error) {
+      return fail(error)
+    }
+
+    userId = user?.id ?? null
+  }
+
+  const authPayload = {
+    email,
+    email_confirm: true,
+    user_metadata: {
+      full_name: input.full_name.trim(),
+      role: input.role,
+    },
+  }
+
+  if (!userId) {
+    const { data, error } = await serviceRole.auth.admin.createUser({
+      ...authPayload,
+      password: input.password.trim(),
+    })
+
+    if (error || !data.user) {
+      return fail(error?.message ?? 'Staff account үүсгэж чадсангүй.')
+    }
+
+    userId = data.user.id
+  } else {
+    const updatePayload = trimToNull(input.password)
+      ? { ...authPayload, password: input.password.trim() }
+      : authPayload
+
+    const { error } = await serviceRole.auth.admin.updateUserById(userId, updatePayload)
+
+    if (error) {
+      return fail(error.message)
+    }
+  }
+
+  const { error: profileError } = await serviceRole.from('profiles').upsert(
+    {
+      id: userId,
+      email,
+      full_name: input.full_name.trim(),
+      role: input.role,
+    },
+    { onConflict: 'id' }
+  )
+
+  if (profileError) {
+    return fail(profileError.message)
+  }
+
+  revalidateAdminAndPublic(['/dashboard/admin/accounts'])
+  return ok('Staff account хадгалагдлаа.')
+}
+
+export async function deleteStaffAccount(id: string): Promise<AdminActionResult> {
+  const viewer = await requireRole(['super_admin'])
+
+  if (!hasServiceRoleConfig()) {
+    return fail('SUPABASE_SERVICE_ROLE_KEY тохируулаагүй байна.')
+  }
+
+  if (viewer.id === id) {
+    return fail('Өөрийгөө устгах боломжгүй.')
+  }
+
+  const serviceRole = createServiceRoleClient()
+  const { data: profile } = await serviceRole
+    .from('profiles')
+    .select('email, role')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (profile?.email?.toLowerCase() === FALLBACK_SUPER_ADMIN_EMAIL) {
+    return fail('Үндсэн super admin account-ыг устгахгүй.')
+  }
+
+  await serviceRole.from('profiles').delete().eq('id', id)
+  const { error } = await serviceRole.auth.admin.deleteUser(id, true)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateAdminAndPublic(['/dashboard/admin/accounts'])
+  return ok('Staff account устгагдлаа.')
 }
 
 export async function saveServiceCategory(

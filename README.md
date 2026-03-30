@@ -33,6 +33,7 @@
 
 - `/dashboard`
 - `/dashboard/admin`
+- `/dashboard/admin/accounts`
 - `/dashboard/admin/cms`
 - `/dashboard/admin/doctors`
 - `/dashboard/admin/services`
@@ -53,6 +54,7 @@
 - [supabase/schema.sql](/Users/pc/supernova.mn/supabase/schema.sql)
 - [supabase/schema-v2.sql](/Users/pc/supernova.mn/supabase/schema-v2.sql)
 - [supabase/schema-v3.sql](/Users/pc/supernova.mn/supabase/schema-v3.sql)
+- [supabase/schema-v4.sql](/Users/pc/supernova.mn/supabase/schema-v4.sql)
 - [supabase/seed.sql](/Users/pc/supernova.mn/supabase/seed.sql)
 - [supabase/seed-v2.sql](/Users/pc/supernova.mn/supabase/seed-v2.sql)
 - [supabase/seed-v3.sql](/Users/pc/supernova.mn/supabase/seed-v3.sql)
@@ -115,10 +117,11 @@ Run SQL in this order:
 1. [supabase/schema.sql](/Users/pc/supernova.mn/supabase/schema.sql)
 2. [supabase/schema-v2.sql](/Users/pc/supernova.mn/supabase/schema-v2.sql)
 3. [supabase/schema-v3.sql](/Users/pc/supernova.mn/supabase/schema-v3.sql)
-4. [supabase/seed.sql](/Users/pc/supernova.mn/supabase/seed.sql)
-5. [supabase/seed-v2.sql](/Users/pc/supernova.mn/supabase/seed-v2.sql)
-6. [supabase/seed-v3.sql](/Users/pc/supernova.mn/supabase/seed-v3.sql)
-7. [supabase/seed-v4.sql](/Users/pc/supernova.mn/supabase/seed-v4.sql)
+4. [supabase/schema-v4.sql](/Users/pc/supernova.mn/supabase/schema-v4.sql)
+5. [supabase/seed.sql](/Users/pc/supernova.mn/supabase/seed.sql)
+6. [supabase/seed-v2.sql](/Users/pc/supernova.mn/supabase/seed-v2.sql)
+7. [supabase/seed-v3.sql](/Users/pc/supernova.mn/supabase/seed-v3.sql)
+8. [supabase/seed-v4.sql](/Users/pc/supernova.mn/supabase/seed-v4.sql)
 
 ## Environment variables
 

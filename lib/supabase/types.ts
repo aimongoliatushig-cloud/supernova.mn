@@ -4,7 +4,7 @@
 export type Role = 'patient' | 'office_assistant' | 'doctor' | 'super_admin'
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
-export type ConsultationStatus = 'new' | 'answered' | 'called' | 'closed'
+export type ConsultationStatus = 'new' | 'assigned' | 'answered' | 'called' | 'closed'
 export type LeadStatus = 'new' | 'contacted' | 'pending' | 'confirmed' | 'blacklisted'
 export type CallbackTime = 'morning' | 'afternoon' | 'evening'
 
@@ -145,6 +145,9 @@ export interface ConsultationRequest {
   preferred_callback_time: CallbackTime
   question: string | null
   status: ConsultationStatus
+  assigned_doctor_id: string | null
+  assigned_by: string | null
+  assigned_at: string | null
   created_at: string
   updated_at: string
 }

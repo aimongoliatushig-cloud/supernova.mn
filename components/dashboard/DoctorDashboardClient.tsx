@@ -24,7 +24,8 @@ interface Consultation {
   lead_id: string
   preferred_callback_time: 'morning' | 'afternoon' | 'evening'
   question: string | null
-  status: 'new' | 'answered' | 'called' | 'closed'
+  status: 'new' | 'assigned' | 'answered' | 'called' | 'closed'
+  assigned_doctor_id?: string | null
   created_at: string
   leads?: {
     full_name: string
@@ -42,6 +43,7 @@ const timeLabels = {
 
 const statusColors = {
   new: 'red',
+  assigned: 'yellow',
   answered: 'green',
   called: 'blue',
   closed: 'gray',
@@ -49,6 +51,7 @@ const statusColors = {
 
 const statusLabels = {
   new: 'Шинэ',
+  assigned: 'Оноосон',
   answered: 'Хариулсан',
   called: 'Залгасан',
   closed: 'Хаасан',
@@ -115,12 +118,21 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
       setDoctorId(doctor.id)
       setDoctorLabel(doctor.full_name || viewer.full_name || viewer.email)
 
-      const { data, error: consultationError } = await supabase
+      const enhancedQuery = await supabase
         .from('consultation_requests')
         .select(
-          'id, lead_id, preferred_callback_time, question, status, created_at, leads(full_name, phone, risk_level), doctor_responses(id, doctor_id, response_text, created_at)'
+          'id, lead_id, preferred_callback_time, question, status, assigned_doctor_id, created_at, leads(full_name, phone, risk_level), doctor_responses(id, doctor_id, response_text, created_at)'
         )
         .order('created_at', { ascending: false })
+
+      const { data, error: consultationError } = enhancedQuery.error
+        ? await supabase
+            .from('consultation_requests')
+            .select(
+              'id, lead_id, preferred_callback_time, question, status, created_at, leads(full_name, phone, risk_level), doctor_responses(id, doctor_id, response_text, created_at)'
+            )
+            .order('created_at', { ascending: false })
+        : enhancedQuery
 
       if (!active) {
         return
@@ -149,7 +161,20 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
           : [],
       }))
 
+      const supportsAssignment = normalizedConsultations.some(
+        (consultation) => 'assigned_doctor_id' in consultation
+      )
+
       const scopedConsultations = normalizedConsultations.filter((consultation) => {
+        if (supportsAssignment) {
+          return (
+            consultation.assigned_doctor_id === doctor.id ||
+            (consultation.doctor_responses ?? []).some(
+              (doctorResponse) => doctorResponse.doctor_id === doctor.id
+            )
+          )
+        }
+
         if (consultation.status === 'new') {
           return true
         }
@@ -310,7 +335,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
           <div className="min-w-0 flex-1 space-y-4">
             <div className="rounded-2xl border border-[#E5E7EB] bg-white p-3">
               <div className="flex flex-wrap gap-2">
-                {(['all', 'new', 'answered', 'called', 'closed'] as const).map((status) => (
+                {(['all', 'new', 'assigned', 'answered', 'called', 'closed'] as const).map((status) => (
                   <button
                     key={status}
                     type="button"
@@ -470,7 +495,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                   </div>
                 ) : null}
 
-                {selected.status === 'new' ? (
+                {selected.status === 'new' || selected.status === 'assigned' ? (
                   <div className="mt-5">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
                       Мэргэжлийн хариулт

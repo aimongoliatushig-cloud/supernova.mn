@@ -7,6 +7,7 @@ const parts = [
   'schema.sql',
   'schema-v2.sql',
   'schema-v3.sql',
+  'schema-v4.sql',
   'seed.sql',
   'seed-v2.sql',
   'seed-v3.sql',

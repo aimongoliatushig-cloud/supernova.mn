@@ -14,10 +14,16 @@ import type {
   SocialLink,
   SymptomCategory,
   WorkingHours,
+  Role,
 } from '@/lib/admin/types'
 
 async function getAdminClient() {
   await requireRole(['super_admin'])
+  return createClient()
+}
+
+async function getRoleAwareClient(roles: Role[]) {
+  await requireRole(roles)
   return createClient()
 }
 
@@ -113,6 +119,24 @@ export async function getDoctorsAdminData() {
   }
 }
 
+export async function getStaffAccountsAdminData() {
+  const supabase = await getAdminClient()
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, email, full_name, role, created_at')
+    .in('role', ['office_assistant', 'super_admin'])
+    .order('created_at', { ascending: false })
+
+  return (profiles ?? []) as Array<{
+    id: string
+    email: string
+    full_name: string | null
+    role: 'office_assistant' | 'super_admin'
+    created_at: string
+  }>
+}
+
 export async function getServicesAdminData() {
   const supabase = await getAdminClient()
 
@@ -178,22 +202,77 @@ export async function getDiagnosisAdminData() {
   }
 }
 
-export async function getCrmAdminData() {
-  const supabase = await getAdminClient()
+async function getCrmBoardData(roles: Role[]) {
+  const supabase = await getRoleAwareClient(roles)
 
-  const { data: leads } = await supabase
-    .from('leads')
-    .select(
-      `
-        *,
-        assessments(id, risk_level, risk_score, created_at),
-        appointments(id, appointment_date, appointment_time, status, doctors(full_name), services(name)),
-        consultation_requests(id, preferred_callback_time, question, status, doctor_responses(id, response_text, created_at)),
-        crm_notes(id, author_id, note_text, created_at)
-      `
+  const baseSelect = `
+    *,
+    assessments(id, risk_level, risk_score, created_at),
+    appointments(id, appointment_date, appointment_time, status, doctors(full_name), services(name)),
+    crm_notes(id, author_id, note_text, created_at)
+  `
+
+  const enhancedConsultationSelect = `
+    consultation_requests(
+      id,
+      preferred_callback_time,
+      question,
+      status,
+      assigned_doctor_id,
+      assigned_at,
+      doctors(full_name, specialization),
+      doctor_responses(id, response_text, created_at)
     )
+  `
+
+  const legacyConsultationSelect = `
+    consultation_requests(
+      id,
+      preferred_callback_time,
+      question,
+      status,
+      doctor_responses(id, response_text, created_at)
+    )
+  `
+
+  const enhancedQuery = await supabase
+    .from('leads')
+    .select(`${baseSelect}, ${enhancedConsultationSelect}`)
     .order('created_at', { ascending: false })
     .limit(250)
 
-  return (leads ?? []) as AdminLead[]
+  const { data: leads } = enhancedQuery.error
+    ? await supabase
+        .from('leads')
+        .select(`${baseSelect}, ${legacyConsultationSelect}`)
+        .order('created_at', { ascending: false })
+        .limit(250)
+    : enhancedQuery
+
+  const { data: doctors } = await supabase
+    .from('doctors')
+    .select('id, full_name, specialization, is_active, available_for_booking')
+    .eq('is_active', true)
+    .order('sort_order')
+    .order('full_name')
+
+  return {
+    leads: (leads ?? []) as AdminLead[],
+    doctors:
+      (doctors ?? []) as Array<{
+        id: string
+        full_name: string
+        specialization: string
+        is_active: boolean
+        available_for_booking: boolean
+      }>,
+  }
+}
+
+export async function getCrmAdminData() {
+  return getCrmBoardData(['super_admin'])
+}
+
+export async function getCrmStaffData() {
+  return getCrmBoardData(['office_assistant', 'super_admin'])
 }

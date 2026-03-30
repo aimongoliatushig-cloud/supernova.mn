@@ -219,6 +219,23 @@ export async function submitAppointment(
     return fail('Үйлчилгээ, эмч, өдөр, цагаа бүрэн сонгоно уу.')
   }
 
+  const normalizedPhone = input.phone.replace(/\s+/g, '')
+  if (normalizedPhone.length < 8) {
+    return fail('Утасны дугаараа зөв оруулна уу.')
+  }
+
+  const appointmentDate = new Date(`${input.appointment_date}T00:00:00`)
+  if (Number.isNaN(appointmentDate.getTime())) {
+    return fail('Цагийн огноо буруу байна.')
+  }
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  if (appointmentDate < today) {
+    return fail('Өнгөрсөн огноонд цаг захиалах боломжгүй.')
+  }
+
   const leadResult = await upsertLeadFromContact({
     lead_id: input.lead_id,
     assessment_id: input.assessment_id,

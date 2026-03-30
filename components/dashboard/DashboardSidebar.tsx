@@ -5,14 +5,13 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   Activity,
   Brain,
-  Calendar,
   FileText,
   Gift,
   LayoutDashboard,
   LogOut,
-  MessageSquare,
   Package,
   Stethoscope,
+  UserCog,
   Users,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,16 +21,15 @@ type Role = 'office_assistant' | 'doctor' | 'super_admin'
 const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNode }[]> = {
   office_assistant: [
     { href: '/dashboard/assistant', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
-    { href: '/dashboard/assistant?tab=leads', label: 'Лидүүд', icon: <Users size={18} /> },
-    { href: '/dashboard/assistant?tab=appointments', label: 'Цаг захиалга', icon: <Calendar size={18} /> },
+    { href: '/dashboard/assistant', label: 'Лидүүд ба CRM', icon: <Users size={18} /> },
   ],
   doctor: [
     { href: '/dashboard/doctor', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
-    { href: '/dashboard/doctor?tab=consult', label: 'Зөвлөгөөнүүд', icon: <MessageSquare size={18} /> },
   ],
   super_admin: [
     { href: '/dashboard/admin', label: 'Тойм', icon: <LayoutDashboard size={18} /> },
     { href: '/dashboard/admin/cms', label: 'Landing CMS', icon: <FileText size={18} /> },
+    { href: '/dashboard/admin/accounts', label: 'Ажилтны эрх', icon: <UserCog size={18} /> },
     { href: '/dashboard/admin/doctors', label: 'Эмч нар', icon: <Stethoscope size={18} /> },
     { href: '/dashboard/admin/services', label: 'Үйлчилгээ', icon: <Activity size={18} /> },
     { href: '/dashboard/admin/packages', label: 'Багцууд', icon: <Package size={18} /> },

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Calendar, Menu, Phone, Shield, X } from 'lucide-react'
+import { Calendar, LogIn, Menu, Phone, X } from 'lucide-react'
 
 const navLinks = [
   { label: 'Тухай', href: '/#about' },
@@ -71,11 +71,11 @@ export default function Navbar({ phone = '1330-033' }: NavbarProps) {
 
           <div className="hidden items-center gap-2 md:flex">
             <Link
-              href="/admin"
+              href="/login"
               className="flex items-center gap-1.5 rounded-xl border border-[#D8E6F6] bg-[#F8FBFF] px-4 py-2 text-sm font-bold text-[#10233B] transition hover:border-[#1E63B5] hover:text-[#1E63B5]"
             >
-              <Shield size={14} />
-              Admin нэвтрэх
+              <LogIn size={14} />
+              Нэвтрэх
             </Link>
             <a
               href={`tel:${resolvedPhone.replaceAll('-', '')}`}
@@ -128,12 +128,12 @@ export default function Navbar({ phone = '1330-033' }: NavbarProps) {
 
           <div className="mt-2 flex flex-col gap-2 border-t border-[#F3F4F6] pt-3">
             <Link
-              href="/admin"
+              href="/login"
               onClick={() => setOpen(false)}
               className="flex items-center justify-center gap-2 rounded-xl border border-[#D8E6F6] bg-[#F8FBFF] py-3 text-sm font-bold text-[#10233B]"
             >
-              <Shield size={16} />
-              Admin нэвтрэх
+              <LogIn size={16} />
+              Нэвтрэх
             </Link>
             <a
               href={`tel:${resolvedPhone.replaceAll('-', '')}`}

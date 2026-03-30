@@ -84,10 +84,10 @@ export default function Footer({
                 </a>
               ))}
               <Link
-                href="/admin"
+                href="/login"
                 className="inline-flex items-center rounded-full border border-white/15 px-4 py-2 text-xs font-bold tracking-[0.14em] text-slate-200 transition hover:border-[#6CAAF2] hover:text-white"
               >
-                Ажилтны нэвтрэх
+                Нэвтрэх
               </Link>
             </div>
           </div>

@@ -114,10 +114,10 @@ export default async function SetupPage() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/admin"
+              href="/login"
               className="inline-flex items-center justify-center rounded-2xl bg-[#1E63B5] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
             >
-              Админ нэвтрэх
+              Нэвтрэх
             </Link>
             <Link
               href="/"

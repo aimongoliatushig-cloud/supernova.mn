@@ -99,7 +99,7 @@ export async function requireDashboardViewer() {
   const viewer = await getCurrentViewer()
 
   if (!viewer) {
-    redirect('/auth/login')
+    redirect('/login')
   }
 
   return viewer

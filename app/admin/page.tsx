@@ -5,7 +5,7 @@ export default async function AdminEntryPage() {
   const viewer = await getCurrentViewer()
 
   if (!viewer) {
-    redirect('/auth/login?next=/dashboard/admin')
+    redirect('/login')
   }
 
   if (viewer.role === 'super_admin') {

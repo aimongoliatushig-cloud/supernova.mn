@@ -3,6 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/admin/auth'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 import type {
   AdminActionResult,
   CmsEntryInput,
@@ -56,10 +60,127 @@ function clampNumber(value: number, fallback = 0) {
   return Number.isFinite(value) ? value : fallback
 }
 
+function normalizeEmail(value: string | null | undefined) {
+  const normalized = trimToNull(value)
+  return normalized ? normalized.toLowerCase() : null
+}
+
 function revalidateAdminAndPublic(extraPaths: string[] = []) {
   for (const path of [...ADMIN_PATHS, ...PUBLIC_PATHS, ...extraPaths]) {
     revalidatePath(path)
   }
+}
+
+async function findAuthUserByEmail(email: string) {
+  const supabase = createServiceRoleClient()
+
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 })
+
+    if (error) {
+      return { user: null, error: error.message }
+    }
+
+    const match = data.users.find((user) => user.email?.toLowerCase() === email)
+    if (match) {
+      return { user: match, error: null }
+    }
+
+    if (data.users.length < 200) {
+      break
+    }
+  }
+
+  return { user: null, error: null }
+}
+
+async function provisionDoctorAccount(input: DoctorInput) {
+  const loginEmail = normalizeEmail(input.login_email)
+  const loginPassword = trimToNull(input.login_password)
+  const currentProfileId = trimToNull(input.profile_id)
+
+  if (!loginEmail) {
+    return { profileId: currentProfileId, loginEmail: null, created: false }
+  }
+
+  if (!hasServiceRoleConfig()) {
+    return {
+      error:
+        'SUPABASE_SERVICE_ROLE_KEY тохируулаагүй тул эмчийн нэвтрэх эрх үүсгэж чадсангүй.',
+    }
+  }
+
+  const serviceRole = createServiceRoleClient()
+  let authUserId = currentProfileId
+  let created = false
+
+  if (!authUserId) {
+    const { user, error } = await findAuthUserByEmail(loginEmail)
+
+    if (error) {
+      return { error }
+    }
+
+    authUserId = user?.id ?? null
+  }
+
+  const authPayload = {
+    email: loginEmail,
+    email_confirm: true,
+    user_metadata: {
+      full_name: input.full_name.trim(),
+      role: 'doctor',
+    },
+  }
+
+  if (!authUserId) {
+    if (!loginPassword) {
+      return { error: 'Эмчийн шинэ нэвтрэх эрх үүсгэхдээ нууц үг заавал оруулна.' }
+    }
+
+    const { data, error } = await serviceRole.auth.admin.createUser({
+      ...authPayload,
+      password: loginPassword,
+    })
+
+    if (error || !data.user) {
+      return { error: error?.message ?? 'Эмчийн нэвтрэх эрх үүсгэж чадсангүй.' }
+    }
+
+    authUserId = data.user.id
+    created = true
+  } else {
+    const updatePayload = loginPassword
+      ? { ...authPayload, password: loginPassword }
+      : authPayload
+
+    const { data, error } = await serviceRole.auth.admin.updateUserById(
+      authUserId,
+      updatePayload
+    )
+
+    if (error || !data.user) {
+      return { error: error?.message ?? 'Эмчийн нэвтрэх мэдээллийг шинэчилж чадсангүй.' }
+    }
+  }
+
+  const { error: profileError } = await serviceRole
+    .from('profiles')
+    .upsert(
+      {
+        id: authUserId,
+        email: loginEmail,
+        full_name: input.full_name.trim(),
+        role: 'doctor',
+      },
+      { onConflict: 'id' }
+    )
+
+  if (profileError) {
+    return { error: profileError.message }
+  }
+
+  return { profileId: authUserId, loginEmail, created }
 }
 
 export async function saveCmsEntry(input: CmsEntryInput): Promise<AdminActionResult> {
@@ -217,8 +338,19 @@ export async function saveDoctor(input: DoctorInput): Promise<AdminActionResult>
     return fail('Эмчийн нэр болон мэргэшил шаардлагатай.')
   }
 
+  const loginEmail = normalizeEmail(input.login_email)
+  if (!input.id && loginEmail && !trimToNull(input.login_password)) {
+    return fail('Шинэ эмчийн dashboard эрх үүсгэхдээ нууц үг заавал оруулна.')
+  }
+
+  const accountResult = await provisionDoctorAccount(input)
+  if ('error' in accountResult && accountResult.error) {
+    return fail(accountResult.error)
+  }
+
   const supabase = await getAdminSupabase()
   const payload = {
+    profile_id: accountResult.profileId ?? trimToNull(input.profile_id),
     full_name: input.full_name.trim(),
     title: input.title.trim() || 'Эмч',
     specialization: input.specialization.trim(),
@@ -258,15 +390,38 @@ export async function saveDoctor(input: DoctorInput): Promise<AdminActionResult>
   }
 
   revalidateAdminAndPublic()
-  return ok('Эмчийн мэдээлэл хадгалагдлаа.')
+  return ok(
+    accountResult.loginEmail
+      ? 'Эмчийн бүртгэл болон нэвтрэх эрх хадгалагдлаа.'
+      : 'Эмчийн мэдээлэл хадгалагдлаа.'
+  )
 }
 
 export async function deleteDoctor(id: string): Promise<AdminActionResult> {
   const supabase = await getAdminSupabase()
+  const { data: doctor } = await supabase
+    .from('doctors')
+    .select('profile_id')
+    .eq('id', id)
+    .maybeSingle()
+
   const { error } = await supabase.from('doctors').delete().eq('id', id)
 
   if (error) {
     return fail(error.message)
+  }
+
+  if (doctor?.profile_id && hasServiceRoleConfig()) {
+    const serviceRole = createServiceRoleClient()
+
+    await serviceRole
+      .from('profiles')
+      .update({ role: 'patient' })
+      .eq('id', doctor.profile_id)
+
+    await serviceRole.auth.admin.updateUserById(doctor.profile_id, {
+      user_metadata: { role: 'patient' },
+    })
   }
 
   revalidateAdminAndPublic()

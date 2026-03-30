@@ -107,6 +107,7 @@ export interface DoctorServiceRelation {
 
 export interface Doctor {
   id: string
+  profile_id: string | null
   full_name: string
   title: string
   specialization: string
@@ -118,11 +119,13 @@ export interface Doctor {
   show_on_landing: boolean
   available_for_booking: boolean
   sort_order: number
+  login_email?: string | null
   doctor_services?: DoctorServiceRelation[]
 }
 
 export interface DoctorInput {
   id?: string
+  profile_id?: string | null
   full_name: string
   title: string
   specialization: string
@@ -134,6 +137,8 @@ export interface DoctorInput {
   show_on_landing: boolean
   available_for_booking: boolean
   sort_order: number
+  login_email: string
+  login_password: string
   service_ids: string[]
 }
 

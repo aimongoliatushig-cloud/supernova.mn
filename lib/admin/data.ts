@@ -88,8 +88,27 @@ export async function getDoctorsAdminData() {
     supabase.from('services').select('id, name').order('sort_order').order('name'),
   ])
 
+  const profileIds = (doctors ?? [])
+    .map((doctor) => doctor.profile_id)
+    .filter((value): value is string => Boolean(value))
+
+  const { data: profiles } =
+    profileIds.length > 0
+      ? await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', profileIds)
+      : { data: [] as Array<{ id: string; email: string | null }> }
+
+  const profileEmailLookup = new Map(
+    (profiles ?? []).map((profile) => [profile.id, profile.email ?? null])
+  )
+
   return {
-    doctors: (doctors ?? []) as Doctor[],
+    doctors: (doctors ?? []).map((doctor) => ({
+      ...doctor,
+      login_email: doctor.profile_id ? profileEmailLookup.get(doctor.profile_id) ?? null : null,
+    })) as Doctor[],
     services: (services ?? []) as Pick<Service, 'id' | 'name'>[],
   }
 }

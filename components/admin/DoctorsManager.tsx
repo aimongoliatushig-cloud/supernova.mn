@@ -29,6 +29,8 @@ const blankDoctor: DoctorInput = {
   show_on_landing: true,
   available_for_booking: true,
   sort_order: 0,
+  login_email: '',
+  login_password: '',
   service_ids: [],
 }
 
@@ -39,6 +41,7 @@ function toDoctorInput(doctor?: Doctor | null): DoctorInput {
 
   return {
     id: doctor.id,
+    profile_id: doctor.profile_id,
     full_name: doctor.full_name,
     title: doctor.title,
     specialization: doctor.specialization,
@@ -50,6 +53,8 @@ function toDoctorInput(doctor?: Doctor | null): DoctorInput {
     show_on_landing: doctor.show_on_landing,
     available_for_booking: doctor.available_for_booking,
     sort_order: doctor.sort_order,
+    login_email: doctor.login_email ?? '',
+    login_password: '',
     service_ids: doctor.doctor_services?.map((relation) => relation.service_id) ?? [],
   }
 }
@@ -69,9 +74,20 @@ export default function DoctorsManager({
 
   useEffect(() => {
     setDoctors(initialDoctors)
-    const selected = initialDoctors.find((doctor) => doctor.id === selectedId) ?? initialDoctors[0]
-    setSelectedId(selected?.id ?? null)
-    setForm(toDoctorInput(selected ?? null))
+    if (!selectedId) {
+      return
+    }
+
+    const selected = initialDoctors.find((doctor) => doctor.id === selectedId)
+
+    if (selected) {
+      setForm(toDoctorInput(selected))
+      return
+    }
+
+    const fallback = initialDoctors[0] ?? null
+    setSelectedId(fallback?.id ?? null)
+    setForm(toDoctorInput(fallback))
   }, [initialDoctors, selectedId])
 
   const filteredDoctors = useMemo(() => {
@@ -182,6 +198,55 @@ export default function DoctorsManager({
                 }
               />
             </AdminField>
+
+            <div className="rounded-2xl border border-[#D8E6F6] bg-[#F7FAFF] p-4">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[#1F2937]">Эмчийн нэвтрэх эрх</p>
+                <p className="text-xs leading-6 text-[#6B7280]">
+                  Энд и-мэйл болон нууц үг оруулбал эмч `/login` ашиглан өөрийн CRM хэсэгт
+                  нэвтэрнэ. Засварлах үед нууц үгийг хоосон үлдээвэл хуучин нууц үг хэвээр
+                  хадгалагдана.
+                </p>
+                {form.profile_id ? (
+                  <p className="text-xs font-semibold text-[#1E63B5]">
+                    Холбогдсон account: {form.login_email || 'и-мэйл бүртгэгдээгүй'}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <AdminField label="Нэвтрэх и-мэйл" hint="doctor@supernova.mn">
+                  <AdminInput
+                    type="email"
+                    autoComplete="username"
+                    value={form.login_email}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        login_email: event.target.value,
+                      }))
+                    }
+                  />
+                </AdminField>
+
+                <AdminField
+                  label={selectedId ? 'Шинэ нууц үг' : 'Нууц үг'}
+                  hint={selectedId ? 'Хоосон үлдээвэл өөрчлөхгүй.' : 'Шинэ login үүсгэх бол заавал.'}
+                >
+                  <AdminInput
+                    type="password"
+                    autoComplete="new-password"
+                    value={form.login_password}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        login_password: event.target.value,
+                      }))
+                    }
+                  />
+                </AdminField>
+              </div>
+            </div>
 
             <AdminField label="Товч танилцуулга">
               <AdminTextArea
@@ -364,6 +429,11 @@ export default function DoctorsManager({
                           <p className="text-sm text-[#6B7280]">
                             {doctor.title} · {doctor.specialization} · {doctor.experience_years} жил
                           </p>
+                          <p className="mt-1 text-xs font-medium text-[#6B7280]">
+                            {doctor.login_email
+                              ? `Login: ${doctor.login_email}`
+                              : 'Doctor dashboard login холбоогүй'}
+                          </p>
                         </button>
                         <div className="flex flex-wrap gap-2">
                           <AdminToggle
@@ -400,6 +470,22 @@ export default function DoctorsManager({
                               )
                             }
                           />
+                          <span
+                            className={[
+                              'inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold',
+                              doctor.profile_id
+                                ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
+                                : 'border-[#E5E7EB] bg-white text-[#6B7280]',
+                            ].join(' ')}
+                          >
+                            <span
+                              className={[
+                                'h-2.5 w-2.5 rounded-full',
+                                doctor.profile_id ? 'bg-[#1E63B5]' : 'bg-[#9CA3AF]',
+                              ].join(' ')}
+                            />
+                            {doctor.profile_id ? 'Dashboard эрхтэй' : 'Login үүсгээгүй'}
+                          </span>
                         </div>
                       </div>
 

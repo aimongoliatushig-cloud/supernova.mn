@@ -110,7 +110,7 @@ export default async function SetupPage() {
           {allOk && hasData && (
             <div className="bg-[#ECFDF5] border border-[#6EE7B7] rounded-xl px-4 py-3 text-center">
               <div className="text-sm font-black text-[#059669]">🎉 Бүх зүйл бэлэн!</div>
-              <a href="/auth/login" className="text-xs text-[#059669] underline">→ /auth/login дээр нэвтрэх</a>
+              <a href="/admin" className="text-xs text-[#059669] underline">→ /admin дээр нэвтрэх</a>
             </div>
           )}
         </div>

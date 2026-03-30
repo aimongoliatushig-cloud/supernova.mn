@@ -659,7 +659,7 @@ export default async function HomePage() {
                       Мэдээлэл хамгаалалттай, урсгал тодорхой
                     </h3>
                   </div>
-                  <Link href="/auth/login" className="text-sm font-bold text-[#1E63B5]">
+                  <Link href="/admin" className="text-sm font-bold text-[#1E63B5]">
                     Ажилтны нэвтрэх
                   </Link>
                 </div>

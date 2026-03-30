@@ -60,7 +60,7 @@ export default function DashboardSidebar({ role, user }: SidebarProps) {
 
   async function handleLogout() {
     await supabase.auth.signOut()
-    router.push('/auth/login')
+    router.push('/admin')
   }
 
   return (

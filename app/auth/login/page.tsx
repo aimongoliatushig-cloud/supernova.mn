@@ -110,7 +110,7 @@ function LoginContent() {
               <div className="rounded-2xl border border-white/12 bg-white/10 p-4">
                 <p className="text-sm font-bold">3. Хаанаас орох вэ</p>
                 <p className="mt-2 text-sm leading-6 text-blue-100">
-                  Нэвтрэх хаяг: <span className="font-semibold">/auth/login</span>
+                  Нэвтрэх хаяг: <span className="font-semibold">/admin</span>
                 </p>
               </div>
             </div>

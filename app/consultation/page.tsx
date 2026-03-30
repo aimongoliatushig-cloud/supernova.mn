@@ -3,6 +3,7 @@ import { getBookingPageData } from '@/lib/public/data'
 
 type ConsultationSearchParams = Promise<{
   lead?: string
+  assessment?: string
   name?: string
   phone?: string
   email?: string
@@ -23,6 +24,7 @@ export default async function ConsultationPage({
         'Таны мэдээлэл аюулгүй хадгалагдаж, зөвхөн эмнэлгийн үйлчилгээний зорилгоор ашиглагдана.'
       }
       initialLeadId={params.lead ?? null}
+      initialAssessmentId={params.assessment ?? null}
       initialName={params.name ?? ''}
       initialPhone={params.phone ?? ''}
       initialEmail={params.email ?? ''}

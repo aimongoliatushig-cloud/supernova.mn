@@ -13,6 +13,7 @@ interface AppointmentFlowProps {
   services: PublicService[]
   privacyText: string
   initialLeadId?: string | null
+  initialAssessmentId?: string | null
   initialName?: string
   initialPhone?: string
   initialEmail?: string
@@ -66,6 +67,7 @@ export default function AppointmentFlow({
   services,
   privacyText,
   initialLeadId,
+  initialAssessmentId,
   initialName = '',
   initialPhone = '',
   initialEmail = '',
@@ -102,6 +104,7 @@ export default function AppointmentFlow({
     startTransition(async () => {
       const result = await submitAppointment({
         lead_id: initialLeadId,
+        assessment_id: initialAssessmentId,
         full_name: fullName,
         phone,
         email,

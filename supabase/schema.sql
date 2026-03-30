@@ -35,7 +35,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
-    COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'patient')
+    'patient'
   );
   RETURN NEW;
 END;
@@ -44,6 +44,16 @@ $$;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Backfill profiles if auth users existed before this schema was applied.
+INSERT INTO profiles (id, email, full_name, role)
+SELECT
+  users.id,
+  users.email,
+  COALESCE(users.raw_user_meta_data->>'full_name', ''),
+  'patient'::user_role
+FROM auth.users AS users
+ON CONFLICT (id) DO NOTHING;
 
 -- ─── symptom_categories ───────────────────────────────────────────────────────
 CREATE TABLE symptom_categories (

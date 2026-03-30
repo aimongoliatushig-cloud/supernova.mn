@@ -57,6 +57,10 @@ CREATE INDEX IF NOT EXISTS idx_answer_options_question_id ON answer_options(ques
 CREATE INDEX IF NOT EXISTS idx_assessments_profile_id ON assessments(profile_id);
 CREATE INDEX IF NOT EXISTS idx_leads_status_created_at ON leads(status, created_at DESC);
 
+UPDATE profiles
+SET role = 'super_admin', full_name = COALESCE(NULLIF(full_name, ''), 'Supernova Admin')
+WHERE LOWER(email) = 'admin@gmail.com';
+
 DO $$
 BEGIN
   IF NOT EXISTS (

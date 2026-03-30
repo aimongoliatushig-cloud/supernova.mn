@@ -1,10 +1,12 @@
 import Link from 'next/link'
 import {
+  AdminMessage,
   AdminPageHeader,
   AdminSectionCard,
   AdminStatCard,
 } from '@/components/admin/AdminPrimitives'
 import { getAdminOverviewData } from '@/lib/admin/data'
+import { checkDatabaseHealth } from '@/lib/supabase/database-health'
 
 const modules = [
   {
@@ -52,7 +54,7 @@ const modules = [
 ]
 
 export default async function AdminOverviewPage() {
-  const stats = await getAdminOverviewData()
+  const [stats, health] = await Promise.all([getAdminOverviewData(), checkDatabaseHealth()])
 
   return (
     <div className="space-y-8 p-6 md:p-8">
@@ -61,6 +63,20 @@ export default async function AdminOverviewPage() {
         title="Админ удирдлагын төв"
         description="Нийтийн сайт, оношилгооны урсгал, санал болгох үйлчилгээ болон CRM-ийн суурь өгөгдлийг нэг цэгээс удирдах төв самбар."
       />
+
+      {!health.schemaReady ? (
+        <AdminMessage tone="error">
+          Remote database schema дутуу байна. Missing хүснэгтүүд: {health.missingTables.join(', ')}.
+          `/setup` хуудас дээр SQL ажиллуулах дарааллыг шалгана уу.
+        </AdminMessage>
+      ) : null}
+
+      {health.schemaReady && !health.seedReady ? (
+        <AdminMessage tone="info">
+          Schema суусан боловч seed data дутуу байна. CMS, эмч, үйлчилгээ, оношилгооны
+          асуултуудыг бөглөсний дараа public тал хэвийн data авч эхэлнэ.
+        </AdminMessage>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard label="CMS талбар" value={stats.cms_entries} />

@@ -2,8 +2,65 @@ import { cache } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { AdminViewer, Role } from '@/lib/admin/types'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 
 const FALLBACK_SUPER_ADMIN_EMAIL = 'admin@gmail.com'
+
+async function ensureProfile(
+  user: {
+    id: string
+    email?: string | null
+    user_metadata?: Record<string, unknown>
+  },
+  existingProfile: AdminViewer | null
+) {
+  if (!hasServiceRoleConfig()) {
+    return existingProfile
+  }
+
+  const normalizedEmail = user.email?.toLowerCase() ?? null
+  const desiredRole: Role =
+    normalizedEmail === FALLBACK_SUPER_ADMIN_EMAIL ? 'super_admin' : existingProfile?.role ?? 'patient'
+
+  if (existingProfile && existingProfile.role === desiredRole) {
+    return existingProfile
+  }
+
+  const fullName =
+    existingProfile?.full_name ||
+    (typeof user.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name.trim()
+      : '') ||
+    (desiredRole === 'super_admin' ? 'Supernova Admin' : '')
+
+  try {
+    const supabase = createServiceRoleClient()
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: user.id,
+          email: user.email ?? existingProfile?.email ?? '',
+          full_name: fullName,
+          role: desiredRole,
+        },
+        { onConflict: 'id' }
+      )
+      .select('id, email, full_name, role')
+      .single()
+
+    if (error) {
+      return existingProfile
+    }
+
+    return data as AdminViewer
+  } catch {
+    return existingProfile
+  }
+}
 
 export const getCurrentViewer = cache(async (): Promise<AdminViewer | null> => {
   const supabase = await createClient()
@@ -19,10 +76,11 @@ export const getCurrentViewer = cache(async (): Promise<AdminViewer | null> => {
     .from('profiles')
     .select('id, email, full_name, role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (profile) {
-    return profile as AdminViewer
+  const ensuredProfile = await ensureProfile(user, (profile as AdminViewer | null) ?? null)
+  if (ensuredProfile) {
+    return ensuredProfile
   }
 
   if (user.email?.toLowerCase() === FALLBACK_SUPER_ADMIN_EMAIL) {

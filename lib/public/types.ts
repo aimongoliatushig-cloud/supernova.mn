@@ -176,6 +176,7 @@ export interface SubmitAssessmentInput {
 
 export interface SubmitAppointmentInput {
   lead_id?: string | null
+  assessment_id?: string | null
   full_name: string
   phone: string
   email?: string
@@ -187,6 +188,7 @@ export interface SubmitAppointmentInput {
 
 export interface SubmitConsultationInput {
   lead_id?: string | null
+  assessment_id?: string | null
   full_name: string
   phone: string
   email?: string

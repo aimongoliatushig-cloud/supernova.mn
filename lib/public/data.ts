@@ -15,8 +15,20 @@ import type {
   PublicServiceCategory,
   PublicServicePackage,
 } from '@/lib/public/types'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 
 async function getPublicSupabase() {
+  return createClient()
+}
+
+async function getProtectedPublicClient() {
+  if (hasServiceRoleConfig()) {
+    return createServiceRoleClient()
+  }
+
   return createClient()
 }
 
@@ -60,6 +72,12 @@ function firstRelation<T>(value: T | T[] | null | undefined) {
   }
 
   return value ?? null
+}
+
+function isUuid(value: string | null | undefined): value is string {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value ?? ''
+  )
 }
 
 function normalizeService(service: RawService): PublicService {
@@ -301,10 +319,15 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
 }
 
 export async function getResultPageData(assessmentId: string): Promise<PublicResultData | null> {
+  if (!isUuid(assessmentId)) {
+    return null
+  }
+
   const supabase = await getPublicSupabase()
+  const protectedSupabase = await getProtectedPublicClient()
   const cms = await getCmsContent()
 
-  const { data: assessment } = await supabase
+  const { data: assessment } = await protectedSupabase
     .from('assessments')
     .select(
       'id, lead_id, risk_level, risk_score, created_at, leads(full_name, phone, email, categories_selected)'

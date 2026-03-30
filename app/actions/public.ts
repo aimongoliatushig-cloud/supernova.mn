@@ -8,6 +8,10 @@ import type {
   SubmitAssessmentInput,
   SubmitConsultationInput,
 } from '@/lib/public/types'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 
 type PublicActionResult<T = void> =
   | { ok: true; data?: T; message?: string }
@@ -26,31 +30,55 @@ function trimToNull(value: string | null | undefined) {
   return normalized.length > 0 ? normalized : null
 }
 
+function isUuid(value: string | null | undefined): value is string {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value ?? ''
+  )
+}
+
+async function getMutationClient() {
+  if (hasServiceRoleConfig()) {
+    return createServiceRoleClient()
+  }
+
+  return createClient()
+}
+
 async function upsertLeadFromContact(input: {
   lead_id?: string | null
+  assessment_id?: string | null
   full_name: string
   phone: string
   email?: string
   source: string
 }) {
-  const supabase = await createClient()
+  const supabase = await getMutationClient()
 
-  if (input.lead_id) {
-    const { error } = await supabase
-      .from('leads')
-      .update({
-        full_name: input.full_name.trim(),
-        phone: input.phone.trim(),
-        email: trimToNull(input.email),
-        source: input.source,
-      })
-      .eq('id', input.lead_id)
+  if (hasServiceRoleConfig() && isUuid(input.lead_id) && isUuid(input.assessment_id)) {
+    const { data: assessment } = await supabase
+      .from('assessments')
+      .select('id, lead_id')
+      .eq('id', input.assessment_id)
+      .eq('lead_id', input.lead_id)
+      .maybeSingle()
 
-    if (error) {
-      return { error: error.message, leadId: null as string | null }
+    if (assessment) {
+      const { error } = await supabase
+        .from('leads')
+        .update({
+          full_name: input.full_name.trim(),
+          phone: input.phone.trim(),
+          email: trimToNull(input.email),
+          source: input.source,
+        })
+        .eq('id', input.lead_id)
+
+      if (error) {
+        return { error: error.message, leadId: null as string | null }
+      }
+
+      return { error: null, leadId: input.lead_id }
     }
-
-    return { error: null, leadId: input.lead_id }
   }
 
   const { data, error } = await supabase
@@ -129,7 +157,7 @@ export async function submitAssessment(
   }
 
   const { score, level } = calculateAssessmentRisk(selectedCategories, answerMap)
-  const supabase = await createClient()
+  const supabase = await getMutationClient()
 
   const { data: lead, error: leadError } = await supabase
     .from('leads')
@@ -193,6 +221,7 @@ export async function submitAppointment(
 
   const leadResult = await upsertLeadFromContact({
     lead_id: input.lead_id,
+    assessment_id: input.assessment_id,
     full_name: input.full_name,
     phone: input.phone,
     email: input.email,
@@ -203,16 +232,43 @@ export async function submitAppointment(
     return fail(leadResult.error ?? 'Лидийн мэдээлэл хадгалагдсангүй.')
   }
 
-  const supabase = await createClient()
+  const supabase = await getMutationClient()
 
-  const { data: service, error: serviceError } = await supabase
-    .from('services')
-    .select('preparation_notice')
-    .eq('id', input.service_id)
-    .single()
+  const [{ data: service }, { data: doctor }, { data: doctorServices, error: relationError }] =
+    await Promise.all([
+      supabase
+        .from('services')
+        .select('id, preparation_notice, is_active, show_on_booking')
+        .eq('id', input.service_id)
+        .maybeSingle(),
+      supabase
+        .from('doctors')
+        .select('id, is_active, available_for_booking')
+        .eq('id', input.doctor_id)
+        .maybeSingle(),
+      supabase
+        .from('doctor_services')
+        .select('service_id')
+        .eq('doctor_id', input.doctor_id),
+    ])
 
-  if (serviceError) {
-    return fail(serviceError.message)
+  if (!service || !service.is_active || !service.show_on_booking) {
+    return fail('Сонгосон үйлчилгээ захиалгад идэвхгүй байна.')
+  }
+
+  if (!doctor || !doctor.is_active || !doctor.available_for_booking) {
+    return fail('Сонгосон эмч одоогоор захиалга авах боломжгүй байна.')
+  }
+
+  if (relationError) {
+    return fail(relationError.message)
+  }
+
+  if (
+    (doctorServices?.length ?? 0) > 0 &&
+    !doctorServices?.some((relation) => relation.service_id === input.service_id)
+  ) {
+    return fail('Сонгосон эмч энэ үйлчилгээтэй холбогдоогүй байна.')
   }
 
   const { data: appointment, error } = await supabase
@@ -245,6 +301,7 @@ export async function submitConsultationRequest(
 
   const leadResult = await upsertLeadFromContact({
     lead_id: input.lead_id,
+    assessment_id: input.assessment_id,
     full_name: input.full_name,
     phone: input.phone,
     email: input.email,
@@ -255,7 +312,7 @@ export async function submitConsultationRequest(
     return fail(leadResult.error ?? 'Лидийн мэдээлэл хадгалагдсангүй.')
   }
 
-  const supabase = await createClient()
+  const supabase = await getMutationClient()
   const { data: consultation, error } = await supabase
     .from('consultation_requests')
     .insert({

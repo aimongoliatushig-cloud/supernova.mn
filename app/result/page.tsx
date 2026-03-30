@@ -133,7 +133,9 @@ export default async function ResultPage({
   const recommendedPackages = data.packages.slice(0, 2)
   const recommendedServices = data.services.slice(0, 3)
 
-  const appointmentLink = `/appointment?lead=${encodeURIComponent(data.assessment.lead_id)}&name=${encodeURIComponent(
+  const appointmentLink = `/appointment?lead=${encodeURIComponent(
+    data.assessment.lead_id
+  )}&assessment=${encodeURIComponent(data.assessment.assessment_id)}&name=${encodeURIComponent(
     data.assessment.full_name
   )}&phone=${encodeURIComponent(data.assessment.phone)}&email=${encodeURIComponent(
     data.assessment.email ?? ''
@@ -141,7 +143,9 @@ export default async function ResultPage({
 
   const consultationLink = `/consultation?lead=${encodeURIComponent(
     data.assessment.lead_id
-  )}&name=${encodeURIComponent(data.assessment.full_name)}&phone=${encodeURIComponent(
+  )}&assessment=${encodeURIComponent(data.assessment.assessment_id)}&name=${encodeURIComponent(
+    data.assessment.full_name
+  )}&phone=${encodeURIComponent(
     data.assessment.phone
   )}&email=${encodeURIComponent(data.assessment.email ?? '')}`
 

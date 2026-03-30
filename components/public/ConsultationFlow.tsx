@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button'
 interface ConsultationFlowProps {
   privacyText: string
   initialLeadId?: string | null
+  initialAssessmentId?: string | null
   initialName?: string
   initialPhone?: string
   initialEmail?: string
@@ -23,6 +24,7 @@ const CALLBACK_OPTIONS = [
 export default function ConsultationFlow({
   privacyText,
   initialLeadId,
+  initialAssessmentId,
   initialName = '',
   initialPhone = '',
   initialEmail = '',
@@ -41,6 +43,7 @@ export default function ConsultationFlow({
     startTransition(async () => {
       const result = await submitConsultationRequest({
         lead_id: initialLeadId,
+        assessment_id: initialAssessmentId,
         full_name: fullName,
         phone,
         email,

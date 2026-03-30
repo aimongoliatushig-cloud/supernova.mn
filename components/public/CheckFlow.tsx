@@ -3,8 +3,9 @@
 import { useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Activity, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, CheckCircle2 } from 'lucide-react'
 import { submitAssessment } from '@/app/actions/public'
+import FlowHeader from '@/components/public/FlowHeader'
 import Button from '@/components/ui/Button'
 import type { PublicDiagnosisCategory } from '@/lib/public/types'
 
@@ -158,19 +159,12 @@ export default function CheckFlow({ categories, privacyText }: CheckFlowProps) {
   if (step === 'categories') {
     return (
       <div className="min-h-screen bg-[#F7FAFF]">
-        <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
-          <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-            <Link href="/" className="flex items-center gap-1.5 text-[#6B7280] hover:text-[#1E63B5]">
-              <ArrowLeft size={18} />
-              Буцах
-            </Link>
-            <div className="flex items-center gap-2 text-sm font-bold text-[#1E63B5]">
-              <Activity size={16} />
-              Эрүүл мэндийн шалгалт
-            </div>
-            <div className="w-14" />
-          </div>
-        </header>
+        <FlowHeader
+          title="Эрүүл мэндийн шалгалт"
+          backHref="/"
+          backLabel="Нүүр"
+          maxWidthClassName="max-w-3xl"
+        />
 
         <main className="mx-auto max-w-3xl px-4 py-8">
           <div className="mb-6 flex items-center gap-2 text-xs">
@@ -267,25 +261,24 @@ export default function CheckFlow({ categories, privacyText }: CheckFlowProps) {
 
     return (
       <div className="min-h-screen bg-[#F7FAFF]">
-        <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
-          <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-            <button
-              type="button"
-              onClick={goBackQuestion}
-              className="flex items-center gap-1.5 text-[#6B7280] hover:text-[#1E63B5]"
-            >
-              <ArrowLeft size={18} />
-              Буцах
-            </button>
-            <span className="text-xs font-semibold text-[#6B7280]">
+        <FlowHeader
+          title={currentCategory.name}
+          onBack={goBackQuestion}
+          backLabel="Буцах"
+          rightSlot={
+            <span>
               {answeredQuestions + 1} / {totalQuestions}
             </span>
-            <div className="w-14" />
-          </div>
+          }
+          maxWidthClassName="max-w-3xl"
+        >
           <div className="h-1 bg-[#E5E7EB]">
-            <div className="h-1 bg-[#1E63B5] transition-all" style={{ width: `${progressPercent}%` }} />
+            <div
+              className="h-1 bg-[#1E63B5] transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
-        </header>
+        </FlowHeader>
 
         <main className="mx-auto max-w-3xl px-4 py-8">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#E5E7EB] bg-white px-3 py-1 text-xs font-semibold text-[#6B7280]">
@@ -324,24 +317,20 @@ export default function CheckFlow({ categories, privacyText }: CheckFlowProps) {
 
   return (
     <div className="min-h-screen bg-[#F7FAFF]">
-      <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={() => setStep('questions')}
-            className="flex items-center gap-1.5 text-[#6B7280] hover:text-[#1E63B5]"
-          >
-            <ArrowLeft size={18} />
-            Буцах
-          </button>
-          <div className="flex items-center gap-2 text-sm font-bold text-[#16A34A]">
-            <CheckCircle2 size={16} />
-            Асуулга дууссан
-          </div>
-          <div className="w-14" />
-        </div>
+      <FlowHeader
+        title="Холбоо барих мэдээлэл"
+        onBack={() => setStep('questions')}
+        backLabel="Буцах"
+        rightSlot={
+          <span className="inline-flex items-center gap-1 text-[#16A34A]">
+            <CheckCircle2 size={14} />
+            <span className="hidden sm:inline">Бэлэн</span>
+          </span>
+        }
+        maxWidthClassName="max-w-3xl"
+      >
         <div className="h-1 bg-[#1E63B5]" />
-      </header>
+      </FlowHeader>
 
       <main className="mx-auto max-w-3xl px-4 py-8">
         <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6">

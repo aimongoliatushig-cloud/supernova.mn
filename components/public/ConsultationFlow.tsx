@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, Clock, MessageSquare, Phone, Shield } from 'lucide-react'
+import { CheckCircle2, Clock, MessageSquare, Phone, Shield } from 'lucide-react'
 import { submitConsultationRequest } from '@/app/actions/public'
+import FlowHeader from '@/components/public/FlowHeader'
 import Button from '@/components/ui/Button'
 
 interface ConsultationFlowProps {
@@ -93,14 +94,12 @@ export default function ConsultationFlow({
 
   return (
     <div className="min-h-screen bg-[#F7FAFF]">
-      <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
-          <Link href={resultHref} className="text-[#6B7280] hover:text-[#1E63B5]">
-            <ArrowLeft size={18} />
-          </Link>
-          <span className="text-sm font-bold text-[#1F2937]">Үнэгүй утасны зөвлөгөө</span>
-        </div>
-      </header>
+      <FlowHeader
+        title="Үнэгүй утасны зөвлөгөө"
+        backHref={resultHref}
+        backLabel="Үр дүн"
+        maxWidthClassName="max-w-3xl"
+      />
 
       <main className="mx-auto max-w-3xl px-4 py-6 space-y-6">
         <section className="rounded-3xl bg-gradient-to-r from-[#1E63B5] to-[#154D8F] p-6 text-white">

@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowLeft, Calendar, CheckCircle2, Clock, Shield, User } from 'lucide-react'
+import { Calendar, CheckCircle2, Clock, Shield, User } from 'lucide-react'
 import { submitAppointment } from '@/app/actions/public'
+import FlowHeader from '@/components/public/FlowHeader'
 import Button from '@/components/ui/Button'
 import type { PublicDoctor, PublicService } from '@/lib/public/types'
 
@@ -184,14 +185,12 @@ export default function AppointmentFlow({
 
   return (
     <div className="min-h-screen bg-[#F7FAFF]">
-      <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
-          <Link href={resultHref} className="text-[#6B7280] hover:text-[#1E63B5]">
-            <ArrowLeft size={18} />
-          </Link>
-          <span className="text-sm font-bold text-[#1F2937]">Эмчийн цаг захиалах</span>
-        </div>
-      </header>
+      <FlowHeader
+        title="Эмчийн цаг захиалах"
+        backHref={resultHref}
+        backLabel="Үр дүн"
+        maxWidthClassName="max-w-4xl"
+      />
 
       <main className="mx-auto max-w-4xl px-4 py-6">
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

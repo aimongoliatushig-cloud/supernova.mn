@@ -9,6 +9,7 @@ import {
   Phone,
   Shield,
 } from 'lucide-react'
+import FlowHeader from '@/components/public/FlowHeader'
 import { getResultPageData } from '@/lib/public/data'
 import type { RiskLevel } from '@/lib/admin/types'
 
@@ -228,15 +229,12 @@ export default async function ResultPage({
 
   return (
     <div className="min-h-screen bg-[#F7FAFF]">
-      <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-          <Link href="/check" className="text-sm font-semibold text-[#6B7280] hover:text-[#1E63B5]">
-            Шалгалт руу буцах
-          </Link>
-          <span className="text-sm font-bold text-[#1F2937]">Үр дүн</span>
-          <div className="w-20" />
-        </div>
-      </header>
+      <FlowHeader
+        title="Үр дүн"
+        backHref="/check"
+        backLabel="Шалгалт"
+        maxWidthClassName="max-w-4xl"
+      />
 
       <main className="mx-auto max-w-4xl px-4 py-8">
         <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">

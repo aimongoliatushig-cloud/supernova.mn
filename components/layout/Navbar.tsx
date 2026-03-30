@@ -17,11 +17,11 @@ interface NavbarProps {
   phone?: string | null
 }
 
-export default function Navbar({ phone = '1330-033' }: NavbarProps) {
+export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [scrolled, setScrolled] = useState(false)
-  const resolvedPhone = phone ?? '1330-033'
+  const resolvedPhone = phone ?? '7000 0303'
 
   useEffect(() => {
     setMounted(true)

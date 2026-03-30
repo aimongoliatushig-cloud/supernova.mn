@@ -90,9 +90,11 @@ export default async function HomePage() {
     'Таны мэдээлэл аюулгүй хадгалагдаж, зөвхөн эмнэлгийн үйлчилгээний зорилгоор ашиглагдана.'
   )
 
-  const phone = data.contact?.phone ?? '1330-033'
-  const email = data.contact?.email ?? 'info@supernova.mn'
-  const address = data.contact?.address ?? 'Улаанбаатар хот, байршлын мэдээллийг админ дээрээс шинэчилнэ.'
+  const phone = data.contact?.phone ?? '7000 0303'
+  const email = data.contact?.email ?? 'marketing@supernova.mn'
+  const address =
+    data.contact?.address ??
+    'БЗД 14-р хороо ХӨСҮТ-ийн замын урд ВSB-тэй байрны баруун талаар байран дундуур ороход 1 давхартаа СU-тэй 4 давхар барилга, "СУПЕРНОВА ЭМНЭЛЭГ", Ulaanbaatar, Mongolia'
   const workingHours = data.workingHours.length > 0 ? data.workingHours : fallbackHours
 
   const valueCards = [

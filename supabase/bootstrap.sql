@@ -443,9 +443,9 @@ ALTER TABLE promotions
 -- ─── contact_settings (single-row config) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS contact_settings (
   id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  phone     TEXT DEFAULT '1330-033',
-  address   TEXT DEFAULT 'Улаанбаатар хот',
-  email     TEXT,
+  phone     TEXT DEFAULT '7000 0303',
+  address   TEXT DEFAULT 'БЗД 14-р хороо ХӨСҮТ-ийн замын урд ВSB-тэй байрны баруун талаар байран дундуур ороход 1 давхартаа СU-тэй 4 давхар барилга, "СУПЕРНОВА ЭМНЭЛЭГ", Ulaanbaatar, Mongolia',
+  email     TEXT DEFAULT 'marketing@supernova.mn',
   map_embed TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -816,7 +816,7 @@ ON CONFLICT (key) DO NOTHING;
 
 -- ─── Contact Settings ─────────────────────────────────────────────────────
 INSERT INTO contact_settings (phone, address, email) VALUES
-  ('1330-033', 'Улаанбаатар хот, Сүхбаатар дүүрэг, 8-р хороо, Японы эмнэлгийн байр', 'info@supernova.mn')
+  ('7000 0303', 'БЗД 14-р хороо ХӨСҮТ-ийн замын урд ВSB-тэй байрны баруун талаар байран дундуур ороход 1 давхартаа СU-тэй 4 давхар барилга, "СУПЕРНОВА ЭМНЭЛЭГ", Ulaanbaatar, Mongolia', 'marketing@supernova.mn')
 ON CONFLICT DO NOTHING;
 
 -- ─── Social Links ─────────────────────────────────────────────────────────

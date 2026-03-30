@@ -45,9 +45,11 @@ export default function Footer({
   privacyText,
 }: FooterProps) {
   const hours = workingHours.length > 0 ? workingHours : fallbackHours
-  const phone = contact?.phone ?? '1330-033'
-  const email = contact?.email ?? 'info@supernova.mn'
-  const address = contact?.address ?? 'Улаанбаатар хот, байршлын мэдээллийг админ дээрээс шинэчилнэ.'
+  const phone = contact?.phone ?? '7000 0303'
+  const email = contact?.email ?? 'marketing@supernova.mn'
+  const address =
+    contact?.address ??
+    'БЗД 14-р хороо ХӨСҮТ-ийн замын урд ВSB-тэй байрны баруун талаар байран дундуур ороход 1 давхартаа СU-тэй 4 давхар барилга, "СУПЕРНОВА ЭМНЭЛЭГ", Ulaanbaatar, Mongolia'
 
   return (
     <footer id="contact" className="relative overflow-hidden bg-[#0D2542] text-white">

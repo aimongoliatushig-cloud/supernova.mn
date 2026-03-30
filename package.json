@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "db:bootstrap": "node scripts/build-supabase-bootstrap.mjs",
+    "db:backfill": "node scripts/backfill-live-seed-v4.mjs",
     "db:check": "node scripts/check-supabase.mjs",
     "lint": "eslint"
   },

@@ -14,28 +14,28 @@ if (!url || !anonKey) {
 }
 
 const requiredTables = [
-  'profiles',
-  'landing_page_content',
-  'contact_settings',
-  'social_links',
-  'working_hours',
-  'service_categories',
-  'doctors',
-  'services',
-  'service_packages',
-  'package_services',
-  'promotions',
-  'symptom_categories',
-  'questions',
-  'answer_options',
-  'doctor_services',
-  'leads',
-  'assessments',
-  'assessment_answers',
-  'appointments',
-  'consultation_requests',
-  'doctor_responses',
-  'crm_notes',
+  { name: 'profiles', minimumSeedCount: 0 },
+  { name: 'landing_page_content', minimumSeedCount: 10 },
+  { name: 'contact_settings', minimumSeedCount: 1 },
+  { name: 'social_links', minimumSeedCount: 1 },
+  { name: 'working_hours', minimumSeedCount: 1 },
+  { name: 'service_categories', minimumSeedCount: 5 },
+  { name: 'doctors', minimumSeedCount: 3 },
+  { name: 'services', minimumSeedCount: 5 },
+  { name: 'service_packages', minimumSeedCount: 1 },
+  { name: 'package_services', minimumSeedCount: 1 },
+  { name: 'promotions', minimumSeedCount: 1 },
+  { name: 'symptom_categories', minimumSeedCount: 5 },
+  { name: 'questions', minimumSeedCount: 20 },
+  { name: 'answer_options', minimumSeedCount: 40 },
+  { name: 'doctor_services', minimumSeedCount: 4 },
+  { name: 'leads', minimumSeedCount: 0 },
+  { name: 'assessments', minimumSeedCount: 0 },
+  { name: 'assessment_answers', minimumSeedCount: 0 },
+  { name: 'appointments', minimumSeedCount: 0 },
+  { name: 'consultation_requests', minimumSeedCount: 0 },
+  { name: 'doctor_responses', minimumSeedCount: 0 },
+  { name: 'crm_notes', minimumSeedCount: 0 },
 ]
 
 const client = createClient(url, serviceRoleKey || anonKey, {
@@ -55,24 +55,34 @@ function isMissingTableError(error) {
 const tableResults = []
 
 for (const table of requiredTables) {
-  const { data, error } = await client.from(table).select('*').limit(1)
+  const { count, error } = await client
+    .from(table.name)
+    .select('*', { count: 'exact', head: true })
 
   tableResults.push({
-    table,
+    table: table.name,
     exists: error ? !isMissingTableError(error) : true,
-    sampleCount: error ? null : Array.isArray(data) ? data.length : 0,
+    sampleCount: error ? null : count ?? 0,
+    minimumSeedCount: table.minimumSeedCount,
     error: error?.message ?? null,
   })
 }
 
 const missingTables = tableResults.filter((result) => !result.exists).map((result) => result.table)
+const seedGaps = tableResults
+  .filter((result) => result.exists && (result.sampleCount ?? 0) < result.minimumSeedCount)
+  .map((result) => `${result.table}(${result.sampleCount}/${result.minimumSeedCount})`)
 
 console.log('')
 console.log('Supabase database check')
 console.log(`Client mode: ${serviceRoleKey ? 'service_role' : 'anon'}`)
 console.log(`Schema ready: ${missingTables.length === 0 ? 'yes' : 'no'}`)
+console.log(`Seed ready: ${missingTables.length === 0 && seedGaps.length === 0 ? 'yes' : 'no'}`)
 if (missingTables.length > 0) {
   console.log(`Missing tables: ${missingTables.join(', ')}`)
+}
+if (seedGaps.length > 0) {
+  console.log(`Seed gaps: ${seedGaps.join(', ')}`)
 }
 console.log('')
 console.table(tableResults)
@@ -121,3 +131,4 @@ console.log('3. supabase/schema-v3.sql')
 console.log('4. supabase/seed.sql')
 console.log('5. supabase/seed-v2.sql')
 console.log('6. supabase/seed-v3.sql')
+console.log('7. supabase/seed-v4.sql')

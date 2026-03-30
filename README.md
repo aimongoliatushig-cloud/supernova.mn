@@ -56,6 +56,8 @@
 - [supabase/seed.sql](/Users/pc/supernova.mn/supabase/seed.sql)
 - [supabase/seed-v2.sql](/Users/pc/supernova.mn/supabase/seed-v2.sql)
 - [supabase/seed-v3.sql](/Users/pc/supernova.mn/supabase/seed-v3.sql)
+- [supabase/seed-v4.sql](/Users/pc/supernova.mn/supabase/seed-v4.sql)
+- [scripts/backfill-live-seed-v4.mjs](/Users/pc/supernova.mn/scripts/backfill-live-seed-v4.mjs)
 
 ## Data model
 
@@ -116,6 +118,7 @@ Run SQL in this order:
 4. [supabase/seed.sql](/Users/pc/supernova.mn/supabase/seed.sql)
 5. [supabase/seed-v2.sql](/Users/pc/supernova.mn/supabase/seed-v2.sql)
 6. [supabase/seed-v3.sql](/Users/pc/supernova.mn/supabase/seed-v3.sql)
+7. [supabase/seed-v4.sql](/Users/pc/supernova.mn/supabase/seed-v4.sql)
 
 ## Environment variables
 
@@ -137,6 +140,12 @@ For authenticated staff routes, Supabase Auth users must also have matching rows
 ```bash
 npm install
 npm run dev
+```
+
+If the schema is already present but relationship/seed data is incomplete, run:
+
+```bash
+npm run db:backfill
 ```
 
 ## Verification

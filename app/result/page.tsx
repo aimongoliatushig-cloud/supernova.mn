@@ -20,6 +20,49 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('mn-MN').format(value)
 }
 
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  зүрх: ['зүрх', 'кардио'],
+  даралт: ['даралт', 'зүрх', 'дотрын'],
+  ходоод: ['ходоод', 'гэдэс', 'дуран', 'хоол боловсруулах'],
+  элэг: ['элэг', 'хоол боловсруулах', 'дотрын'],
+  бөөр: ['бөөр', 'шээс'],
+  'бамбай булчирхай': ['бамбай', 'даавар'],
+  эмэгтэйчүүд: ['эмэгтэй'],
+  'яс үе': ['яс', 'үе', 'dexa'],
+  'хоол боловсруулах эрхтэн': ['хоол боловсруулах', 'гэдэс', 'дуран'],
+  даавар: ['даавар', 'бамбай'],
+}
+
+function normalizeText(value: string | null | undefined) {
+  return value?.toLowerCase().trim() ?? ''
+}
+
+function getSelectedKeywords(categories: string[]) {
+  const keywords = new Set<string>()
+
+  for (const category of categories) {
+    const normalized = normalizeText(category)
+    if (!normalized) {
+      continue
+    }
+
+    keywords.add(normalized)
+
+    for (const alias of CATEGORY_ALIASES[normalized] ?? []) {
+      keywords.add(alias)
+    }
+  }
+
+  return Array.from(keywords)
+}
+
+function countKeywordMatches(text: string, keywords: string[]) {
+  return keywords.reduce(
+    (score, keyword) => (keyword.length > 0 && text.includes(keyword) ? score + 1 : score),
+    0
+  )
+}
+
 function getRiskContent(level: RiskLevel, entries: Record<string, string>) {
   if (level === 'high') {
     return {
@@ -130,8 +173,42 @@ export default async function ResultPage({
     ])
   )
 
-  const recommendedPackages = data.packages.slice(0, 2)
-  const recommendedServices = data.services.slice(0, 3)
+  const selectedKeywords = getSelectedKeywords(data.assessment.categories_selected)
+
+  const recommendedPackages = data.packages
+    .map((pkg) => {
+      const searchText = normalizeText(
+        [
+          pkg.title,
+          pkg.description,
+          pkg.promotion_text,
+          ...(pkg.package_services ?? []).map((relation) => relation.services?.name ?? ''),
+        ].join(' ')
+      )
+
+      return {
+        pkg,
+        score: countKeywordMatches(searchText, selectedKeywords),
+      }
+    })
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.pkg)
+    .slice(0, 2)
+
+  const recommendedServices = data.services
+    .map((service) => {
+      const searchText = normalizeText(
+        [service.name, service.description, service.categories?.name].join(' ')
+      )
+
+      return {
+        service,
+        score: countKeywordMatches(searchText, selectedKeywords),
+      }
+    })
+    .sort((left, right) => right.score - left.score)
+    .map((item) => item.service)
+    .slice(0, 3)
 
   const appointmentLink = `/appointment?lead=${encodeURIComponent(
     data.assessment.lead_id

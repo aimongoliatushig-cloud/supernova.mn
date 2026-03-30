@@ -2,12 +2,16 @@ import 'server-only'
 
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import { createServiceRoleClient, hasServiceRoleConfig } from '@/lib/supabase/service-role'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 
 type TableDefinition = {
   name: string
   label: string
   requiredForSeed: boolean
+  minimumSeedCount?: number
 }
 
 export type DatabaseTableStatus = {
@@ -34,20 +38,90 @@ export type DatabaseHealth = {
 
 const REQUIRED_TABLES: TableDefinition[] = [
   { name: 'profiles', label: 'Профайл', requiredForSeed: false },
-  { name: 'landing_page_content', label: 'Landing CMS', requiredForSeed: true },
-  { name: 'contact_settings', label: 'Холбоо барих', requiredForSeed: true },
-  { name: 'social_links', label: 'Сошиал холбоос', requiredForSeed: true },
-  { name: 'working_hours', label: 'Ажлын цаг', requiredForSeed: true },
-  { name: 'service_categories', label: 'Үйлчилгээний ангилал', requiredForSeed: true },
-  { name: 'doctors', label: 'Эмч нар', requiredForSeed: true },
-  { name: 'services', label: 'Үйлчилгээ', requiredForSeed: true },
-  { name: 'service_packages', label: 'Багц', requiredForSeed: false },
-  { name: 'package_services', label: 'Багц-үйлчилгээ холбоос', requiredForSeed: false },
-  { name: 'promotions', label: 'Урамшуулал', requiredForSeed: false },
-  { name: 'symptom_categories', label: 'Шинж тэмдгийн ангилал', requiredForSeed: true },
-  { name: 'questions', label: 'Асуулт', requiredForSeed: true },
-  { name: 'answer_options', label: 'Хариултын сонголт', requiredForSeed: true },
-  { name: 'doctor_services', label: 'Эмч-үйлчилгээ холбоос', requiredForSeed: false },
+  {
+    name: 'landing_page_content',
+    label: 'Landing CMS',
+    requiredForSeed: true,
+    minimumSeedCount: 10,
+  },
+  {
+    name: 'contact_settings',
+    label: 'Холбоо барих',
+    requiredForSeed: true,
+    minimumSeedCount: 1,
+  },
+  {
+    name: 'social_links',
+    label: 'Сошиал холбоос',
+    requiredForSeed: true,
+    minimumSeedCount: 1,
+  },
+  {
+    name: 'working_hours',
+    label: 'Ажлын цаг',
+    requiredForSeed: true,
+    minimumSeedCount: 1,
+  },
+  {
+    name: 'service_categories',
+    label: 'Үйлчилгээний ангилал',
+    requiredForSeed: true,
+    minimumSeedCount: 5,
+  },
+  {
+    name: 'doctors',
+    label: 'Эмч нар',
+    requiredForSeed: true,
+    minimumSeedCount: 3,
+  },
+  {
+    name: 'services',
+    label: 'Үйлчилгээ',
+    requiredForSeed: true,
+    minimumSeedCount: 5,
+  },
+  {
+    name: 'service_packages',
+    label: 'Багц',
+    requiredForSeed: true,
+    minimumSeedCount: 1,
+  },
+  {
+    name: 'package_services',
+    label: 'Багц-үйлчилгээ холбоос',
+    requiredForSeed: true,
+    minimumSeedCount: 1,
+  },
+  {
+    name: 'promotions',
+    label: 'Урамшуулал',
+    requiredForSeed: true,
+    minimumSeedCount: 1,
+  },
+  {
+    name: 'symptom_categories',
+    label: 'Шинж тэмдгийн ангилал',
+    requiredForSeed: true,
+    minimumSeedCount: 5,
+  },
+  {
+    name: 'questions',
+    label: 'Асуулт',
+    requiredForSeed: true,
+    minimumSeedCount: 20,
+  },
+  {
+    name: 'answer_options',
+    label: 'Хариултын сонголт',
+    requiredForSeed: true,
+    minimumSeedCount: 40,
+  },
+  {
+    name: 'doctor_services',
+    label: 'Эмч-үйлчилгээ холбоос',
+    requiredForSeed: true,
+    minimumSeedCount: 4,
+  },
   { name: 'leads', label: 'Лид', requiredForSeed: false },
   { name: 'assessments', label: 'Үнэлгээ', requiredForSeed: false },
   { name: 'assessment_answers', label: 'Үнэлгээний хариулт', requiredForSeed: false },
@@ -134,10 +208,9 @@ export const checkDatabaseHealth = cache(async (): Promise<DatabaseHealth> => {
   const tables = await Promise.all(
     REQUIRED_TABLES.map(async (table): Promise<DatabaseTableStatus> => {
       try {
-        const { data, error } = await client
+        const { count, error } = await client
           .from(table.name)
-          .select('*')
-          .limit(1)
+          .select('*', { count: 'exact', head: true })
 
         if (error) {
           return {
@@ -154,7 +227,7 @@ export const checkDatabaseHealth = cache(async (): Promise<DatabaseHealth> => {
           name: table.name,
           label: table.label,
           exists: true,
-          sampleCount: Array.isArray(data) ? data.length : 0,
+          sampleCount: count ?? 0,
           errorCode: null,
           error: null,
         }
@@ -177,7 +250,7 @@ export const checkDatabaseHealth = cache(async (): Promise<DatabaseHealth> => {
     schemaReady &&
     REQUIRED_TABLES.filter((table) => table.requiredForSeed).every((table) => {
       const status = tables.find((item) => item.name === table.name)
-      return (status?.sampleCount ?? 0) > 0
+      return (status?.sampleCount ?? 0) >= (table.minimumSeedCount ?? 1)
     })
 
   return {

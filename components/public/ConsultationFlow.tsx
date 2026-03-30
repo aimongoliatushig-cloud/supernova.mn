@@ -38,6 +38,9 @@ export default function ConsultationFlow({
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [pending, startTransition] = useTransition()
+  const resultHref = initialAssessmentId
+    ? `/result?assessment=${encodeURIComponent(initialAssessmentId)}`
+    : '/check'
 
   function handleSubmit() {
     startTransition(async () => {
@@ -92,7 +95,7 @@ export default function ConsultationFlow({
     <div className="min-h-screen bg-[#F7FAFF]">
       <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
-          <Link href="/result" className="text-[#6B7280] hover:text-[#1E63B5]">
+          <Link href={resultHref} className="text-[#6B7280] hover:text-[#1E63B5]">
             <ArrowLeft size={18} />
           </Link>
           <span className="text-sm font-bold text-[#1F2937]">Үнэгүй утасны зөвлөгөө</span>

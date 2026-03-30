@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Calendar, CheckCircle2, Clock, Shield, User } from 'lucide-react'
@@ -38,8 +38,20 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('mn-MN').format(value)
 }
 
+function toDateInputValue(date: Date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function getDateOptions() {
-  const options: Array<{ value: string; label: string }> = []
+  const options: Array<{
+    value: string
+    weekday: string
+    month: string
+    day: string
+  }> = []
   const today = new Date()
 
   for (let index = 1; index <= 14; index += 1) {
@@ -50,10 +62,14 @@ function getDateOptions() {
     }
 
     options.push({
-      value: nextDate.toISOString().slice(0, 10),
-      label: nextDate.toLocaleDateString('mn-MN', {
+      value: toDateInputValue(nextDate),
+      weekday: nextDate.toLocaleDateString('mn-MN', {
         weekday: 'short',
+      }),
+      month: nextDate.toLocaleDateString('mn-MN', {
         month: 'short',
+      }),
+      day: nextDate.toLocaleDateString('mn-MN', {
         day: 'numeric',
       }),
     })
@@ -85,6 +101,9 @@ export default function AppointmentFlow({
 
   const dateOptions = useMemo(() => getDateOptions(), [])
   const selectedService = services.find((service) => service.id === selectedServiceId) ?? null
+  const resultHref = initialAssessmentId
+    ? `/result?assessment=${encodeURIComponent(initialAssessmentId)}`
+    : '/check'
 
   const doctorsWithRelations = doctors.some(
     (doctor) => (doctor.doctor_services?.length ?? 0) > 0
@@ -99,6 +118,15 @@ export default function AppointmentFlow({
       doctor.doctor_services?.some((relation) => relation.service_id === selectedServiceId)
     )
   }, [doctors, doctorsWithRelations, selectedServiceId])
+
+  useEffect(() => {
+    if (
+      selectedDoctorId &&
+      !availableDoctors.some((doctor) => doctor.id === selectedDoctorId)
+    ) {
+      setSelectedDoctorId('')
+    }
+  }, [availableDoctors, selectedDoctorId])
 
   function handleSubmit() {
     startTransition(async () => {
@@ -158,7 +186,7 @@ export default function AppointmentFlow({
     <div className="min-h-screen bg-[#F7FAFF]">
       <header className="sticky top-0 z-40 border-b border-[#E5E7EB] bg-white">
         <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4">
-          <Link href="/result" className="text-[#6B7280] hover:text-[#1E63B5]">
+          <Link href={resultHref} className="text-[#6B7280] hover:text-[#1E63B5]">
             <ArrowLeft size={18} />
           </Link>
           <span className="text-sm font-bold text-[#1F2937]">Эмчийн цаг захиалах</span>
@@ -218,52 +246,59 @@ export default function AppointmentFlow({
               <h2 className="text-sm font-black uppercase tracking-wide text-[#1F2937]">
                 Эмч сонгох
               </h2>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {availableDoctors.map((doctor) => (
-                  <button
-                    key={doctor.id}
-                    type="button"
-                    onClick={() => setSelectedDoctorId(doctor.id)}
-                    className={[
-                      'rounded-2xl border-2 p-4 text-left transition-all',
-                      selectedDoctorId === doctor.id
-                        ? 'border-[#1E63B5] bg-[#EAF3FF]'
-                        : 'border-[#E5E7EB] bg-white hover:border-[#1E63B5]/40',
-                    ].join(' ')}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="relative h-14 w-14 overflow-hidden rounded-full bg-[#D6E6FA]">
-                        {doctor.photo_url ? (
-                          <Image
-                            src={doctor.photo_url}
-                            alt={doctor.full_name}
-                            fill
-                            className="object-cover object-top"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#1E63B5]">
-                            {doctor.full_name.slice(0, 1)}
-                          </div>
-                        )}
+              {availableDoctors.length === 0 ? (
+                <div className="mt-3 rounded-3xl border border-dashed border-[#D6E6FA] bg-white px-5 py-6 text-sm leading-6 text-[#6B7280]">
+                  Сонгосон үйлчилгээтэй холбогдсон эмч одоогоор алга байна. Өөр үйлчилгээ
+                  сонгох эсвэл утасны зөвлөгөө хүсэж болно.
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {availableDoctors.map((doctor) => (
+                    <button
+                      key={doctor.id}
+                      type="button"
+                      onClick={() => setSelectedDoctorId(doctor.id)}
+                      className={[
+                        'rounded-2xl border-2 p-4 text-left transition-all',
+                        selectedDoctorId === doctor.id
+                          ? 'border-[#1E63B5] bg-[#EAF3FF]'
+                          : 'border-[#E5E7EB] bg-white hover:border-[#1E63B5]/40',
+                      ].join(' ')}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="relative h-14 w-14 overflow-hidden rounded-full bg-[#D6E6FA]">
+                          {doctor.photo_url ? (
+                            <Image
+                              src={doctor.photo_url}
+                              alt={doctor.full_name}
+                              fill
+                              className="object-cover object-top"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-lg font-black text-[#1E63B5]">
+                              {doctor.full_name.slice(0, 1)}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p
+                            className={[
+                              'text-sm font-black',
+                              selectedDoctorId === doctor.id ? 'text-[#1E63B5]' : 'text-[#1F2937]',
+                            ].join(' ')}
+                          >
+                            {doctor.full_name}
+                          </p>
+                          <p className="mt-1 text-xs text-[#6B7280]">{doctor.specialization}</p>
+                          <p className="mt-2 text-xs font-semibold text-[#9CA3AF]">
+                            {doctor.experience_years}+ жил
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p
-                          className={[
-                            'text-sm font-black',
-                            selectedDoctorId === doctor.id ? 'text-[#1E63B5]' : 'text-[#1F2937]',
-                          ].join(' ')}
-                        >
-                          {doctor.full_name}
-                        </p>
-                        <p className="mt-1 text-xs text-[#6B7280]">{doctor.specialization}</p>
-                        <p className="mt-2 text-xs font-semibold text-[#9CA3AF]">
-                          {doctor.experience_years}+ жил
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
@@ -274,8 +309,6 @@ export default function AppointmentFlow({
                 </h2>
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                   {dateOptions.map((option) => {
-                    const parts = option.label.split(' ')
-
                     return (
                       <button
                         key={option.value}
@@ -288,9 +321,9 @@ export default function AppointmentFlow({
                             : 'border-[#E5E7EB] bg-white hover:border-[#1E63B5]/40',
                         ].join(' ')}
                       >
-                        <p className="text-xs font-semibold text-[#9CA3AF]">{parts[0]}</p>
-                        <p className="mt-1 text-lg font-black text-[#1F2937]">{parts[2]}</p>
-                        <p className="text-xs text-[#6B7280]">{parts[1]}</p>
+                        <p className="text-xs font-semibold text-[#9CA3AF]">{option.weekday}</p>
+                        <p className="mt-1 text-lg font-black text-[#1F2937]">{option.day}</p>
+                        <p className="text-xs text-[#6B7280]">{option.month}</p>
                       </button>
                     )
                   })}

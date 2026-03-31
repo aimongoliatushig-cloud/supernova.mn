@@ -1,6 +1,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { Clock3, Mail, MapPin, Phone, Shield } from 'lucide-react'
+import {
+  DEFAULT_CONTACT_ADDRESS,
+  DEFAULT_CONTACT_EMAIL,
+  DEFAULT_CONTACT_PHONE,
+  sanitizeContactSettings,
+} from '@/lib/public/contact'
 import type {
   PublicContactSettings,
   PublicSocialLink,
@@ -44,12 +50,11 @@ export default function Footer({
   workingHours,
   privacyText,
 }: FooterProps) {
+  const safeContact = sanitizeContactSettings(contact)
   const hours = workingHours.length > 0 ? workingHours : fallbackHours
-  const phone = contact?.phone ?? '7000 0303'
-  const email = contact?.email ?? 'marketing@supernova.mn'
-  const address =
-    contact?.address ??
-    'БЗД 14-р хороо ХӨСҮТ-ийн замын урд ВSB-тэй байрны баруун талаар байран дундуур ороход 1 давхартаа СU-тэй 4 давхар барилга, "СУПЕРНОВА ЭМНЭЛЭГ", Ulaanbaatar, Mongolia'
+  const phone = safeContact?.phone ?? DEFAULT_CONTACT_PHONE
+  const email = safeContact?.email ?? DEFAULT_CONTACT_EMAIL
+  const address = safeContact?.address ?? DEFAULT_CONTACT_ADDRESS
 
   return (
     <footer id="contact" className="relative overflow-hidden bg-[#0D2542] text-white">
@@ -115,7 +120,7 @@ export default function Footer({
               </a>
               <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-slate-100">
                 <MapPin size={16} className="mt-0.5 shrink-0 text-[#78B3F6]" />
-                <span>{address}</span>
+                <span className="break-words">{address}</span>
               </div>
             </div>
           </div>

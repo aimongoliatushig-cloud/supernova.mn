@@ -16,6 +16,12 @@ import {
 import Footer from '@/components/layout/Footer'
 import Navbar from '@/components/layout/Navbar'
 import DoctorsSection from '@/components/sections/DoctorsSection'
+import {
+  DEFAULT_CONTACT_ADDRESS,
+  DEFAULT_CONTACT_EMAIL,
+  DEFAULT_CONTACT_PHONE,
+  sanitizeContactSettings,
+} from '@/lib/public/contact'
 import { getLandingPageData } from '@/lib/public/data'
 
 const fallbackHours = [
@@ -53,6 +59,7 @@ function shorten(value: string | null | undefined, maxLength: number) {
 
 export default async function HomePage() {
   const data = await getLandingPageData()
+  const safeContact = sanitizeContactSettings(data.contact)
   const cms = data.entries
   const primaryPromotion = data.promotions[0] ?? null
 
@@ -90,11 +97,9 @@ export default async function HomePage() {
     'Таны мэдээлэл аюулгүй хадгалагдаж, зөвхөн эмнэлгийн үйлчилгээний зорилгоор ашиглагдана.'
   )
 
-  const phone = data.contact?.phone ?? '7000 0303'
-  const email = data.contact?.email ?? 'marketing@supernova.mn'
-  const address =
-    data.contact?.address ??
-    'БЗД 14-р хороо ХӨСҮТ-ийн замын урд ВSB-тэй байрны баруун талаар байран дундуур ороход 1 давхартаа СU-тэй 4 давхар барилга, "СУПЕРНОВА ЭМНЭЛЭГ", Ulaanbaatar, Mongolia'
+  const phone = safeContact?.phone ?? DEFAULT_CONTACT_PHONE
+  const email = safeContact?.email ?? DEFAULT_CONTACT_EMAIL
+  const address = safeContact?.address ?? DEFAULT_CONTACT_ADDRESS
   const workingHours = data.workingHours.length > 0 ? data.workingHours : fallbackHours
 
   const valueCards = [
@@ -275,7 +280,7 @@ export default async function HomePage() {
                       <Phone size={18} className="text-[#78B3F6]" />
                       {phone}
                     </a>
-                    <p className="mt-3 text-sm leading-6 text-blue-100">{address}</p>
+                    <p className="mt-3 break-words text-sm leading-6 text-blue-100">{address}</p>
                   </div>
 
                   <div className="rounded-[1.75rem] border border-[#E6EEF8] bg-white p-5 shadow-sm">
@@ -709,7 +714,7 @@ export default async function HomePage() {
       </div>
 
       <Footer
-        contact={data.contact}
+        contact={safeContact}
         socials={data.socials}
         workingHours={data.workingHours}
         privacyText={privacyText}

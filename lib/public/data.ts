@@ -15,6 +15,7 @@ import type {
   PublicServiceCategory,
   PublicServicePackage,
 } from '@/lib/public/types'
+import { sanitizeContactSettings } from '@/lib/public/contact'
 import {
   createServiceRoleClient,
   hasServiceRoleConfig,
@@ -136,7 +137,7 @@ async function getCmsContent(): Promise<PublicCmsContent> {
 
   return {
     entries: entryMap,
-    contact: contact ?? null,
+    contact: sanitizeContactSettings(contact ?? null),
     socials: socials ?? [],
     workingHours: workingHours ?? [],
   }

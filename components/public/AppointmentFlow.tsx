@@ -228,7 +228,7 @@ export default function AppointmentFlow({
   function renderSummaryCard(className: string) {
     return (
       <div
-        className={`${className} rounded-[2rem] border border-[#10233B] bg-[linear-gradient(180deg,#10233B_0%,#163456_100%)] p-5 text-white shadow-[0_24px_80px_rgba(16,35,59,0.28)] md:p-6`}
+        className={`${className} min-w-0 w-full overflow-hidden rounded-[2rem] border border-[#10233B] bg-[linear-gradient(180deg,#10233B_0%,#163456_100%)] p-5 text-white shadow-[0_24px_80px_rgba(16,35,59,0.28)] md:p-6`}
       >
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-100">
           Booking summary
@@ -244,7 +244,7 @@ export default function AppointmentFlow({
               <p className="text-xs font-semibold uppercase tracking-wide text-blue-100/80">
                 {item.label}
               </p>
-              <p className="mt-2 text-sm font-semibold text-white">{item.value}</p>
+              <p className="mt-2 break-words text-sm font-semibold text-white">{item.value}</p>
             </div>
           ))}
         </div>
@@ -273,7 +273,7 @@ export default function AppointmentFlow({
 
   function renderContactCard(className: string) {
     return (
-      <div className={`${className} rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6`}>
+      <div className={`${className} min-w-0 w-full overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6`}>
         <div className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-[#1F2937]">
           <User size={14} />
           Алхам 4. Холбоо барих мэдээлэл
@@ -475,7 +475,7 @@ export default function AppointmentFlow({
   }
 
   return (
-    <div className="min-h-screen bg-[#F7FAFF]">
+    <div className="min-h-screen overflow-x-hidden bg-[#F7FAFF]">
       <FlowHeader
         title="Эмчийн цаг захиалах"
         backHref={resultHref}
@@ -483,15 +483,15 @@ export default function AppointmentFlow({
         maxWidthClassName="max-w-6xl"
       />
 
-      <main className="mx-auto max-w-6xl px-4 pb-36 pt-4 md:pb-8 md:pt-6">
-        <section className="rounded-[1.75rem] border border-[#D8E6F6] bg-white p-4 shadow-[0_20px_70px_rgba(17,37,68,0.06)] md:rounded-[2rem] md:p-7">
+      <main className="mx-auto max-w-6xl overflow-x-hidden px-4 pb-36 pt-4 md:pb-8 md:pt-6">
+        <section className="min-w-0 overflow-hidden rounded-[1.75rem] border border-[#D8E6F6] bg-white p-4 shadow-[0_20px_70px_rgba(17,37,68,0.06)] md:rounded-[2rem] md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <p className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-xs font-bold tracking-[0.2em] text-[#1E63B5]">
+            <div className="min-w-0 space-y-3">
+              <p className="inline-flex max-w-full items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-xs font-bold tracking-[0.2em] text-[#1E63B5]">
                 <Sparkles size={14} />
                 MOBILE-FIRST BOOKING
               </p>
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-2xl font-black text-[#10233B] md:text-3xl">
                   Танд тохирох эмчийн цагийг 2 минутанд сонгоно уу
                 </h1>
@@ -502,7 +502,7 @@ export default function AppointmentFlow({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 rounded-3xl bg-[#F7FAFF] p-2 sm:grid-cols-4">
+            <div className="grid w-full grid-cols-2 gap-2 rounded-3xl bg-[#F7FAFF] p-2 sm:grid-cols-4 lg:max-w-[26rem]">
               {[
                 'Үйлчилгээ',
                 'Эмч',
@@ -528,7 +528,7 @@ export default function AppointmentFlow({
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-6">
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
+            <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
               <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
@@ -542,21 +542,21 @@ export default function AppointmentFlow({
               </div>
 
               {hasAssessmentFilter ? (
-                <div className="mt-4 rounded-3xl border border-[#D8E6F6] bg-[#F7FAFF] px-4 py-3 text-sm leading-6 text-[#5B6877]">
+                <div className="mt-4 rounded-3xl border border-[#D8E6F6] bg-[#F7FAFF] px-4 py-3 text-sm leading-6 text-[#5B6877] break-words">
                   <span className="font-bold text-[#1E63B5]">Таны шалгалтын дагуу:</span>{' '}
                   {initialSelectedCategories.join(', ')} чиглэлтэй холбоотой оношилгоонуудыг
                   шүүж харуулж байна.
                 </div>
               ) : null}
 
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+              <div className="mt-4 flex min-w-0 gap-2 overflow-x-auto pb-1">
                 {categoryTabs.map((category) => (
                   <button
                     key={category}
                     type="button"
                     onClick={() => setSelectedCategory(category)}
                     className={[
-                      'whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition',
+                      'shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition',
                       selectedCategory === category
                         ? 'border-[#1E63B5] bg-[#EAF3FF] text-[#1E63B5]'
                         : 'border-[#E5E7EB] bg-white text-[#6B7280]',
@@ -573,7 +573,7 @@ export default function AppointmentFlow({
                   оффисоос баталгаажуулах урсгалаар үргэлжлүүлж болно.
                 </div>
               ) : (
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className="mt-5 min-w-0 grid gap-3 md:grid-cols-2">
                   {filteredServices.map((service) => (
                     <button
                       key={service.id}
@@ -583,38 +583,40 @@ export default function AppointmentFlow({
                         setSelectedDoctorId('')
                       }}
                       className={[
-                        'rounded-3xl border-2 p-4 text-left transition',
+                        'w-full min-w-0 overflow-hidden rounded-3xl border-2 p-4 text-left transition',
                         selectedServiceId === service.id
                           ? 'border-[#1E63B5] bg-[#F7FAFF]'
                           : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
                       ].join(' ')}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
                           <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                             {normalizeCategoryName(service.categories?.name)}
                           </p>
-                          <h3 className="mt-2 text-base font-black text-[#1F2937]">
+                          <h3 className="mt-2 break-words text-base font-black text-[#1F2937]">
                             {service.name}
                           </h3>
                         </div>
                         {service.promotion_flag ? (
-                          <span className="rounded-full bg-[#FFF1F2] px-3 py-1 text-xs font-bold text-[#F23645]">
+                          <span className="shrink-0 rounded-full bg-[#FFF1F2] px-3 py-1 text-xs font-bold text-[#F23645]">
                             Онцлох
                           </span>
                         ) : null}
                       </div>
                       {service.description ? (
-                        <p className="mt-3 text-sm leading-6 text-[#5B6877]">{service.description}</p>
+                        <p className="mt-3 break-words text-sm leading-6 text-[#5B6877]">
+                          {service.description}
+                        </p>
                       ) : null}
-                      <div className="mt-4 flex items-end justify-between gap-3">
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                           <p className="text-xs text-[#9CA3AF]">Үнэ</p>
                           <p className="mt-1 text-xl font-black text-[#1E63B5]">
                             ₮{formatCurrency(service.price)}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="sm:text-right">
                           <p className="text-xs text-[#9CA3AF]">Үргэлжлэх хугацаа</p>
                           <p className="mt-1 text-sm font-semibold text-[#1F2937]">
                             {service.duration_minutes} минут
@@ -627,7 +629,7 @@ export default function AppointmentFlow({
               )}
             </section>
 
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
+            <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">Алхам 2</p>
               <h2 className="mt-2 text-xl font-black text-[#10233B]">Эмч сонгох</h2>
               <p className="mt-2 text-sm leading-6 text-[#5B6877]">
@@ -642,14 +644,14 @@ export default function AppointmentFlow({
                   эсвэл оффисоос баталгаажуулах урсгалаар үргэлжлүүлж болно.
                 </div>
               ) : (
-                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                <div className="mt-5 min-w-0 grid gap-3 md:grid-cols-2">
                   {availableDoctors.map((doctor) => (
                     <button
                       key={doctor.id}
                       type="button"
                       onClick={() => setSelectedDoctorId(doctor.id)}
                       className={[
-                        'rounded-3xl border-2 p-4 text-left transition',
+                        'w-full min-w-0 overflow-hidden rounded-3xl border-2 p-4 text-left transition',
                         selectedDoctorId === doctor.id
                           ? 'border-[#1E63B5] bg-[#F7FAFF]'
                           : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
@@ -694,7 +696,7 @@ export default function AppointmentFlow({
               )}
             </section>
 
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
+            <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">Алхам 3</p>
               <h2 className="mt-2 text-xl font-black text-[#10233B]">Өдөр, цаг сонгох</h2>
               <p className="mt-2 text-sm leading-6 text-[#5B6877]">
@@ -706,7 +708,7 @@ export default function AppointmentFlow({
                   <Calendar size={15} />
                   Ойрын 2 долоо хоногийн хуваарь
                 </div>
-                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                <div className="mt-3 flex min-w-0 gap-2 overflow-x-auto pb-1">
                   {dateOptions.map((option) => (
                     <button
                       key={option.value}
@@ -782,7 +784,7 @@ export default function AppointmentFlow({
               {selectedTime || '--:--'}
             </p>
           </div>
-          <Button size="lg" onClick={handleSubmit} loading={pending} disabled={!canSubmit}>
+          <Button size="lg" className="shrink-0" onClick={handleSubmit} loading={pending} disabled={!canSubmit}>
             Цаг захиалах
             <ChevronRight size={16} />
           </Button>

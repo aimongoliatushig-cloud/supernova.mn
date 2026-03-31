@@ -15,6 +15,10 @@ import {
 import { submitAppointment } from '@/app/actions/public'
 import FlowHeader from '@/components/public/FlowHeader'
 import Button from '@/components/ui/Button'
+import {
+  findBestCategoryMatch,
+  getCategoryMatchScore,
+} from '@/lib/public/category-matching'
 import type { PublicDoctor, PublicService } from '@/lib/public/types'
 
 interface AppointmentFlowProps {
@@ -26,6 +30,7 @@ interface AppointmentFlowProps {
   initialName?: string
   initialPhone?: string
   initialEmail?: string
+  initialSelectedCategories?: string[]
 }
 
 const TIME_GROUPS = [
@@ -90,10 +95,17 @@ export default function AppointmentFlow({
   initialName = '',
   initialPhone = '',
   initialEmail = '',
+  initialSelectedCategories = [],
 }: AppointmentFlowProps) {
   const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [selectedServiceId, setSelectedServiceId] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    const serviceCategories = Array.from(
+      new Set(services.map((service) => normalizeCategoryName(service.categories?.name)))
+    )
+
+    return findBestCategoryMatch(serviceCategories, initialSelectedCategories) ?? 'all'
+  })
   const [selectedDate, setSelectedDate] = useState('')
   const [selectedTime, setSelectedTime] = useState('')
   const [fullName, setFullName] = useState(initialName)
@@ -111,19 +123,56 @@ export default function AppointmentFlow({
     return ['all', ...uniqueCategories]
   }, [services])
 
-  const filteredServices = useMemo(() => {
-    if (selectedCategory === 'all') {
+  const matchedServiceCategories = useMemo(() => {
+    if (initialSelectedCategories.length === 0) {
+      return []
+    }
+
+    return categories.filter(
+      (category) =>
+        category !== 'all' && getCategoryMatchScore(category, initialSelectedCategories) > 0
+    )
+  }, [categories, initialSelectedCategories])
+
+  const hasAssessmentFilter = matchedServiceCategories.length > 0
+
+  const recommendedServices = useMemo(() => {
+    if (!hasAssessmentFilter) {
       return services
     }
 
-    return services.filter(
+    return services.filter((service) => {
+      const searchText = [
+        service.name,
+        service.description,
+        normalizeCategoryName(service.categories?.name),
+      ].join(' ')
+
+      return getCategoryMatchScore(searchText, initialSelectedCategories) > 0
+    })
+  }, [hasAssessmentFilter, initialSelectedCategories, services])
+
+  const categoryTabs = hasAssessmentFilter ? matchedServiceCategories : categories
+
+  const filteredServices = useMemo(() => {
+    const servicePool = recommendedServices
+
+    if (selectedCategory === 'all') {
+      return servicePool
+    }
+
+    return servicePool.filter(
       (service) => normalizeCategoryName(service.categories?.name) === selectedCategory
     )
-  }, [selectedCategory, services])
+  }, [recommendedServices, selectedCategory])
 
   const selectedService = services.find((service) => service.id === selectedServiceId) ?? null
   const selectedDoctor = doctors.find((doctor) => doctor.id === selectedDoctorId) ?? null
   const selectedDateOption = dateOptions.find((option) => option.value === selectedDate) ?? null
+  const matchedCategoryLabel = findBestCategoryMatch(
+    matchedServiceCategories,
+    initialSelectedCategories
+  )
 
   const resultHref = initialAssessmentId
     ? `/result?assessment=${encodeURIComponent(initialAssessmentId)}`
@@ -158,6 +207,136 @@ export default function AppointmentFlow({
     Boolean(fullName.trim()) &&
     Boolean(phone.trim())
 
+  const bookingSummaryItems = [
+    {
+      label: 'Үйлчилгээ',
+      value: selectedService?.name ?? 'Сонгоогүй',
+    },
+    {
+      label: 'Эмч',
+      value: selectedDoctor?.full_name ?? 'Сонгоогүй',
+    },
+    {
+      label: 'Хуваарь',
+      value:
+        selectedDateOption && selectedTime
+          ? `${selectedDateOption.isoLabel} · ${selectedTime}`
+          : 'Сонгоогүй',
+    },
+  ]
+
+  function renderSummaryCard(className: string) {
+    return (
+      <div
+        className={`${className} rounded-[2rem] border border-[#10233B] bg-[linear-gradient(180deg,#10233B_0%,#163456_100%)] p-5 text-white shadow-[0_24px_80px_rgba(16,35,59,0.28)] md:p-6`}
+      >
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-100">
+          Booking summary
+        </p>
+        <h2 className="mt-3 text-2xl font-black">Захиалгын хураангуй</h2>
+
+        <div className="mt-5 space-y-4">
+          {bookingSummaryItems.map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide text-blue-100/80">
+                {item.label}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-white">{item.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {selectedService ? (
+          <div className="mt-5 rounded-3xl bg-white px-4 py-4 text-[#10233B]">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Үнэ</p>
+            <p className="mt-2 text-3xl font-black text-[#1E63B5]">
+              ₮{formatCurrency(selectedService.price)}
+            </p>
+            <p className="mt-1 text-sm text-[#5B6877]">
+              {selectedService.duration_minutes} минут үргэлжилнэ
+            </p>
+          </div>
+        ) : null}
+
+        {selectedService?.preparation_notice ? (
+          <div className="mt-5 rounded-3xl border border-[#FDE3C3] bg-[#FFFBF4] p-4 text-[#92400E]">
+            <p className="text-xs font-bold uppercase tracking-wide text-[#B45309]">Бэлтгэл</p>
+            <p className="mt-3 text-sm leading-7">{selectedService.preparation_notice}</p>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  function renderContactCard(className: string) {
+    return (
+      <div className={`${className} rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6`}>
+        <div className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-[#1F2937]">
+          <User size={14} />
+          Алхам 4. Холбоо барих мэдээлэл
+        </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-[#1F2937]">
+              Нэр <span className="text-[#F23645]">*</span>
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-[#1F2937]">
+              Утасны дугаар <span className="text-[#F23645]">*</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-[#1F2937]">
+              Имэйл <span className="text-xs font-normal text-[#9CA3AF]">(заавал биш)</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+            />
+          </div>
+        </div>
+
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-[#FFD7DC] bg-[#FFF4F5] px-4 py-3 text-sm text-[#D63045]">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mt-5">
+          <Button fullWidth size="xl" loading={pending} onClick={handleSubmit}>
+            Цаг захиалах
+          </Button>
+        </div>
+
+        <div className="mt-4 flex items-start gap-2 text-xs leading-6 text-[#6B7280]">
+          <Shield size={14} className="mt-1 shrink-0 text-[#1E63B5]" />
+          <span>{privacyText}</span>
+        </div>
+      </div>
+    )
+  }
+
   useEffect(() => {
     if (selectedServiceId && !filteredServices.some((service) => service.id === selectedServiceId)) {
       setSelectedServiceId('')
@@ -177,6 +356,23 @@ export default function AppointmentFlow({
       setSelectedDoctorId('')
     }
   }, [availableDoctors, selectedDoctorId])
+
+  useEffect(() => {
+    if (hasAssessmentFilter && selectedCategory === 'all') {
+      setSelectedCategory(matchedCategoryLabel ?? matchedServiceCategories[0])
+      return
+    }
+
+    if (selectedCategory !== 'all' && !categoryTabs.includes(selectedCategory)) {
+      setSelectedCategory(hasAssessmentFilter ? (matchedCategoryLabel ?? matchedServiceCategories[0]) : 'all')
+    }
+  }, [
+    categoryTabs,
+    hasAssessmentFilter,
+    matchedCategoryLabel,
+    matchedServiceCategories,
+    selectedCategory,
+  ])
 
   function handleSubmit() {
     setError('')
@@ -287,8 +483,8 @@ export default function AppointmentFlow({
         maxWidthClassName="max-w-6xl"
       />
 
-      <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 md:pb-8">
-        <section className="rounded-[2rem] border border-[#D8E6F6] bg-white p-5 shadow-[0_20px_70px_rgba(17,37,68,0.06)] md:p-7">
+      <main className="mx-auto max-w-6xl px-4 pb-36 pt-4 md:pb-8 md:pt-6">
+        <section className="rounded-[1.75rem] border border-[#D8E6F6] bg-white p-4 shadow-[0_20px_70px_rgba(17,37,68,0.06)] md:rounded-[2rem] md:p-7">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
               <p className="inline-flex items-center gap-2 rounded-full bg-[#EFF6FF] px-4 py-2 text-xs font-bold tracking-[0.2em] text-[#1E63B5]">
@@ -306,7 +502,7 @@ export default function AppointmentFlow({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 rounded-3xl bg-[#F7FAFF] p-2">
+            <div className="grid grid-cols-2 gap-2 rounded-3xl bg-[#F7FAFF] p-2 sm:grid-cols-4">
               {[
                 'Үйлчилгээ',
                 'Эмч',
@@ -328,6 +524,8 @@ export default function AppointmentFlow({
           </div>
         </section>
 
+        {renderSummaryCard('mt-4 xl:hidden')}
+
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-6">
             <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
@@ -343,8 +541,16 @@ export default function AppointmentFlow({
                 </div>
               </div>
 
+              {hasAssessmentFilter ? (
+                <div className="mt-4 rounded-3xl border border-[#D8E6F6] bg-[#F7FAFF] px-4 py-3 text-sm leading-6 text-[#5B6877]">
+                  <span className="font-bold text-[#1E63B5]">Таны шалгалтын дагуу:</span>{' '}
+                  {initialSelectedCategories.join(', ')} чиглэлтэй холбоотой оношилгоонуудыг
+                  шүүж харуулж байна.
+                </div>
+              ) : null}
+
               <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                {categories.map((category) => (
+                {categoryTabs.map((category) => (
                   <button
                     key={category}
                     type="button"
@@ -361,55 +567,64 @@ export default function AppointmentFlow({
                 ))}
               </div>
 
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                {filteredServices.map((service) => (
-                  <button
-                    key={service.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedServiceId(service.id)
-                      setSelectedDoctorId('')
-                    }}
-                    className={[
-                      'rounded-3xl border-2 p-4 text-left transition',
-                      selectedServiceId === service.id
-                        ? 'border-[#1E63B5] bg-[#F7FAFF]'
-                        : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
-                    ].join(' ')}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                          {normalizeCategoryName(service.categories?.name)}
-                        </p>
-                        <h3 className="mt-2 text-base font-black text-[#1F2937]">{service.name}</h3>
+              {filteredServices.length === 0 ? (
+                <div className="mt-5 rounded-3xl border border-dashed border-[#D6E6FA] bg-[#F7FAFF] px-5 py-8 text-sm leading-7 text-[#5B6877]">
+                  Сонгосон шүүлтэд тохирох үйлчилгээ алга байна. Өөр ангилал сонгох эсвэл
+                  оффисоос баталгаажуулах урсгалаар үргэлжлүүлж болно.
+                </div>
+              ) : (
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {filteredServices.map((service) => (
+                    <button
+                      key={service.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedServiceId(service.id)
+                        setSelectedDoctorId('')
+                      }}
+                      className={[
+                        'rounded-3xl border-2 p-4 text-left transition',
+                        selectedServiceId === service.id
+                          ? 'border-[#1E63B5] bg-[#F7FAFF]'
+                          : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
+                      ].join(' ')}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                            {normalizeCategoryName(service.categories?.name)}
+                          </p>
+                          <h3 className="mt-2 text-base font-black text-[#1F2937]">
+                            {service.name}
+                          </h3>
+                        </div>
+                        {service.promotion_flag ? (
+                          <span className="rounded-full bg-[#FFF1F2] px-3 py-1 text-xs font-bold text-[#F23645]">
+                            Онцлох
+                          </span>
+                        ) : null}
                       </div>
-                      {service.promotion_flag ? (
-                        <span className="rounded-full bg-[#FFF1F2] px-3 py-1 text-xs font-bold text-[#F23645]">
-                          Онцлох
-                        </span>
+                      {service.description ? (
+                        <p className="mt-3 text-sm leading-6 text-[#5B6877]">{service.description}</p>
                       ) : null}
-                    </div>
-                    {service.description ? (
-                      <p className="mt-3 text-sm leading-6 text-[#5B6877]">{service.description}</p>
-                    ) : null}
-                    <div className="mt-4 flex items-end justify-between">
-                      <div>
-                        <p className="text-xs text-[#9CA3AF]">Үнэ</p>
-                        <p className="mt-1 text-xl font-black text-[#1E63B5]">
-                          ₮{formatCurrency(service.price)}
-                        </p>
+                      <div className="mt-4 flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-[#9CA3AF]">Үнэ</p>
+                          <p className="mt-1 text-xl font-black text-[#1E63B5]">
+                            ₮{formatCurrency(service.price)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-[#9CA3AF]">Үргэлжлэх хугацаа</p>
+                          <p className="mt-1 text-sm font-semibold text-[#1F2937]">
+                            {service.duration_minutes} минут
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-[#9CA3AF]">Үргэлжлэх хугацаа</p>
-                        <p className="mt-1 text-sm font-semibold text-[#1F2937]">
-                          {service.duration_minutes} минут
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
@@ -542,129 +757,13 @@ export default function AppointmentFlow({
                 ))}
               </div>
             </section>
+
+            {renderContactCard('xl:hidden')}
           </div>
 
-          <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
-            <div className="rounded-[2rem] border border-[#10233B] bg-[linear-gradient(180deg,#10233B_0%,#163456_100%)] p-5 text-white shadow-[0_24px_80px_rgba(16,35,59,0.28)] md:p-6">
-              <p className="text-xs font-bold uppercase tracking-[0.24em] text-blue-100">
-                Booking summary
-              </p>
-              <h2 className="mt-3 text-2xl font-black">Захиалгын хураангуй</h2>
-
-              <div className="mt-5 space-y-4">
-                {[
-                  {
-                    label: 'Үйлчилгээ',
-                    done: Boolean(selectedService),
-                    value: selectedService?.name ?? 'Сонгоогүй',
-                  },
-                  {
-                    label: 'Эмч',
-                    done: Boolean(selectedDoctor),
-                    value: selectedDoctor?.full_name ?? 'Сонгоогүй',
-                  },
-                  {
-                    label: 'Хуваарь',
-                    done: Boolean(selectedDateOption && selectedTime),
-                    value:
-                      selectedDateOption && selectedTime
-                        ? `${selectedDateOption.isoLabel} · ${selectedTime}`
-                        : 'Сонгоогүй',
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-100/80">
-                      {item.label}
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-white">{item.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              {selectedService ? (
-                <div className="mt-5 rounded-3xl bg-white px-4 py-4 text-[#10233B]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Үнэ</p>
-                  <p className="mt-2 text-3xl font-black text-[#1E63B5]">
-                    ₮{formatCurrency(selectedService.price)}
-                  </p>
-                  <p className="mt-1 text-sm text-[#5B6877]">
-                    {selectedService.duration_minutes} минут үргэлжилнэ
-                  </p>
-                </div>
-              ) : null}
-
-              {selectedService?.preparation_notice ? (
-                <div className="mt-5 rounded-3xl border border-[#FDE3C3] bg-[#FFFBF4] p-4 text-[#92400E]">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#B45309]">Бэлтгэл</p>
-                  <p className="mt-3 text-sm leading-7">{selectedService.preparation_notice}</p>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
-              <div className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-[#1F2937]">
-                <User size={14} />
-                Алхам 4. Холбоо барих мэдээлэл
-              </div>
-
-              <div className="mt-4 space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#1F2937]">
-                    Нэр <span className="text-[#F23645]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#1F2937]">
-                    Утасны дугаар <span className="text-[#F23645]">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-[#1F2937]">
-                    Имэйл <span className="text-xs font-normal text-[#9CA3AF]">(заавал биш)</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
-                  />
-                </div>
-              </div>
-
-              {error ? (
-                <div className="mt-4 rounded-2xl border border-[#FFD7DC] bg-[#FFF4F5] px-4 py-3 text-sm text-[#D63045]">
-                  {error}
-                </div>
-              ) : null}
-
-              <div className="mt-5">
-                <Button fullWidth size="xl" loading={pending} onClick={handleSubmit}>
-                  Цаг захиалах
-                </Button>
-              </div>
-
-              <div className="mt-4 flex items-start gap-2 text-xs leading-6 text-[#6B7280]">
-                <Shield size={14} className="mt-1 shrink-0 text-[#1E63B5]" />
-                <span>{privacyText}</span>
-              </div>
-            </div>
+          <aside className="hidden space-y-6 xl:sticky xl:top-6 xl:block xl:self-start">
+            {renderSummaryCard('')}
+            {renderContactCard('')}
           </aside>
         </div>
       </main>
@@ -684,7 +783,7 @@ export default function AppointmentFlow({
             </p>
           </div>
           <Button size="lg" onClick={handleSubmit} loading={pending} disabled={!canSubmit}>
-            Үргэлжлүүлэх
+            Цаг захиалах
             <ChevronRight size={16} />
           </Button>
         </div>

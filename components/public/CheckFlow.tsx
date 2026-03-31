@@ -166,7 +166,7 @@ export default function CheckFlow({ categories, privacyText }: CheckFlowProps) {
           maxWidthClassName="max-w-3xl"
         />
 
-        <main className="mx-auto max-w-3xl px-4 py-8">
+        <main className="mx-auto max-w-3xl px-4 py-8 pb-32 md:pb-8">
           <div className="mb-6 flex items-center gap-2 text-xs">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1E63B5] font-bold text-white">
               1
@@ -245,13 +245,32 @@ export default function CheckFlow({ categories, privacyText }: CheckFlowProps) {
             </div>
           ) : null}
 
-          <div className="mt-6">
+          <div className="mt-6 hidden md:block">
             <Button fullWidth size="xl" disabled={selectedCategoryIds.length === 0} onClick={goToQuestions}>
               Үргэлжлүүлэх
               <ArrowRight size={18} />
             </Button>
           </div>
         </main>
+
+        {selectedCategoryIds.length > 0 ? (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D8E6F6] bg-white/95 px-4 py-3 shadow-[0_-10px_40px_rgba(17,37,68,0.12)] backdrop-blur md:hidden">
+            <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                  Сонголт
+                </p>
+                <p className="truncate text-sm font-bold text-[#1F2937]">
+                  {selectedCategoryIds.length} ангилал · {totalQuestions} асуулт
+                </p>
+              </div>
+              <Button size="lg" onClick={goToQuestions}>
+                Үргэлжлүүлэх
+                <ArrowRight size={16} />
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     )
   }

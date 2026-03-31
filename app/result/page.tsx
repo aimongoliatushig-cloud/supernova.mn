@@ -11,57 +11,45 @@ import {
 } from 'lucide-react'
 import FlowHeader from '@/components/public/FlowHeader'
 import { getResultPageData } from '@/lib/public/data'
+import {
+  getCategoryMatchScore,
+  normalizeCategoryText,
+} from '@/lib/public/category-matching'
 import type { RiskLevel } from '@/lib/admin/types'
 
 type ResultSearchParams = Promise<{
   assessment?: string
 }>
 
+type RecommendationCard =
+  | {
+      id: string
+      kind: 'package'
+      title: string
+      description: string | null
+      price: number
+      oldPrice: number | null
+      badgeText: string | null
+      badgeColor: string
+      extraLabel: string | null
+      score: number
+    }
+  | {
+      id: string
+      kind: 'service'
+      title: string
+      description: string | null
+      price: number
+      oldPrice: null
+      badgeText: string | null
+      badgeColor: string
+      extraLabel: string | null
+      score: number
+      durationMinutes: number
+    }
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('mn-MN').format(value)
-}
-
-const CATEGORY_ALIASES: Record<string, string[]> = {
-  зүрх: ['зүрх', 'кардио'],
-  даралт: ['даралт', 'зүрх', 'дотрын'],
-  ходоод: ['ходоод', 'гэдэс', 'дуран', 'хоол боловсруулах'],
-  элэг: ['элэг', 'хоол боловсруулах', 'дотрын'],
-  бөөр: ['бөөр', 'шээс'],
-  'бамбай булчирхай': ['бамбай', 'даавар'],
-  эмэгтэйчүүд: ['эмэгтэй'],
-  'яс үе': ['яс', 'үе', 'dexa'],
-  'хоол боловсруулах эрхтэн': ['хоол боловсруулах', 'гэдэс', 'дуран'],
-  даавар: ['даавар', 'бамбай'],
-}
-
-function normalizeText(value: string | null | undefined) {
-  return value?.toLowerCase().trim() ?? ''
-}
-
-function getSelectedKeywords(categories: string[]) {
-  const keywords = new Set<string>()
-
-  for (const category of categories) {
-    const normalized = normalizeText(category)
-    if (!normalized) {
-      continue
-    }
-
-    keywords.add(normalized)
-
-    for (const alias of CATEGORY_ALIASES[normalized] ?? []) {
-      keywords.add(alias)
-    }
-  }
-
-  return Array.from(keywords)
-}
-
-function countKeywordMatches(text: string, keywords: string[]) {
-  return keywords.reduce(
-    (score, keyword) => (keyword.length > 0 && text.includes(keyword) ? score + 1 : score),
-    0
-  )
 }
 
 function getRiskContent(level: RiskLevel, entries: Record<string, string>) {
@@ -174,58 +162,126 @@ export default async function ResultPage({
     ])
   )
 
-  const selectedKeywords = getSelectedKeywords(data.assessment.categories_selected)
+  const recommendationCards: RecommendationCard[] = [
+    ...data.packages
+      .map((pkg) => {
+        const searchText = normalizeCategoryText(
+          [
+            pkg.title,
+            pkg.description,
+            pkg.promotion_text,
+            ...(pkg.package_services ?? []).map((relation) => relation.services?.name ?? ''),
+          ].join(' ')
+        )
 
-  const recommendedPackages = data.packages
-    .map((pkg) => {
-      const searchText = normalizeText(
-        [
-          pkg.title,
-          pkg.description,
-          pkg.promotion_text,
-          ...(pkg.package_services ?? []).map((relation) => relation.services?.name ?? ''),
-        ].join(' ')
-      )
+        return {
+          id: pkg.id,
+          kind: 'package' as const,
+          title: pkg.title,
+          description: pkg.description,
+          price: pkg.price,
+          oldPrice: pkg.old_price,
+          badgeText: promotionByPackageId.get(pkg.id)?.badge_text || pkg.badge_text,
+          badgeColor: promotionByPackageId.get(pkg.id)?.badge_color || pkg.badge_color,
+          extraLabel: promotionByPackageId.get(pkg.id)?.free_gift || null,
+          score: getCategoryMatchScore(searchText, data.assessment.categories_selected),
+        }
+      })
+      .filter((item) => item.score > 0),
+    ...data.services
+      .map((service) => {
+        const searchText = normalizeCategoryText(
+          [service.name, service.description, service.categories?.name].join(' ')
+        )
 
-      return {
-        pkg,
-        score: countKeywordMatches(searchText, selectedKeywords),
+        return {
+          id: service.id,
+          kind: 'service' as const,
+          title: service.name,
+          description: service.description,
+          price: service.price,
+          oldPrice: null,
+          badgeText: promotionByServiceId.get(service.id)?.badge_text || null,
+          badgeColor: promotionByServiceId.get(service.id)?.badge_color || '#1E63B5',
+          extraLabel: service.categories?.name ?? null,
+          durationMinutes: service.duration_minutes,
+          score: getCategoryMatchScore(searchText, data.assessment.categories_selected),
+        }
+      })
+      .filter((item) => item.score > 0),
+  ]
+    .sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score
       }
-    })
-    .sort((left, right) => right.score - left.score)
-    .map((item) => item.pkg)
-    .slice(0, 2)
 
-  const recommendedServices = data.services
-    .map((service) => {
-      const searchText = normalizeText(
-        [service.name, service.description, service.categories?.name].join(' ')
-      )
-
-      return {
-        service,
-        score: countKeywordMatches(searchText, selectedKeywords),
+      if (left.kind !== right.kind) {
+        return left.kind === 'package' ? -1 : 1
       }
+
+      return left.title.localeCompare(right.title, 'mn')
     })
-    .sort((left, right) => right.score - left.score)
-    .map((item) => item.service)
-    .slice(0, 3)
+    .slice(0, 5)
 
-  const appointmentLink = `/appointment?lead=${encodeURIComponent(
-    data.assessment.lead_id
-  )}&assessment=${encodeURIComponent(data.assessment.assessment_id)}&name=${encodeURIComponent(
-    data.assessment.full_name
-  )}&phone=${encodeURIComponent(data.assessment.phone)}&email=${encodeURIComponent(
-    data.assessment.email ?? ''
-  )}`
+  const sharedParams = new URLSearchParams({
+    lead: data.assessment.lead_id,
+    assessment: data.assessment.assessment_id,
+    name: data.assessment.full_name,
+    phone: data.assessment.phone,
+    email: data.assessment.email ?? '',
+  })
 
-  const consultationLink = `/consultation?lead=${encodeURIComponent(
-    data.assessment.lead_id
-  )}&assessment=${encodeURIComponent(data.assessment.assessment_id)}&name=${encodeURIComponent(
-    data.assessment.full_name
-  )}&phone=${encodeURIComponent(
-    data.assessment.phone
-  )}&email=${encodeURIComponent(data.assessment.email ?? '')}`
+  if (data.assessment.categories_selected.length > 0) {
+    sharedParams.set('categories', data.assessment.categories_selected.join('|'))
+  }
+
+  const appointmentLink = `/appointment?${sharedParams.toString()}`
+  const consultationLink = `/consultation?${sharedParams.toString()}`
+  const quickActionCards = (
+    <>
+      <section className="rounded-[2rem] bg-[#1E63B5] p-6 text-white shadow-[0_28px_80px_rgba(30,99,181,0.20)]">
+        <div className="flex items-start gap-3">
+          <Calendar size={24} className="mt-1 shrink-0" />
+          <div>
+            <h2 className="text-xl font-black">Эмчийн цаг захиалах</h2>
+            <p className="mt-3 text-sm leading-6 text-blue-100">
+              Эрсдэлийн үнэлгээ CRM дээр хадгалагдсан. Одоо танд тохирох үйлчилгээ, эмчээ
+              сонгоод цагийн хүсэлт илгээнэ.
+            </p>
+          </div>
+        </div>
+        <Link
+          href={appointmentLink}
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-black text-[#1E63B5] transition hover:bg-[#EAF3FF]"
+        >
+          Цаг захиалах
+          <ChevronRight size={16} />
+        </Link>
+      </section>
+
+      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6">
+        <div className="flex items-start gap-3">
+          <Phone size={24} className="mt-1 shrink-0 text-[#1E63B5]" />
+          <div>
+            <span className="inline-flex rounded-full bg-[#FEE9EB] px-3 py-1 text-xs font-bold text-[#F23645]">
+              ҮНЭГҮЙ
+            </span>
+            <h2 className="mt-3 text-xl font-black text-[#1F2937]">15 минутын утасны зөвлөгөө</h2>
+            <p className="mt-3 text-sm leading-6 text-[#6B7280]">
+              Эмчийн урьдчилсан хариуг оффисын баг CRM дээрээс харж, сонгосон хугацаанд тан руу
+              холбогдоно.
+            </p>
+          </div>
+        </div>
+        <Link
+          href={consultationLink}
+          className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#B8D5FB] bg-[#EAF3FF] px-5 py-4 text-sm font-bold text-[#1E63B5] transition hover:bg-[#DCEBFF]"
+        >
+          Үнэгүй зөвлөгөө авах
+        </Link>
+      </section>
+    </>
+  )
 
   return (
     <div className="min-h-screen bg-[#F7FAFF]">
@@ -300,150 +356,93 @@ export default async function ResultPage({
               </div>
             </section>
 
-            {recommendedPackages.length > 0 ? (
-              <section className="space-y-4">
-                <h2 className="text-xl font-black text-[#1F2937]">Санал болгож буй багцууд</h2>
-                {recommendedPackages.map((pkg) => {
-                  const promotion = promotionByPackageId.get(pkg.id)
+            <div className="space-y-4 xl:hidden">{quickActionCards}</div>
 
-                  return (
+            {recommendationCards.length > 0 ? (
+              <section className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-black text-[#1F2937]">Танд тохирох багц, үйлчилгээ</h2>
+                  <p className="mt-2 text-sm leading-6 text-[#6B7280]">
+                    Сонгосон чиглэлтэй холбоотой саналуудаас хамгийн ойрыг нь нэг дор харуулж
+                    байна.
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {recommendationCards.map((item) => (
                     <div
-                      key={pkg.id}
-                      className="rounded-[1.75rem] border border-[#D6E6FA] bg-white p-6 shadow-sm"
+                      key={`${item.kind}-${item.id}`}
+                      className="rounded-[1.75rem] border border-[#D6E6FA] bg-white p-5 shadow-sm"
                     >
                       <div className="flex items-start justify-between gap-4">
-                        <div>
-                          {(promotion?.badge_text || pkg.badge_text) ? (
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span
-                              className="inline-flex rounded-full px-3 py-1 text-xs font-bold text-white"
-                              style={{ backgroundColor: promotion?.badge_color || pkg.badge_color }}
+                              className={[
+                                'inline-flex rounded-full px-3 py-1 text-xs font-bold text-white',
+                                item.kind === 'package' ? 'bg-[#F23645]' : 'bg-[#1E63B5]',
+                              ].join(' ')}
+                              style={
+                                item.badgeText && item.badgeColor
+                                  ? { backgroundColor: item.badgeColor }
+                                  : undefined
+                              }
                             >
-                              {promotion?.badge_text || pkg.badge_text}
+                              {item.badgeText || (item.kind === 'package' ? 'Багц' : 'Үйлчилгээ')}
                             </span>
-                          ) : null}
-                          <h3 className="mt-4 text-xl font-black text-[#1F2937]">{pkg.title}</h3>
-                          {pkg.description ? (
-                            <p className="mt-3 text-sm leading-6 text-[#6B7280]">{pkg.description}</p>
+                            {item.kind === 'service' && item.extraLabel ? (
+                              <span className="rounded-full bg-[#F7FAFF] px-3 py-1 text-[11px] font-semibold text-[#1E63B5]">
+                                {item.extraLabel}
+                              </span>
+                            ) : null}
+                          </div>
+                          <h3 className="mt-4 text-xl font-black text-[#1F2937]">{item.title}</h3>
+                          {item.description ? (
+                            <p className="mt-3 text-sm leading-6 text-[#6B7280]">{item.description}</p>
                           ) : null}
                         </div>
                         <div className="text-right">
-                          {pkg.old_price ? (
+                          {item.oldPrice ? (
                             <p className="text-sm text-[#9CA3AF] line-through">
-                              ₮{formatCurrency(pkg.old_price)}
+                              ₮{formatCurrency(item.oldPrice)}
                             </p>
                           ) : null}
                           <p className="text-2xl font-black text-[#1E63B5]">
-                            ₮{formatCurrency(pkg.price)}
+                            ₮{formatCurrency(item.price)}
                           </p>
                         </div>
                       </div>
-                      {promotion?.free_gift ? (
-                        <div className="mt-4 rounded-2xl bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#F23645]">
-                          Бэлэг: {promotion.free_gift}
-                        </div>
-                      ) : null}
-                    </div>
-                  )
-                })}
-              </section>
-            ) : null}
 
-            {recommendedServices.length > 0 ? (
-              <section className="space-y-4">
-                <h2 className="text-xl font-black text-[#1F2937]">Санал болгож буй үйлчилгээ</h2>
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {recommendedServices.map((service) => {
-                    const promotion = promotionByServiceId.get(service.id)
-
-                    return (
-                      <div
-                        key={service.id}
-                        className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            {service.categories?.name ? (
-                              <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                                {service.categories.name}
-                              </p>
-                            ) : null}
-                            <h3 className="mt-2 text-lg font-black text-[#1F2937]">{service.name}</h3>
-                          </div>
-                          {promotion?.badge_text ? (
-                            <span
-                              className="rounded-full px-3 py-1 text-[11px] font-bold text-white"
-                              style={{ backgroundColor: promotion.badge_color }}
-                            >
-                              {promotion.badge_text}
-                            </span>
-                          ) : null}
-                        </div>
-                        {service.description ? (
-                          <p className="mt-3 text-sm leading-6 text-[#6B7280]">{service.description}</p>
+                      <div className="mt-5 flex items-center justify-between gap-3">
+                        {item.kind === 'service' ? (
+                          <span className="rounded-full bg-[#F7FAFF] px-3 py-1 text-sm font-semibold text-[#1E63B5]">
+                            {item.durationMinutes} минут
+                          </span>
                         ) : null}
-                        <div className="mt-5 flex items-end justify-between">
-                          <div>
-                            <p className="text-xs text-[#9CA3AF]">Үнэ</p>
-                            <p className="text-xl font-black text-[#1E63B5]">
-                              ₮{formatCurrency(service.price)}
-                            </p>
+                        {item.kind === 'package' && item.extraLabel ? (
+                          <div className="rounded-2xl bg-[#FFF5F5] px-4 py-3 text-sm font-semibold text-[#F23645]">
+                            Бэлэг: {item.extraLabel}
                           </div>
-                          {promotion?.free_gift ? (
-                            <Gift size={18} className="text-[#F23645]" />
-                          ) : null}
-                        </div>
+                        ) : null}
+                        {item.kind === 'service' && promotionByServiceId.get(item.id)?.free_gift ? (
+                          <Gift size={18} className="text-[#F23645]" />
+                        ) : null}
                       </div>
-                    )
-                  })}
+                    </div>
+                  ))}
                 </div>
               </section>
             ) : null}
+
+            <section className="rounded-3xl border border-[#E5E7EB] bg-white p-5 xl:hidden">
+              <div className="flex items-start gap-2 text-xs leading-5 text-[#9CA3AF]">
+                <Shield size={14} className="mt-0.5 shrink-0 text-[#1E63B5]" />
+                <span>{privacyText}</span>
+              </div>
+            </section>
           </div>
 
-          <aside className="space-y-6">
-            <section className="rounded-[2rem] bg-[#1E63B5] p-6 text-white shadow-[0_28px_80px_rgba(30,99,181,0.20)]">
-              <div className="flex items-start gap-3">
-                <Calendar size={24} className="mt-1 shrink-0" />
-                <div>
-                  <h2 className="text-xl font-black">Эмчийн цаг захиалах</h2>
-                  <p className="mt-3 text-sm leading-6 text-blue-100">
-                    Эрсдэлийн үнэлгээ CRM дээр хадгалагдсан. Одоо үйлчилгээ, эмчээ сонгоод
-                    цагийн хүсэлт илгээх боломжтой.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href={appointmentLink}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-black text-[#1E63B5] transition hover:bg-[#EAF3FF]"
-              >
-                Цаг захиалах
-                <ChevronRight size={16} />
-              </Link>
-            </section>
-
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6">
-              <div className="flex items-start gap-3">
-                <Phone size={24} className="mt-1 shrink-0 text-[#1E63B5]" />
-                <div>
-                  <span className="inline-flex rounded-full bg-[#FEE9EB] px-3 py-1 text-xs font-bold text-[#F23645]">
-                    ҮНЭГҮЙ
-                  </span>
-                  <h2 className="mt-3 text-xl font-black text-[#1F2937]">
-                    15 минутын утасны зөвлөгөө
-                  </h2>
-                  <p className="mt-3 text-sm leading-6 text-[#6B7280]">
-                    Эмчийн урьдчилсан хариуг оффисын баг CRM дээрээс харж, сонгосон хугацаанд
-                    тан руу холбогдоно.
-                  </p>
-                </div>
-              </div>
-              <Link
-                href={consultationLink}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#B8D5FB] bg-[#EAF3FF] px-5 py-4 text-sm font-bold text-[#1E63B5] transition hover:bg-[#DCEBFF]"
-              >
-                Үнэгүй зөвлөгөө авах
-              </Link>
-            </section>
+          <aside className="hidden space-y-6 xl:sticky xl:top-6 xl:block xl:self-start">
+            {quickActionCards}
 
             <section className="rounded-3xl border border-[#E5E7EB] bg-white p-5">
               <div className="flex items-start gap-2 text-xs leading-5 text-[#9CA3AF]">

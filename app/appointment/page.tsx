@@ -7,6 +7,7 @@ type AppointmentSearchParams = Promise<{
   name?: string
   phone?: string
   email?: string
+  categories?: string
 }>
 
 export default async function AppointmentPage({
@@ -16,6 +17,10 @@ export default async function AppointmentPage({
 }) {
   const data = await getBookingPageData()
   const params = await searchParams
+  const initialSelectedCategories = (params.categories ?? '')
+    .split('|')
+    .map((category) => category.trim())
+    .filter(Boolean)
 
   return (
     <AppointmentFlow
@@ -30,6 +35,7 @@ export default async function AppointmentPage({
       initialName={params.name ?? ''}
       initialPhone={params.phone ?? ''}
       initialEmail={params.email ?? ''}
+      initialSelectedCategories={initialSelectedCategories}
     />
   )
 }

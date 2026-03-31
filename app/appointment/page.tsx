@@ -1,4 +1,5 @@
 import AppointmentFlow from '@/components/public/AppointmentFlow'
+import { getBookingDateOptions } from '@/lib/public/booking-date-options'
 import { getBookingPageData } from '@/lib/public/data'
 
 type AppointmentSearchParams = Promise<{
@@ -17,6 +18,7 @@ export default async function AppointmentPage({
 }) {
   const data = await getBookingPageData()
   const params = await searchParams
+  const dateOptions = getBookingDateOptions()
   const initialSelectedCategories = (params.categories ?? '')
     .split('|')
     .map((category) => category.trim())
@@ -35,6 +37,7 @@ export default async function AppointmentPage({
       initialName={params.name ?? ''}
       initialPhone={params.phone ?? ''}
       initialEmail={params.email ?? ''}
+      dateOptions={dateOptions}
       initialSelectedCategories={initialSelectedCategories}
     />
   )

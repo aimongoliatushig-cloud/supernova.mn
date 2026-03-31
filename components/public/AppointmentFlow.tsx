@@ -15,6 +15,7 @@ import {
 import { submitAppointment } from '@/app/actions/public'
 import FlowHeader from '@/components/public/FlowHeader'
 import Button from '@/components/ui/Button'
+import type { BookingDateOption } from '@/lib/public/booking-date-options'
 import {
   findBestCategoryMatch,
   getCategoryMatchScore,
@@ -25,6 +26,7 @@ interface AppointmentFlowProps {
   doctors: PublicDoctor[]
   services: PublicService[]
   privacyText: string
+  dateOptions: BookingDateOption[]
   initialLeadId?: string | null
   initialAssessmentId?: string | null
   initialName?: string
@@ -42,46 +44,6 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('mn-MN').format(value)
 }
 
-function toDateInputValue(date: Date) {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, '0')
-  const day = `${date.getDate()}`.padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function getDateOptions() {
-  const options: Array<{
-    value: string
-    weekday: string
-    month: string
-    day: string
-    isoLabel: string
-  }> = []
-  const today = new Date()
-
-  for (let index = 1; index <= 14; index += 1) {
-    const nextDate = new Date(today)
-    nextDate.setDate(today.getDate() + index)
-    if (nextDate.getDay() === 0) {
-      continue
-    }
-
-    options.push({
-      value: toDateInputValue(nextDate),
-      weekday: nextDate.toLocaleDateString('mn-MN', { weekday: 'short' }),
-      month: nextDate.toLocaleDateString('mn-MN', { month: 'short' }),
-      day: nextDate.toLocaleDateString('mn-MN', { day: 'numeric' }),
-      isoLabel: nextDate.toLocaleDateString('mn-MN', {
-        month: 'long',
-        day: 'numeric',
-        weekday: 'long',
-      }),
-    })
-  }
-
-  return options
-}
-
 function normalizeCategoryName(name: string | null | undefined) {
   return name?.trim() || 'Бусад'
 }
@@ -90,6 +52,7 @@ export default function AppointmentFlow({
   doctors,
   services,
   privacyText,
+  dateOptions,
   initialLeadId,
   initialAssessmentId,
   initialName = '',
@@ -115,7 +78,6 @@ export default function AppointmentFlow({
   const [success, setSuccess] = useState(false)
   const [pending, startTransition] = useTransition()
 
-  const dateOptions = useMemo(() => getDateOptions(), [])
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(
       new Set(services.map((service) => normalizeCategoryName(service.categories?.name)))
@@ -526,11 +488,11 @@ export default function AppointmentFlow({
 
         {renderSummaryCard('mt-4 xl:hidden')}
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-6">
+        <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+          <div className="min-w-0 space-y-6">
             <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div>
+              <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
                     Алхам 1
                   </p>
@@ -542,14 +504,14 @@ export default function AppointmentFlow({
               </div>
 
               {hasAssessmentFilter ? (
-                <div className="mt-4 rounded-3xl border border-[#D8E6F6] bg-[#F7FAFF] px-4 py-3 text-sm leading-6 text-[#5B6877] break-words">
+                <div className="mt-4 min-w-0 overflow-hidden rounded-3xl border border-[#D8E6F6] bg-[#F7FAFF] px-4 py-3 text-sm leading-6 text-[#5B6877] break-words whitespace-normal">
                   <span className="font-bold text-[#1E63B5]">Таны шалгалтын дагуу:</span>{' '}
                   {initialSelectedCategories.join(', ')} чиглэлтэй холбоотой оношилгоонуудыг
                   шүүж харуулж байна.
                 </div>
               ) : null}
 
-              <div className="mt-4 flex min-w-0 gap-2 overflow-x-auto pb-1">
+              <div className="mt-4 flex min-w-0 max-w-full gap-2 overflow-x-auto pb-1">
                 {categoryTabs.map((category) => (
                   <button
                     key={category}
@@ -632,7 +594,7 @@ export default function AppointmentFlow({
             <section className="min-w-0 overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm md:p-6">
               <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">Алхам 2</p>
               <h2 className="mt-2 text-xl font-black text-[#10233B]">Эмч сонгох</h2>
-              <p className="mt-2 text-sm leading-6 text-[#5B6877]">
+              <p className="mt-2 break-words text-sm leading-6 text-[#5B6877]">
                 {selectedService
                   ? `"${selectedService.name}" үйлчилгээтэй холбогдох эмч нар харагдаж байна.`
                   : 'Эхлээд үйлчилгээ сонгоход тохирох эмч нар энд гарч ирнэ.'}
@@ -657,7 +619,7 @@ export default function AppointmentFlow({
                           : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
                       ].join(' ')}
                     >
-                      <div className="flex items-start gap-3">
+                      <div className="flex min-w-0 flex-col items-start gap-3 sm:flex-row">
                         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-[#D6E6FA]">
                           {doctor.photo_url ? (
                             <Image
@@ -673,11 +635,11 @@ export default function AppointmentFlow({
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#6B7280]">{doctor.title}</p>
-                          <h3 className="mt-1 text-base font-black text-[#1F2937]">
+                          <p className="break-words text-sm font-semibold text-[#6B7280]">{doctor.title}</p>
+                          <h3 className="mt-1 break-words text-base font-black text-[#1F2937]">
                             {doctor.full_name}
                           </h3>
-                          <p className="mt-1 text-sm text-[#5B6877]">{doctor.specialization}</p>
+                          <p className="mt-1 break-words text-sm text-[#5B6877]">{doctor.specialization}</p>
                           <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#6B7280]">
                             <span className="rounded-full bg-white px-3 py-1">
                               {doctor.experience_years}+ жил
@@ -708,14 +670,14 @@ export default function AppointmentFlow({
                   <Calendar size={15} />
                   Ойрын 2 долоо хоногийн хуваарь
                 </div>
-                <div className="mt-3 flex min-w-0 gap-2 overflow-x-auto pb-1">
+                <div className="mt-3 flex min-w-0 max-w-full gap-2 overflow-x-auto pb-1">
                   {dateOptions.map((option) => (
                     <button
                       key={option.value}
                       type="button"
                       onClick={() => setSelectedDate(option.value)}
                       className={[
-                        'min-w-[96px] rounded-3xl border-2 px-3 py-4 text-center transition',
+                        'w-[88px] shrink-0 rounded-3xl border-2 px-2 py-4 text-center transition sm:w-[96px] sm:px-3',
                         selectedDate === option.value
                           ? 'border-[#1E63B5] bg-[#EAF3FF]'
                           : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
@@ -763,7 +725,7 @@ export default function AppointmentFlow({
             {renderContactCard('xl:hidden')}
           </div>
 
-          <aside className="hidden space-y-6 xl:sticky xl:top-6 xl:block xl:self-start">
+          <aside className="hidden min-w-0 space-y-6 xl:sticky xl:top-6 xl:block xl:self-start">
             {renderSummaryCard('')}
             {renderContactCard('')}
           </aside>
@@ -771,7 +733,7 @@ export default function AppointmentFlow({
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#D8E6F6] bg-white/95 px-4 py-3 shadow-[0_-10px_40px_rgba(17,37,68,0.12)] backdrop-blur xl:hidden">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 sm:flex-nowrap">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
               Захиалгын төлөв

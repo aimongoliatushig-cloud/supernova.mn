@@ -32,7 +32,7 @@ export default function RootLayout({
       className={`${notoSans.className} h-full antialiased scroll-smooth`}
       data-scroll-behavior="smooth"
     >
-      <body className="flex min-h-full flex-col bg-white text-[#1F2937]">
+      <body className="flex min-h-full flex-col overflow-x-hidden bg-white text-[#1F2937]">
         {children}
       </body>
     </html>

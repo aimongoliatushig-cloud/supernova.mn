@@ -1,7 +1,14 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Building2, CheckCircle2, Clock3, Sparkles, Users } from 'lucide-react'
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  Sparkles,
+  Users,
+} from 'lucide-react'
 import Button from '@/components/ui/Button'
 import {
   calculateOrganizationQuote,
@@ -45,6 +52,7 @@ export default function OrganizationQuoteCalculator() {
   const [selectedPackageId, setSelectedPackageId] = useState<OrganizationPackageId | null>(null)
   const [headcountOptionId, setHeadcountOptionId] = useState('61-120')
   const [sectorId, setSectorId] = useState<OrganizationSectorId>('office')
+  const [customSectorLabel, setCustomSectorLabel] = useState('')
 
   const selectedHeadcountOption = useMemo(
     () =>
@@ -65,6 +73,11 @@ export default function OrganizationQuoteCalculator() {
     )
   }, [sectorId, selectedHeadcountOption.estimateHeadcount, selectedPackageId])
 
+  const displayedSectorLabel =
+    sectorId === 'custom' && customSectorLabel.trim().length > 0
+      ? customSectorLabel.trim()
+      : quote?.sector.label ?? ''
+
   function handleCalculate(packageId: OrganizationPackageId) {
     setSelectedPackageId(packageId)
     setHeadcountOptionId(defaultHeadcountByPackage[packageId])
@@ -83,16 +96,16 @@ export default function OrganizationQuoteCalculator() {
     <section id="packages" className="bg-[#FBFDFF] py-16 md:py-24">
       <div id="calculator" className="scroll-mt-24" />
       <div className="mx-auto max-w-6xl px-4">
-        <div className="max-w-3xl">
+        <div className="max-w-4xl">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
             Байгууллагын багц үйлчилгээ
           </p>
-          <h1 className="mt-4 text-4xl font-black leading-tight text-[#10233B] md:text-5xl">
-            Байгууллагад тохирсон 3 багц
+          <h1 className="mt-4 text-5xl font-black leading-[0.98] text-[#10233B] md:text-6xl">
+            Байгууллагын багц үйлчилгээ
           </h1>
-          <p className="mt-4 text-base leading-8 text-[#5B6877]">
-            Багцаа эхлээд харьцуулна. Дараа нь &quot;Үнийн тооцоо гаргах&quot; дээр дарж ажилтны
-            тоо, чиглэлээ сонгоод урьдчилсан үнийг шууд бодно.
+          <p className="mt-5 max-w-3xl text-base leading-8 text-[#5B6877]">
+            Багцаа эхлээд харьцуулна. Дараа нь &quot;Үнийн тооцоо гаргах&quot; дээр дарж
+            ажилтны тоо, чиглэлээ сонгоод урьдчилсан үнийг шууд бодно.
           </p>
         </div>
 
@@ -190,7 +203,7 @@ export default function OrganizationQuoteCalculator() {
         {selectedPackageId && quote ? (
           <div
             id="organization-calculator"
-            className="mt-10 grid gap-6 xl:grid-cols-[1.02fr_0.98fr] xl:items-start"
+            className="mt-10 grid gap-6 xl:grid-cols-[1.04fr_0.96fr] xl:items-start"
           >
             <div className="rounded-[2rem] border border-[#D6E6FA] bg-white p-6 shadow-sm md:p-7">
               <div className="flex flex-wrap items-center gap-3">
@@ -207,13 +220,20 @@ export default function OrganizationQuoteCalculator() {
                 Байгууллагын хүний тоо, чиглэлээ сонгоно уу
               </h3>
               <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-                Сонголтоо өөрчлөх бүрт урьдчилсан үнэ автоматаар шинэчлэгдэнэ.
+                Илүү ойлгомжтой байхаар ажилтны тооны сонголтыг бүлэглэж, чиглэл дээр custom
+                сонголт нэмлээ.
               </p>
 
               <div className="mt-7 space-y-7">
                 <div>
-                  <span className="text-sm font-bold text-[#223548]">Ажилтны тоо</span>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-bold text-[#223548]">Ажилтны тоо</span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
+                      {selectedHeadcountOption.label} ажилтан
+                    </span>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
                     {organizationHeadcountOptions.map((option) => {
                       const isActive = headcountOptionId === option.id
 
@@ -223,19 +243,35 @@ export default function OrganizationQuoteCalculator() {
                           type="button"
                           onClick={() => setHeadcountOptionId(option.id)}
                           className={[
-                            'flex min-h-[5.75rem] flex-col justify-between rounded-2xl border px-4 py-4 text-left transition',
+                            'flex min-h-[7.5rem] flex-col justify-between rounded-[1.5rem] border px-4 py-4 text-left transition',
                             isActive
-                              ? 'border-[#1E63B5] bg-[#EAF3FF] text-[#10233B]'
-                              : 'border-[#D6E6FA] bg-[#FBFDFF] text-[#5B6877] hover:border-[#1E63B5]/60',
+                              ? 'border-[#1E63B5] bg-[#EAF3FF] shadow-[0_12px_30px_rgba(30,99,181,0.10)]'
+                              : 'border-[#D6E6FA] bg-[#FBFDFF] hover:border-[#1E63B5]/60 hover:bg-white',
                           ].join(' ')}
                         >
                           <div className="flex items-center gap-2">
-                            <Users size={16} className="shrink-0 text-[#1E63B5]" />
-                            <span className="text-base font-bold">{option.label}</span>
+                            <div
+                              className={[
+                                'flex h-9 w-9 items-center justify-center rounded-full',
+                                isActive ? 'bg-white text-[#1E63B5]' : 'bg-[#EAF3FF] text-[#1E63B5]',
+                              ].join(' ')}
+                            >
+                              <Users size={16} />
+                            </div>
+                            <div>
+                              <p className="text-base font-black text-[#10233B]">{option.label}</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
+                                ажилтан
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
-                            ажилтан
-                          </p>
+
+                          <div>
+                            <p className="text-sm font-bold text-[#10233B]">{option.title}</p>
+                            <p className="mt-1 text-xs leading-5 text-[#5B6877]">
+                              {option.description}
+                            </p>
+                          </div>
                         </button>
                       )
                     })}
@@ -261,7 +297,29 @@ export default function OrganizationQuoteCalculator() {
                       ))}
                     </select>
                   </div>
-                  <p className="mt-2 text-xs leading-6 text-[#6C7C8D]">{quote.sector.description}</p>
+
+                  {sectorId === 'custom' ? (
+                    <div className="mt-3 rounded-[1.5rem] border border-[#D6E6FA] bg-[#F8FBFF] p-4">
+                      <label className="block">
+                        <span className="text-sm font-bold text-[#223548]">
+                          Custom чиглэлээ бичнэ үү
+                        </span>
+                        <input
+                          type="text"
+                          value={customSectorLabel}
+                          onChange={(event) => setCustomSectorLabel(event.target.value)}
+                          placeholder="Жишээ: Уул уурхай, медиа, эрчим хүч..."
+                          className="mt-3 min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-white px-4 py-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5]"
+                        />
+                      </label>
+                      <p className="mt-2 text-xs leading-6 text-[#6C7C8D]">
+                        Энэ нь урьдчилсан тооцоонд ерөнхий коэффициент ашиглана. Дараагийн шатанд
+                        илүү нарийвчилж тохируулна.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs leading-6 text-[#6C7C8D]">{quote.sector.description}</p>
+                  )}
                 </div>
               </div>
 
@@ -271,7 +329,8 @@ export default function OrganizationQuoteCalculator() {
                   Өөр багц харах
                 </Button>
                 <p className="text-sm font-medium text-[#6C7C8D]">
-                  Сонгосон багц: <span className="font-bold text-[#10233B]">{quote.selectedPackage.title}</span>
+                  Сонгосон багц:{' '}
+                  <span className="font-bold text-[#10233B]">{quote.selectedPackage.title}</span>
                 </p>
               </div>
             </div>
@@ -308,7 +367,7 @@ export default function OrganizationQuoteCalculator() {
                 {[
                   ['Сонгосон багц', quote.selectedPackage.title],
                   ['Ажилтны тоо', `${selectedHeadcountOption.label} ажилтан`],
-                  ['Чиглэл', quote.sector.label],
+                  ['Чиглэл', displayedSectorLabel],
                   ['Тайлан', quote.reportWindow],
                 ].map(([label, value]) => (
                   <div

@@ -6,6 +6,7 @@ export type OrganizationSectorId =
   | 'manufacturing'
   | 'construction'
   | 'logistics'
+  | 'custom'
 
 export type OrganizationPackageId = 'core' | 'growth' | 'industry'
 
@@ -33,6 +34,8 @@ export interface OrganizationHeadcountOption {
   label: string
   estimateHeadcount: number
   recommendedPackageId: OrganizationPackageId
+  title: string
+  description: string
 }
 
 export const organizationSectors: OrganizationSector[] = [
@@ -77,6 +80,12 @@ export const organizationSectors: OrganizationSector[] = [
     label: 'Тээвэр, логистик, агуулах',
     description: 'Ээлж, хөдөлгөөн, зүрх судасны ачаалалтай орчин.',
     multiplier: 1.12,
+  },
+  {
+    id: 'custom',
+    label: 'Бусад / Custom',
+    description: 'Танай чиглэл дээр үндэслэн дараагийн шатанд нарийвчилж тооцно.',
+    multiplier: 1.08,
   },
 ]
 
@@ -137,30 +146,40 @@ export const organizationHeadcountOptions: OrganizationHeadcountOption[] = [
     label: '15-30',
     estimateHeadcount: 20,
     recommendedPackageId: 'core',
+    title: 'Жижиг баг',
+    description: 'Анхан шатны зохион байгуулалттай баг',
   },
   {
     id: '31-60',
     label: '31-60',
     estimateHeadcount: 45,
     recommendedPackageId: 'core',
+    title: 'Тогтвортой баг',
+    description: 'Нэг урсгалаар хурдан зохион байгуулах хэмжээ',
   },
   {
     id: '61-120',
     label: '61-120',
     estimateHeadcount: 90,
     recommendedPackageId: 'growth',
+    title: 'Өсөлтийн баг',
+    description: 'Хэсэгчилсэн тайлан, илүү уян зохион байгуулалттай',
   },
   {
     id: '121-250',
     label: '121-250',
     estimateHeadcount: 180,
     recommendedPackageId: 'industry',
+    title: 'Том баг',
+    description: 'Олон урсгал, олон цэгтэй зохион байгуулалтанд тохирно',
   },
   {
     id: '250+',
     label: '250+',
     estimateHeadcount: 300,
     recommendedPackageId: 'industry',
+    title: 'Корпорацийн хэмжээ',
+    description: 'Захиалгат урсгал, тусгай төлөвлөлт шаардлагатай',
   },
 ]
 

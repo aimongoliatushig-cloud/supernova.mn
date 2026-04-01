@@ -12,7 +12,6 @@ import {
 import Button from '@/components/ui/Button'
 import {
   calculateOrganizationQuote,
-  organizationHeadcountOptions,
   organizationPackages,
   organizationSectors,
   type OrganizationPackageId,
@@ -20,13 +19,13 @@ import {
 } from '@/lib/public/organization'
 
 const defaultHeadcountByPackage: Record<OrganizationPackageId, string> = {
-  core: '31-60',
-  growth: '61-120',
-  industry: '121-250',
+  core: '45',
+  growth: '90',
+  industry: '180',
 }
 
 const trustPoints = [
-  '15+ ажилтантай багт тохирно',
+  'Яг ажилтны тоогоор үнэ бодно',
   'On-site зохион байгуулалт боломжтой',
   'Дижитал тайлан, менежментийн дүгнэлттэй',
 ]
@@ -50,28 +49,20 @@ function scrollToCalculator() {
 
 export default function OrganizationQuoteCalculator() {
   const [selectedPackageId, setSelectedPackageId] = useState<OrganizationPackageId | null>(null)
-  const [headcountOptionId, setHeadcountOptionId] = useState('61-120')
+  const [headcountInput, setHeadcountInput] = useState('90')
   const [sectorId, setSectorId] = useState<OrganizationSectorId>('office')
   const [customSectorLabel, setCustomSectorLabel] = useState('')
 
-  const selectedHeadcountOption = useMemo(
-    () =>
-      organizationHeadcountOptions.find((option) => option.id === headcountOptionId) ??
-      organizationHeadcountOptions[2],
-    [headcountOptionId]
-  )
+  const parsedHeadcount = Number.parseInt(headcountInput, 10)
+  const effectiveHeadcount = Number.isNaN(parsedHeadcount) ? 15 : parsedHeadcount
 
   const quote = useMemo(() => {
     if (!selectedPackageId) {
       return null
     }
 
-    return calculateOrganizationQuote(
-      selectedHeadcountOption.estimateHeadcount,
-      sectorId,
-      selectedPackageId
-    )
-  }, [sectorId, selectedHeadcountOption.estimateHeadcount, selectedPackageId])
+    return calculateOrganizationQuote(effectiveHeadcount, sectorId, selectedPackageId)
+  }, [effectiveHeadcount, sectorId, selectedPackageId])
 
   const displayedSectorLabel =
     sectorId === 'custom' && customSectorLabel.trim().length > 0
@@ -80,7 +71,7 @@ export default function OrganizationQuoteCalculator() {
 
   function handleCalculate(packageId: OrganizationPackageId) {
     setSelectedPackageId(packageId)
-    setHeadcountOptionId(defaultHeadcountByPackage[packageId])
+    setHeadcountInput(defaultHeadcountByPackage[packageId])
     requestAnimationFrame(scrollToCalculator)
   }
 
@@ -105,7 +96,7 @@ export default function OrganizationQuoteCalculator() {
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#5B6877]">
             Багцаа эхлээд харьцуулна. Дараа нь &quot;Үнийн тооцоо гаргах&quot; дээр дарж
-            ажилтны тоо, чиглэлээ сонгоод урьдчилсан үнийг шууд бодно.
+            ажилтны тоогоо яг өөрөөр нь оруулаад, чиглэлээ сонгон урьдчилсан үнийг шууд бодно.
           </p>
         </div>
 
@@ -169,7 +160,7 @@ export default function OrganizationQuoteCalculator() {
 
                 <div className="mt-5 min-h-[7.5rem] rounded-[1.5rem] bg-white p-4 ring-1 ring-[#E6EEF8]">
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
-                    Тохиромжтой байгууллага
+                    Илүү тохирох хэрэглээ
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
                 </div>
@@ -220,8 +211,7 @@ export default function OrganizationQuoteCalculator() {
                 Байгууллагын хүний тоо, чиглэлээ сонгоно уу
               </h3>
               <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-                Илүү ойлгомжтой байхаар ажилтны тооны сонголтыг бүлэглэж, чиглэл дээр custom
-                сонголт нэмлээ.
+                Ажилтны тоог яг өөрөөр нь оруулна. Үнийн тооцоо тэр тоон дээр үндэслэнэ.
               </p>
 
               <div className="mt-7 space-y-7">
@@ -229,52 +219,52 @@ export default function OrganizationQuoteCalculator() {
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-bold text-[#223548]">Ажилтны тоо</span>
                     <span className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
-                      {selectedHeadcountOption.label} ажилтан
+                      Яг тоо
                     </span>
                   </div>
 
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-                    {organizationHeadcountOptions.map((option) => {
-                      const isActive = headcountOptionId === option.id
+                  <div className="mt-3 rounded-[1.75rem] border border-[#D6E6FA] bg-[#F8FBFF] p-5">
+                    <div className="flex items-start gap-4">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-[#1E63B5] shadow-sm">
+                        <Users size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-black text-[#10233B]">Яг ажилтны тоогоо оруулна уу</p>
+                        <p className="mt-1 text-sm leading-6 text-[#5B6877]">
+                          Жишээ: 87, 126, 245. Хамгийн багадаа 15 ажилтнаас тооцно.
+                        </p>
+                      </div>
+                    </div>
 
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => setHeadcountOptionId(option.id)}
-                          className={[
-                            'flex min-h-[7.5rem] flex-col justify-between rounded-[1.5rem] border px-4 py-4 text-left transition',
-                            isActive
-                              ? 'border-[#1E63B5] bg-[#EAF3FF] shadow-[0_12px_30px_rgba(30,99,181,0.10)]'
-                              : 'border-[#D6E6FA] bg-[#FBFDFF] hover:border-[#1E63B5]/60 hover:bg-white',
-                          ].join(' ')}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={[
-                                'flex h-9 w-9 items-center justify-center rounded-full',
-                                isActive ? 'bg-white text-[#1E63B5]' : 'bg-[#EAF3FF] text-[#1E63B5]',
-                              ].join(' ')}
-                            >
-                              <Users size={16} />
-                            </div>
-                            <div>
-                              <p className="text-base font-black text-[#10233B]">{option.label}</p>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
-                                ажилтан
-                              </p>
-                            </div>
-                          </div>
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <label className="block flex-1">
+                        <span className="sr-only">Ажилтны яг тоо</span>
+                        <input
+                          type="number"
+                          min={15}
+                          step={1}
+                          inputMode="numeric"
+                          value={headcountInput}
+                          onChange={(event) =>
+                            setHeadcountInput(event.target.value.replace(/[^\d]/g, ''))
+                          }
+                          placeholder="Жишээ: 87"
+                          className="min-h-16 w-full rounded-2xl border border-[#C8DCF5] bg-white px-5 py-4 text-2xl font-black text-[#10233B] outline-none transition focus:border-[#1E63B5]"
+                        />
+                      </label>
+                      <div className="rounded-2xl border border-[#D6E6FA] bg-white px-5 py-4 text-sm font-bold text-[#1E63B5]">
+                        ажилтан
+                      </div>
+                    </div>
 
-                          <div>
-                            <p className="text-sm font-bold text-[#10233B]">{option.title}</p>
-                            <p className="mt-1 text-xs leading-5 text-[#5B6877]">
-                              {option.description}
-                            </p>
-                          </div>
-                        </button>
-                      )
-                    })}
+                    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+                      <span className="rounded-full bg-white px-3 py-1 font-semibold text-[#35506C] ring-1 ring-[#D6E6FA]">
+                        Тооцоонд ашиглах тоо: {quote.headcount}
+                      </span>
+                      <span className="text-[#6C7C8D]">
+                        15-аас бага утга оруулбал автоматаар 15 гэж бодно.
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -366,7 +356,7 @@ export default function OrganizationQuoteCalculator() {
               <div className="mt-6 space-y-3">
                 {[
                   ['Сонгосон багц', quote.selectedPackage.title],
-                  ['Ажилтны тоо', `${selectedHeadcountOption.label} ажилтан`],
+                  ['Ажилтны тоо', `${quote.headcount} ажилтан`],
                   ['Чиглэл', displayedSectorLabel],
                   ['Тайлан', quote.reportWindow],
                 ].map(([label, value]) => (

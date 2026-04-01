@@ -42,10 +42,6 @@ const fallbackHours = [
   },
 ]
 
-function currency(value: number) {
-  return new Intl.NumberFormat('mn-MN').format(value)
-}
-
 function readText(value: string | undefined, fallback: string) {
   return value?.trim() ? value : fallback
 }
@@ -57,6 +53,8 @@ function shorten(value: string | null | undefined, maxLength: number) {
 
   return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value
 }
+
+const publicPriceNote = 'Үнийн мэдээллийг зөвлөгөөн дээр өгнө.'
 
 export default async function HomePage() {
   const data = await getLandingPageData()
@@ -73,7 +71,7 @@ export default async function HomePage() {
     cms.hero_subtitle,
     'СУПЕРНОВА эмнэлгийн дижитал шалгалтаар зовиурын ангиллаа сонгож, эрсдэлийн түвшнээ үнэлээд цаг захиалга эсвэл 15 минутын утасны зөвлөгөөг шууд үргэлжлүүлнэ.'
   )
-  const heroCta = readText(cms.hero_cta_text, 'Эрсдэлийн шалгалт эхлэх')
+  const heroCta = 'Үнэгүй зөвлөгөө авах'
   const aboutTitle = readText(cms.about_title, 'Япон жишиг, Монгол хүний хэрэгцээнд ойр дижитал эмнэлэг')
   const aboutText = readText(
     cms.about_text,
@@ -176,7 +174,7 @@ export default async function HomePage() {
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                   <Link
-                    href="/check"
+                    href="/consultation"
                     className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1E63B5] px-6 py-4 text-sm font-bold text-white shadow-[0_18px_40px_rgba(30,99,181,0.24)] transition hover:bg-[#154D8F]"
                   >
                     <Activity size={17} />
@@ -459,13 +457,13 @@ export default async function HomePage() {
                         </p>
                       </div>
 
-                      <div className="rounded-2xl bg-[#F7FAFF] px-4 py-3 text-left md:text-right">
-                        {pkg.old_price ? (
-                          <p className="text-sm text-[#8B98A5] line-through">
-                            ₮{currency(pkg.old_price)}
-                          </p>
-                        ) : null}
-                        <p className="text-2xl font-black text-[#1E63B5]">₮{currency(pkg.price)}</p>
+                      <div className="rounded-2xl bg-[#F7FAFF] px-4 py-3 text-left md:max-w-[15rem] md:text-right">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B98A5]">
+                          Мэдээлэл
+                        </p>
+                        <p className="mt-2 text-sm font-semibold leading-6 text-[#1E63B5]">
+                          {publicPriceNote}
+                        </p>
                       </div>
                     </div>
 
@@ -513,15 +511,10 @@ export default async function HomePage() {
                       {service.description || 'Шинжилгээний тайлбар админ дээрээс шинэчлэгдэнэ.'}
                     </p>
 
-                    <div className="mt-5 flex items-end justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8B98A5]">
-                          Үнэ
-                        </p>
-                        <p className="mt-1 text-2xl font-black text-[#1E63B5]">
-                          ₮{currency(service.price)}
-                        </p>
-                      </div>
+                    <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                      <p className="max-w-[16rem] text-sm font-semibold leading-6 text-[#5B6877]">
+                        {publicPriceNote}
+                      </p>
                       <Link
                         href="/appointment"
                         className="inline-flex items-center gap-2 rounded-2xl border border-[#BCD4F4] px-4 py-3 text-sm font-bold text-[#1E63B5] transition hover:bg-[#EAF3FF]"
@@ -540,13 +533,13 @@ export default async function HomePage() {
                 </h3>
                 <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[#5B6877]">
                   Админ дээрээс үйлчилгээ, багц, урамшууллын өгөгдөл нэмэгдэх үед энэ хэсэг
-                  автоматаар дүүрнэ. Одоогоор та эрсдэлийн шалгалтаа эхлүүлж болно.
+                  автоматаар дүүрнэ. Одоогоор та үнэгүй зөвлөгөө авч болно.
                 </p>
                 <Link
-                  href="/check"
+                  href="/consultation"
                   className="mt-6 inline-flex items-center justify-center rounded-2xl bg-[#1E63B5] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
                 >
-                  Шалгалт эхлүүлэх
+                  Үнэгүй зөвлөгөө авах
                 </Link>
               </div>
             )}
@@ -613,10 +606,10 @@ export default async function HomePage() {
 
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <Link
-                    href="/check"
+                    href="/consultation"
                     className="inline-flex items-center justify-center rounded-2xl bg-white px-6 py-4 text-sm font-bold text-[#E8323F] transition hover:bg-[#FFF5F6]"
                   >
-                    Шалгалт эхлэх
+                    Үнэгүй зөвлөгөө авах
                   </Link>
                   <Link
                     href="/appointment"
@@ -708,17 +701,17 @@ export default async function HomePage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#1E63B5]">
-                Эрсдэлийн шалгалт
+                Үнэгүй зөвлөгөө
               </p>
               <p className="mt-1 text-xs leading-5 text-[#5B6877]">
-                3-5 минутанд урьдчилсан зөвлөмж аваарай
+                15 минутын утасны зөвлөгөө авч, дараагийн алхмаа тодорхойлоорой
               </p>
             </div>
             <Link
-              href="/check"
+              href="/consultation"
               className="inline-flex shrink-0 items-center justify-center rounded-xl bg-[#1E63B5] px-4 py-3 text-sm font-bold text-white"
             >
-              Эхлэх
+              Авах
             </Link>
           </div>
         </div>

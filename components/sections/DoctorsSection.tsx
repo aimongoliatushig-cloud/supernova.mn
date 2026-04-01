@@ -116,10 +116,10 @@ export default function DoctorsSection({ doctors }: { doctors: PublicDoctor[] })
             </p>
             <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
               <Link
-                href="/check"
+                href="/consultation"
                 className="inline-flex items-center justify-center rounded-2xl bg-[#1E63B5] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
               >
-                Шалгалт эхлэх
+                Үнэгүй зөвлөгөө авах
               </Link>
               <Link
                 href="/appointment"

@@ -40,9 +40,7 @@ const TIME_GROUPS = [
   { label: 'Үдээс хойш', slots: ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30'] },
 ] as const
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('mn-MN').format(value)
-}
+const publicPriceNote = 'Үнийн мэдээллийг зөвлөгөөн дээр өгнө.'
 
 function normalizeCategoryName(name: string | null | undefined) {
   return name?.trim() || 'Бусад'
@@ -213,11 +211,13 @@ export default function AppointmentFlow({
 
         {selectedService ? (
           <div className="mt-5 rounded-3xl bg-white px-4 py-4 text-[#10233B]">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">Үнэ</p>
-            <p className="mt-2 text-3xl font-black text-[#1E63B5]">
-              ₮{formatCurrency(selectedService.price)}
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+              Үйлчилгээний мэдээлэл
             </p>
-            <p className="mt-1 text-sm text-[#5B6877]">
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#1E63B5]">
+              {publicPriceNote}
+            </p>
+            <p className="mt-2 text-sm text-[#5B6877]">
               {selectedService.duration_minutes} минут үргэлжилнэ
             </p>
           </div>
@@ -572,12 +572,9 @@ export default function AppointmentFlow({
                         </p>
                       ) : null}
                       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                          <p className="text-xs text-[#9CA3AF]">Үнэ</p>
-                          <p className="mt-1 text-xl font-black text-[#1E63B5]">
-                            ₮{formatCurrency(service.price)}
-                          </p>
-                        </div>
+                        <p className="max-w-[15rem] text-sm font-semibold leading-6 text-[#5B6877]">
+                          {publicPriceNote}
+                        </p>
                         <div className="sm:text-right">
                           <p className="text-xs text-[#9CA3AF]">Үргэлжлэх хугацаа</p>
                           <p className="mt-1 text-sm font-semibold text-[#1F2937]">

@@ -27,8 +27,6 @@ type RecommendationCard =
       kind: 'package'
       title: string
       description: string | null
-      price: number
-      oldPrice: number | null
       badgeText: string | null
       badgeColor: string
       extraLabel: string | null
@@ -39,8 +37,6 @@ type RecommendationCard =
       kind: 'service'
       title: string
       description: string | null
-      price: number
-      oldPrice: null
       badgeText: string | null
       badgeColor: string
       extraLabel: string | null
@@ -48,9 +44,7 @@ type RecommendationCard =
       durationMinutes: number
     }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('mn-MN').format(value)
-}
+const publicPriceNote = 'Үнийн мэдээллийг зөвлөгөөн дээр өгнө.'
 
 function getRiskContent(level: RiskLevel, entries: Record<string, string>) {
   if (level === 'high') {
@@ -179,8 +173,6 @@ export default async function ResultPage({
           kind: 'package' as const,
           title: pkg.title,
           description: pkg.description,
-          price: pkg.price,
-          oldPrice: pkg.old_price,
           badgeText: promotionByPackageId.get(pkg.id)?.badge_text || pkg.badge_text,
           badgeColor: promotionByPackageId.get(pkg.id)?.badge_color || pkg.badge_color,
           extraLabel: promotionByPackageId.get(pkg.id)?.free_gift || null,
@@ -199,8 +191,6 @@ export default async function ResultPage({
           kind: 'service' as const,
           title: service.name,
           description: service.description,
-          price: service.price,
-          oldPrice: null,
           badgeText: promotionByServiceId.get(service.id)?.badge_text || null,
           badgeColor: promotionByServiceId.get(service.id)?.badge_color || '#1E63B5',
           extraLabel: service.categories?.name ?? null,
@@ -400,14 +390,12 @@ export default async function ResultPage({
                             <p className="mt-3 text-sm leading-6 text-[#6B7280]">{item.description}</p>
                           ) : null}
                         </div>
-                        <div className="text-right">
-                          {item.oldPrice ? (
-                            <p className="text-sm text-[#9CA3AF] line-through">
-                              ₮{formatCurrency(item.oldPrice)}
-                            </p>
-                          ) : null}
-                          <p className="text-2xl font-black text-[#1E63B5]">
-                            ₮{formatCurrency(item.price)}
+                        <div className="rounded-2xl bg-[#F7FAFF] px-4 py-3 text-right">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                            Мэдээлэл
+                          </p>
+                          <p className="mt-2 max-w-[10rem] text-sm font-semibold leading-6 text-[#1E63B5]">
+                            {publicPriceNote}
                           </p>
                         </div>
                       </div>

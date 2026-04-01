@@ -58,52 +58,52 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
             </span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-1 xl:flex">
             {navLinks.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-[#4B5563] transition-colors hover:bg-[#EAF3FF] hover:text-[#1E63B5]"
+                className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-[#4B5563] transition-colors hover:bg-[#EAF3FF] hover:text-[#1E63B5]"
               >
                 {link.label}
               </a>
             ))}
           </nav>
 
-          <div className="hidden items-center gap-2 md:flex">
+          <div className="hidden items-center gap-2 xl:flex">
             <Link
               href="/login"
-              className="flex items-center gap-1.5 rounded-xl border border-[#D8E6F6] bg-[#F8FBFF] px-4 py-2 text-sm font-bold text-[#10233B] transition hover:border-[#1E63B5] hover:text-[#1E63B5]"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#D8E6F6] bg-[#F8FBFF] px-4 py-2 text-sm font-bold text-[#10233B] transition hover:border-[#1E63B5] hover:text-[#1E63B5]"
             >
               <LogIn size={14} />
               Нэвтрэх
             </Link>
             <a
               href={`tel:${resolvedPhone.replaceAll('-', '')}`}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold text-[#1E63B5] transition-colors hover:bg-[#EAF3FF]"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold text-[#1E63B5] transition-colors hover:bg-[#EAF3FF]"
             >
               <Phone size={14} />
               {resolvedPhone}
             </a>
             <Link
               href="/appointment"
-              className="flex items-center gap-1.5 rounded-xl border border-[#1E63B5] px-4 py-2 text-sm font-semibold text-[#1E63B5] transition-colors hover:bg-[#EAF3FF]"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#1E63B5] px-4 py-2 text-sm font-semibold text-[#1E63B5] transition-colors hover:bg-[#EAF3FF]"
             >
               <Calendar size={14} />
               Цаг захиалах
             </Link>
             <Link
-              href="/check"
-              className="flex items-center gap-1.5 rounded-xl bg-[#E8323F] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-[#E8323F]/20 transition-all hover:bg-[#c0272d] active:scale-95"
+              href="/consultation"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-xl bg-[#E8323F] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-[#E8323F]/20 transition-all hover:bg-[#c0272d] active:scale-95"
             >
-              Шинжилгээ эхлэх
+              Үнэгүй зөвлөгөө
             </Link>
           </div>
 
           <button
             type="button"
             onClick={() => setOpen((current) => !current)}
-            className="rounded-lg p-2 text-[#1F2937] transition-colors hover:bg-[#EAF3FF] hover:text-[#1E63B5] md:hidden"
+            className="rounded-lg p-2 text-[#1F2937] transition-colors hover:bg-[#EAF3FF] hover:text-[#1E63B5] xl:hidden"
             aria-label="Цэс"
             aria-expanded={open}
           >
@@ -113,7 +113,7 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
       </div>
 
       {open && (
-        <div className="border-t border-[#E5E7EB] bg-white px-4 py-3 shadow-lg md:hidden">
+        <div className="border-t border-[#E5E7EB] bg-white px-4 py-3 shadow-lg xl:hidden">
           <div className="space-y-0.5">
             {navLinks.map((link) => (
               <a
@@ -152,11 +152,11 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
               Цаг захиалах
             </Link>
             <Link
-              href="/check"
+              href="/consultation"
               onClick={() => setOpen(false)}
               className="flex items-center justify-center rounded-xl bg-[#E8323F] py-3 text-sm font-bold text-white shadow-md shadow-[#E8323F]/20"
             >
-              Шинжилгээ эхлэх
+              Үнэгүй зөвлөгөө
             </Link>
           </div>
         </div>

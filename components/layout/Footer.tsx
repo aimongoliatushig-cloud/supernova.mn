@@ -144,10 +144,10 @@ export default function Footer({
             </div>
 
             <Link
-              href="/check"
+              href="/consultation"
               className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-[#E8323F] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#c0272d]"
             >
-              Эрсдэлийн шалгалт эхлэх
+              Үнэгүй зөвлөгөө авах
             </Link>
           </div>
         </div>

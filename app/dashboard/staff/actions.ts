@@ -3,7 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/admin/auth'
-import type { AdminActionResult, LeadStatus } from '@/lib/admin/types'
+import type { AdminActionResult, LeadStatus, Role } from '@/lib/admin/types'
+
+type StaffViewerRole = Extract<Role, 'office_assistant' | 'operator' | 'super_admin'>
+
+const LEAD_MANAGER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
+const NOTE_WRITER_ROLES: StaffViewerRole[] = ['office_assistant', 'operator', 'super_admin']
+const CONSULTATION_ASSIGNER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
+const CONSULTATION_FOLLOW_UP_ROLES: StaffViewerRole[] = ['operator', 'super_admin']
 
 function ok(message?: string): AdminActionResult {
   return { ok: true, message }
@@ -21,17 +28,35 @@ async function getStaffSupabase() {
   }
 }
 
+function hasViewerRole(role: Role, allowedRoles: StaffViewerRole[]) {
+  return allowedRoles.includes(role as StaffViewerRole)
+}
+
 function revalidateCrmPaths() {
-  for (const path of ['/dashboard/admin/crm', '/dashboard/assistant', '/dashboard/operator', '/dashboard/doctor']) {
+  for (const path of [
+    '/dashboard/admin/crm',
+    '/dashboard/assistant',
+    '/dashboard/operator',
+    '/dashboard/doctor',
+  ]) {
     revalidatePath(path)
   }
+}
+
+function isMissingWorkflowFunction(errorMessage: string, functionName: string) {
+  return errorMessage.includes(functionName) || errorMessage.includes('assigned_doctor_id')
 }
 
 export async function updateLeadStatusForStaff(
   lead_id: string,
   status: LeadStatus
 ): Promise<AdminActionResult> {
-  const { supabase } = await getStaffSupabase()
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, LEAD_MANAGER_ROLES)) {
+    return fail('Оператор lead төлөвийг өөрчилдөггүй. Зөвхөн оффис эсвэл админ засна.')
+  }
+
   const payload = {
     status,
     is_blacklisted: status === 'blacklisted',
@@ -51,7 +76,12 @@ export async function toggleLeadBlacklistForStaff(
   lead_id: string,
   is_blacklisted: boolean
 ): Promise<AdminActionResult> {
-  const { supabase } = await getStaffSupabase()
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, LEAD_MANAGER_ROLES)) {
+    return fail('Оператор blacklist өөрчилдөггүй. Зөвхөн оффис эсвэл админ засна.')
+  }
+
   const { data: currentLead, error: fetchError } = await supabase
     .from('leads')
     .select('status')
@@ -62,12 +92,11 @@ export async function toggleLeadBlacklistForStaff(
     return fail(fetchError.message)
   }
 
-  const nextStatus =
-    is_blacklisted
-      ? 'blacklisted'
-      : currentLead.status === 'blacklisted'
-        ? 'pending'
-        : currentLead.status
+  const nextStatus = is_blacklisted
+    ? 'blacklisted'
+    : currentLead.status === 'blacklisted'
+      ? 'pending'
+      : currentLead.status
 
   const { error } = await supabase
     .from('leads')
@@ -95,6 +124,10 @@ export async function addLeadNoteForStaff(
 
   const { viewer, supabase } = await getStaffSupabase()
 
+  if (!hasViewerRole(viewer.role, NOTE_WRITER_ROLES)) {
+    return fail('Тухайн хэрэглэгч CRM тэмдэглэл хадгалах эрхгүй байна.')
+  }
+
   const { error } = await supabase.from('crm_notes').insert({
     lead_id,
     author_id: viewer.id,
@@ -119,41 +152,54 @@ export async function assignConsultationDoctor(
   doctor_id: string | null
 ): Promise<AdminActionResult> {
   const { viewer, supabase } = await getStaffSupabase()
-  const payload = {
-    assigned_doctor_id: doctor_id,
-    assigned_by: doctor_id ? viewer.id : null,
-    assigned_at: doctor_id ? new Date().toISOString() : null,
-    status: doctor_id ? 'assigned' : 'new',
+
+  if (!hasViewerRole(viewer.role, CONSULTATION_ASSIGNER_ROLES)) {
+    return fail('Оператор consultation-г эмчид оноохгүй. Зөвхөн оффис эсвэл админ онооно.')
   }
 
-  const { error } = await supabase
-    .from('consultation_requests')
-    .update(payload)
-    .eq('id', consultation_id)
+  const { error } = await supabase.rpc('assign_consultation_doctor', {
+    target_consultation_id: consultation_id,
+    next_doctor_id: doctor_id,
+  })
 
   if (error) {
-    if (error.message.includes('assigned_doctor_id')) {
-      return fail('Consultation assignment migration ажиллуулаагүй байна. Supabase SQL migration-аа apply хийнэ үү.')
+    if (isMissingWorkflowFunction(error.message, 'assign_consultation_doctor')) {
+      return fail(
+        'Consultation workflow migration ажиллуулаагүй байна. Supabase SQL migration-аа apply хийнэ үү.'
+      )
     }
 
     return fail(error.message)
   }
 
   revalidateCrmPaths()
-  return ok(doctor_id ? 'Consultation эмчид оноогдлоо.' : 'Consultation оноолт цуцлагдлаа.')
+  return ok(
+    doctor_id ? 'Consultation эмчид оноогдлоо.' : 'Consultation оноолт цуцлагдлаа.'
+  )
 }
 
 export async function updateConsultationStatusForStaff(
   consultation_id: string,
-  status: 'assigned' | 'answered' | 'called' | 'closed'
+  status: 'called' | 'closed'
 ): Promise<AdminActionResult> {
-  const { supabase } = await getStaffSupabase()
-  const { error } = await supabase
-    .from('consultation_requests')
-    .update({ status })
-    .eq('id', consultation_id)
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, CONSULTATION_FOLLOW_UP_ROLES)) {
+    return fail('Consultation follow-up төлөвийг зөвхөн оператор эсвэл админ шинэчилнэ.')
+  }
+
+  const { error } = await supabase.rpc('mark_consultation_followup_status', {
+    target_consultation_id: consultation_id,
+    next_status: status,
+  })
 
   if (error) {
+    if (isMissingWorkflowFunction(error.message, 'mark_consultation_followup_status')) {
+      return fail(
+        'Consultation workflow migration ажиллуулаагүй байна. Supabase SQL migration-аа apply хийнэ үү.'
+      )
+    }
+
     return fail(error.message)
   }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { CheckCircle2, Clock, MessageSquare, Send, ShieldAlert, Stethoscope } from 'lucide-react'
+import { submitDoctorConsultationResponse } from '@/app/dashboard/doctor/actions'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
@@ -219,36 +220,20 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
     const responseText = response.trim()
+    const result = await submitDoctorConsultationResponse(selected.id, responseText)
 
-    const { error: insertError } = await supabase.from('doctor_responses').insert({
-      consultation_id: selected.id,
-      doctor_id: doctorId,
-      response_text: responseText,
-    })
-
-    if (insertError) {
-      setError(insertError.message)
-      setLoading(false)
-      return
-    }
-
-    const { error: updateError } = await supabase
-      .from('consultation_requests')
-      .update({ status: 'answered' })
-      .eq('id', selected.id)
-
-    if (updateError) {
-      setError(updateError.message)
+    if (!result.ok) {
+      setError(result.error)
       setLoading(false)
       return
     }
 
     const newResponse: ConsultationResponse = {
-      doctor_id: doctorId,
-      response_text: responseText,
-      created_at: new Date().toISOString(),
+      id: result.data?.response_id,
+      doctor_id: result.data?.doctor_id ?? doctorId,
+      response_text: result.data?.response_text ?? responseText,
+      created_at: result.data?.created_at ?? new Date().toISOString(),
     }
 
     setConsultations((current) =>
@@ -495,7 +480,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                   </div>
                 ) : null}
 
-                {selected.status === 'new' || selected.status === 'assigned' ? (
+                {selected.status === 'assigned' ? (
                   <div className="mt-5">
                     <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
                       Мэргэжлийн хариулт

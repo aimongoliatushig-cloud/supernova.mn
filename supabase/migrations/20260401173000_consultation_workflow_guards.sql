@@ -1,4 +1,4 @@
--- Consultation workflow guards and stricter CRM access
+-- Tighten consultation workflow transitions and operator permissions
 
 DO $$
 BEGIN

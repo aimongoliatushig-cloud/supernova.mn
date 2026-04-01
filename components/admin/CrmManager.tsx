@@ -198,6 +198,17 @@ export default function CrmManager({
               'Public assessment, appointment, consultation урсгалуудаас ирсэн бүх лидуудыг нэг самбараас хянаж, эмчид оноох, тэмдэглэл оруулах, төлөв шинэчлэх боломжтой.',
           }
 
+  const canAssignConsultations = viewerRole !== 'operator'
+  const canManageLeadStatus = viewerRole !== 'operator'
+  const followUpStatuses =
+    viewerRole === 'operator' || viewerRole === 'super_admin'
+      ? (['called', 'closed'] as const)
+      : []
+  const notePlaceholder =
+    viewerRole === 'operator'
+      ? 'Дуудлагын үр дүн, үйлчлүүлэгчид дамжуулсан зөвлөгөө, дахин холбогдох огноо...'
+      : 'Дуудлагын үр дүн, follow-up, эмчид дамжуулах тайлбар...'
+
   return (
     <div className="space-y-6 p-4 md:p-6 xl:p-8">
       <AdminPageHeader
@@ -454,57 +465,81 @@ export default function CrmManager({
                           ) : null}
 
                           <div className="mt-4 grid gap-3">
-                            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                              <select
-                                defaultValue={consultation.assigned_doctor_id ?? ''}
-                                onChange={(event) =>
-                                  runAction(
-                                    () =>
-                                      assignConsultationDoctor(
-                                        consultation.id,
-                                        event.target.value || null
-                                      ),
-                                    { successMessage: 'Consultation assignment шинэчлэгдлээ.' }
-                                  )
-                                }
-                                className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
-                              >
-                                <option value="">Эмч оноогоогүй</option>
-                                {doctors.map((doctor) => (
-                                  <option key={doctor.id} value={doctor.id}>
-                                    {doctor.full_name} · {doctor.specialization}
-                                  </option>
-                                ))}
-                              </select>
-                              <div className="inline-flex items-center gap-2 rounded-xl bg-[#F7FAFF] px-4 py-3 text-sm font-semibold text-[#1E63B5]">
-                                <UserRoundPlus size={15} />
-                                Эмч оноох
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                              {(['assigned', 'answered', 'called', 'closed'] as const).map((status) => (
-                                <button
-                                  key={status}
-                                  type="button"
+                            {canAssignConsultations ? (
+                              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                                <select
+                                  value={consultation.assigned_doctor_id ?? ''}
                                   disabled={pending}
-                                  onClick={() =>
+                                  onChange={(event) =>
                                     runAction(
-                                      () => updateConsultationStatusForStaff(consultation.id, status),
-                                      { successMessage: 'Consultation төлөв шинэчлэгдлээ.' }
+                                      () =>
+                                        assignConsultationDoctor(
+                                          consultation.id,
+                                          event.target.value || null
+                                        ),
+                                      { successMessage: 'Consultation assignment шинэчлэгдлээ.' }
                                     )
                                   }
-                                  className={[
-                                    'rounded-xl border px-3 py-2 text-xs font-semibold transition',
-                                    consultation.status === status
-                                      ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
-                                      : 'border-[#E5E7EB] bg-white text-[#6B7280]',
-                                  ].join(' ')}
+                                  className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA] disabled:opacity-60"
                                 >
-                                  {consultationLabels[status]}
-                                </button>
-                              ))}
-                            </div>
+                                  <option value="">Эмч оноогоогүй</option>
+                                  {doctors.map((doctor) => (
+                                    <option key={doctor.id} value={doctor.id}>
+                                      {doctor.full_name} · {doctor.specialization}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="inline-flex items-center gap-2 rounded-xl bg-[#F7FAFF] px-4 py-3 text-sm font-semibold text-[#1E63B5]">
+                                  <UserRoundPlus size={15} />
+                                  Эмч оноох
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-2xl bg-[#F7FAFF] p-3 text-sm text-[#1F2937]">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                  Оноосон эмч
+                                </p>
+                                <p className="mt-2 font-semibold">
+                                  {consultation.doctors?.full_name ?? 'Одоогоор эмч оноогоогүй'}
+                                </p>
+                              </div>
+                            )}
+
+                            {followUpStatuses.length > 0 ? (
+                              <div className="space-y-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                  Follow-up төлөв
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {followUpStatuses.map((status) => (
+                                    <button
+                                      key={status}
+                                      type="button"
+                                      disabled={pending || (consultation.doctor_responses?.length ?? 0) === 0}
+                                      onClick={() =>
+                                        runAction(
+                                          () => updateConsultationStatusForStaff(consultation.id, status),
+                                          { successMessage: 'Consultation төлөв шинэчлэгдлээ.' }
+                                        )
+                                      }
+                                      className={[
+                                        'rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
+                                        consultation.status === status
+                                          ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
+                                          : 'border-[#E5E7EB] bg-white text-[#6B7280]',
+                                      ].join(' ')}
+                                    >
+                                      {consultationLabels[status]}
+                                    </button>
+                                  ))}
+                                </div>
+                                {(consultation.doctor_responses?.length ?? 0) === 0 ? (
+                                  <p className="text-xs text-[#9CA3AF]">
+                                    Эмчийн хариу ирсний дараа оператор дуудлагын follow-up хийнэ.
+                                  </p>
+                                ) : null}
+                              </div>
+                            ) : null}
 
                             {consultation.doctor_responses?.length ? (
                               <div className="space-y-2 rounded-2xl border border-[#CDEDD8] bg-[#F5FCF8] p-3">
@@ -533,69 +568,73 @@ export default function CrmManager({
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-[#1F2937]">Lead төлөв шинэчлэх</p>
-                <div className="flex flex-wrap gap-2">
-                  {(Object.keys(leadLabels) as LeadStatus[]).map((status) => (
-                    <button
-                      type="button"
-                      key={status}
-                      disabled={pending}
-                      onClick={() =>
-                        runAction(() => updateLeadStatusForStaff(selectedLead.id, status), {
-                          successMessage: 'Lead төлөв шинэчлэгдлээ.',
-                        })
-                      }
-                      className={[
-                        'rounded-xl border px-3 py-2 text-sm font-semibold transition',
-                        selectedLead.status === status
-                          ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
-                          : 'border-[#E5E7EB] bg-white text-[#6B7280]',
-                      ].join(' ')}
-                    >
-                      {leadLabels[status]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-[#FDE3C3] bg-[#FFFBF4] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-[#92400E]">Blacklist хяналт</p>
-                    <p className="mt-1 text-sm text-[#B45309]">
-                      Буруу холбоо, спам эсвэл давтан шаардлагагүй lead-ийг blacklist болгож болно.
-                    </p>
+              {canManageLeadStatus ? (
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <p className="text-sm font-semibold text-[#1F2937]">Lead төлөв шинэчлэх</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(Object.keys(leadLabels) as LeadStatus[]).map((status) => (
+                        <button
+                          type="button"
+                          key={status}
+                          disabled={pending}
+                          onClick={() =>
+                            runAction(() => updateLeadStatusForStaff(selectedLead.id, status), {
+                              successMessage: 'Lead төлөв шинэчлэгдлээ.',
+                            })
+                          }
+                          className={[
+                            'rounded-xl border px-3 py-2 text-sm font-semibold transition',
+                            selectedLead.status === status
+                              ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
+                              : 'border-[#E5E7EB] bg-white text-[#6B7280]',
+                          ].join(' ')}
+                        >
+                          {leadLabels[status]}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() =>
-                      runAction(
-                        () =>
-                          toggleLeadBlacklistForStaff(
-                            selectedLead.id,
-                            !selectedLead.is_blacklisted
-                          ),
-                        {
-                          successMessage: selectedLead.is_blacklisted
-                            ? 'Lead blacklist-ээс гарлаа.'
-                            : 'Lead blacklist боллоо.',
+
+                  <div className="rounded-3xl border border-[#FDE3C3] bg-[#FFFBF4] p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-[#92400E]">Blacklist хяналт</p>
+                        <p className="mt-1 text-sm text-[#B45309]">
+                          Буруу холбоо, спам эсвэл давтан шаардлагагүй lead-ийг blacklist болгож болно.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() =>
+                          runAction(
+                            () =>
+                              toggleLeadBlacklistForStaff(
+                                selectedLead.id,
+                                !selectedLead.is_blacklisted
+                              ),
+                            {
+                              successMessage: selectedLead.is_blacklisted
+                                ? 'Lead blacklist-ээс гарлаа.'
+                                : 'Lead blacklist боллоо.',
+                            }
+                          )
                         }
-                      )
-                    }
-                    className={[
-                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition',
-                      selectedLead.is_blacklisted
-                        ? 'border border-[#E5E7EB] bg-white text-[#1F2937]'
-                        : 'bg-[#F23645] text-white',
-                    ].join(' ')}
-                  >
-                    <ShieldAlert size={14} />
-                    {selectedLead.is_blacklisted ? 'Blacklist-ээс гаргах' : 'Blacklist болгох'}
-                  </button>
+                        className={[
+                          'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition',
+                          selectedLead.is_blacklisted
+                            ? 'border border-[#E5E7EB] bg-white text-[#1F2937]'
+                            : 'bg-[#F23645] text-white',
+                        ].join(' ')}
+                      >
+                        <ShieldAlert size={14} />
+                        {selectedLead.is_blacklisted ? 'Blacklist-ээс гаргах' : 'Blacklist болгох'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
@@ -625,7 +664,7 @@ export default function CrmManager({
                     rows={4}
                     value={noteText}
                     onChange={(event) => setNoteText(event.target.value)}
-                    placeholder="Дуудлагын үр дүн, follow-up, эмчид дамжуулах тайлбар..."
+                    placeholder={notePlaceholder}
                   />
                 </AdminField>
 

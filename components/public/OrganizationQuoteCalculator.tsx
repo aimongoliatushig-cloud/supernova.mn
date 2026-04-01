@@ -1,15 +1,7 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
-import {
-  ArrowLeft,
-  Building2,
-  CheckCircle2,
-  Clock3,
-  ShieldCheck,
-  Users,
-} from 'lucide-react'
-import { submitOrganizationQuoteRequest } from '@/app/actions/public'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, Building2, CheckCircle2, Clock3, Users } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import {
   calculateOrganizationQuote,
@@ -27,23 +19,23 @@ const defaultHeadcountByPackage: Record<OrganizationPackageId, string> = {
 }
 
 const trustPoints = [
-  'Ажлын цагаар эргэн холбогдоно',
-  'Нууцлал хамгаална',
-  'Тохируулсан санал бэлдэнэ',
+  '15+ ажилтантай багт тохирно',
+  'On-site зохион байгуулалт боломжтой',
+  'Дижитал тайлан, менежментийн дүгнэлттэй',
 ]
 
 const nextSteps = [
-  'Манай баг ажлын цагаар тантай холбогдоно.',
-  'Эцсийн багц, хуваарь, on-site зохион байгуулалтыг баталгаажуулна.',
-  'Менежментийн тайлан, хэрэгжилтийн төлөвлөгөөг санал болгоно.',
+  'Хүний тоо, чиглэл өөрчлөгдөх бүрт үнэ автоматаар шинэчлэгдэнэ.',
+  'Тохирох багцыг хурдан харьцуулж шийднэ.',
+  'Шаардлагатай бол дараагийн алхмаар манай багтай холбогдож болно.',
 ]
 
 function currency(value: number) {
   return new Intl.NumberFormat('mn-MN').format(value)
 }
 
-function scrollToRequestForm() {
-  document.getElementById('organization-request')?.scrollIntoView({
+function scrollToCalculator() {
+  document.getElementById('organization-calculator')?.scrollIntoView({
     behavior: 'smooth',
     block: 'start',
   })
@@ -53,13 +45,6 @@ export default function OrganizationQuoteCalculator() {
   const [selectedPackageId, setSelectedPackageId] = useState<OrganizationPackageId | null>(null)
   const [headcountOptionId, setHeadcountOptionId] = useState('61-120')
   const [sectorId, setSectorId] = useState<OrganizationSectorId>('office')
-  const [organizationName, setOrganizationName] = useState('')
-  const [contactName, setContactName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [formError, setFormError] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
-  const [isPending, startSubmitTransition] = useTransition()
 
   const selectedHeadcountOption = useMemo(
     () =>
@@ -80,67 +65,17 @@ export default function OrganizationQuoteCalculator() {
     )
   }, [sectorId, selectedHeadcountOption.estimateHeadcount, selectedPackageId])
 
-  function handleSelectPackage(packageId: OrganizationPackageId) {
+  function handleCalculate(packageId: OrganizationPackageId) {
     setSelectedPackageId(packageId)
-    setSubmitted(false)
-    setFormError(null)
-
-    if (!selectedPackageId) {
-      setHeadcountOptionId(defaultHeadcountByPackage[packageId])
-    }
-
-    requestAnimationFrame(scrollToRequestForm)
+    setHeadcountOptionId(defaultHeadcountByPackage[packageId])
+    requestAnimationFrame(scrollToCalculator)
   }
 
   function handleBack() {
-    setSubmitted(false)
-    setFormError(null)
     setSelectedPackageId(null)
     document.getElementById('packages')?.scrollIntoView({
       behavior: 'smooth',
       block: 'start',
-    })
-  }
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
-    if (!selectedPackageId || !quote) {
-      setFormError('Эхлээд багцаа сонгоно уу.')
-      return
-    }
-
-    if (!organizationName.trim() || !contactName.trim() || !phone.trim()) {
-      setFormError('Байгууллагын нэр, холбоо барих хүний нэр, утсаа бөглөнө үү.')
-      return
-    }
-
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setFormError('И-мэйл хаягаа зөв оруулна уу.')
-      return
-    }
-
-    setFormError(null)
-
-    startSubmitTransition(async () => {
-      const result = await submitOrganizationQuoteRequest({
-        organization_name: organizationName,
-        contact_name: contactName,
-        phone,
-        email,
-        employee_count: selectedHeadcountOption.estimateHeadcount,
-        employee_band_label: selectedHeadcountOption.label,
-        sector_id: sectorId,
-        package_id: selectedPackageId,
-      })
-
-      if (!result.ok) {
-        setFormError(result.error)
-        return
-      }
-
-      setSubmitted(true)
-      scrollToRequestForm()
     })
   }
 
@@ -150,14 +85,14 @@ export default function OrganizationQuoteCalculator() {
       <div className="mx-auto max-w-6xl px-4">
         <div className="max-w-3xl">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
-            Байгууллагын санал
+            Байгууллагын багц үйлчилгээ
           </p>
-          <h2 className="mt-4 text-3xl font-black text-[#10233B] md:text-4xl">
-            Танай байгууллагад тохирох багцаа сонгоно уу
-          </h2>
+          <h1 className="mt-4 text-4xl font-black leading-tight text-[#10233B] md:text-5xl">
+            Байгууллагад тохирсон 3 багц
+          </h1>
           <p className="mt-4 text-base leading-8 text-[#5B6877]">
-            Эхлээд багцаа сонгоод, дараа нь байгууллагын мэдээллээ үлдээнэ үү. Манай баг
-            ажлын цагаар эргэн холбогдож эцсийн санал, хуваарь, зохион байгуулалтыг баталгаажуулна.
+            Эхлээд багцаа харна. Дараа нь `Үнийн тооцоо гаргах` дээр дарж ажилтны тоо,
+            чиглэлээ сонгоод урьдчилсан үнийг шууд бодно.
           </p>
         </div>
 
@@ -175,14 +110,14 @@ export default function OrganizationQuoteCalculator() {
 
         <div className="mt-8 grid gap-4 lg:grid-cols-3">
           {organizationPackages.map((pkg) => {
-            const isSelected = selectedPackageId === pkg.id
+            const isActive = selectedPackageId === pkg.id
 
             return (
               <article
                 key={pkg.id}
                 className={[
                   'flex h-full flex-col rounded-[2rem] border p-6 shadow-sm transition',
-                  isSelected
+                  isActive
                     ? 'border-[#1E63B5] bg-[#F7FAFF] shadow-[0_24px_60px_rgba(30,99,181,0.14)]'
                     : 'border-[#D6E6FA] bg-white hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(18,55,102,0.08)]',
                 ].join(' ')}
@@ -196,7 +131,7 @@ export default function OrganizationQuoteCalculator() {
                   </span>
                 </div>
 
-                <h3 className="mt-5 text-2xl font-black text-[#10233B]">{pkg.title}</h3>
+                <h2 className="mt-5 text-2xl font-black text-[#10233B]">{pkg.title}</h2>
                 <p className="mt-3 text-sm leading-7 text-[#5B6877]">{pkg.description}</p>
 
                 <ul className="mt-5 space-y-3">
@@ -215,7 +150,7 @@ export default function OrganizationQuoteCalculator() {
                   <p className="mt-2 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
                 </div>
 
-                <div className="mt-6 flex items-center justify-between gap-4">
+                <div className="mt-6 flex items-end justify-between gap-4">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8B98A5]">
                       {pkg.pricingMode === 'custom' ? 'Захиалгат үнэ' : 'Эхлэх үнэ'}
@@ -225,12 +160,12 @@ export default function OrganizationQuoteCalculator() {
 
                   <Button
                     type="button"
-                    variant={isSelected ? 'primary' : 'outline'}
+                    variant={isActive ? 'primary' : 'outline'}
                     size="lg"
-                    className="min-w-[132px]"
-                    onClick={() => handleSelectPackage(pkg.id)}
+                    className="min-w-[170px]"
+                    onClick={() => handleCalculate(pkg.id)}
                   >
-                    {isSelected ? 'Сонгосон' : 'Сонгох'}
+                    Үнийн тооцоо гаргах
                   </Button>
                 </div>
               </article>
@@ -238,19 +173,16 @@ export default function OrganizationQuoteCalculator() {
           })}
         </div>
 
-        {selectedPackageId && quote && !submitted ? (
+        {selectedPackageId && quote ? (
           <div
-            id="organization-request"
-            className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr] xl:items-start"
+            id="organization-calculator"
+            className="mt-8 grid gap-6 xl:grid-cols-[1.02fr_0.98fr] xl:items-start"
           >
-            <form
-              onSubmit={handleSubmit}
-              className="rounded-[2rem] border border-[#D6E6FA] bg-white p-6 shadow-sm md:p-7"
-            >
+            <div className="rounded-[2rem] border border-[#D6E6FA] bg-white p-6 shadow-sm md:p-7">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-2 rounded-full bg-[#EAF3FF] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-[#1E63B5]">
                   <Building2 size={14} />
-                  2-р алхам
+                  Үнийн тооцоолол
                 </span>
                 <span className="rounded-full border border-[#D6E6FA] px-3 py-1 text-sm font-semibold text-[#223548]">
                   {quote.selectedPackage.title}
@@ -258,59 +190,14 @@ export default function OrganizationQuoteCalculator() {
               </div>
 
               <h3 className="mt-5 text-3xl font-black leading-tight text-[#10233B]">
-                Байгууллагын мэдээллээ оруулна уу
+                Байгууллагын хүний тоо, чиглэлээ сонгоно уу
               </h3>
               <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-                2 минут хүрэхгүй. Бид мэдээллийг зөвхөн санал боловсруулахад ашиглана.
+                Сонголтоо өөрчлөх бүрт урьдчилсан үнэ автоматаар бодогдоно.
               </p>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-sm font-bold text-[#223548]">Байгууллагын нэр</span>
-                  <input
-                    type="text"
-                    value={organizationName}
-                    onChange={(event) => setOrganizationName(event.target.value)}
-                    placeholder="Жишээ: Supernova LLC"
-                    className="mt-2 min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] px-4 py-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-bold text-[#223548]">Холбогдох хүний нэр</span>
-                  <input
-                    type="text"
-                    value={contactName}
-                    onChange={(event) => setContactName(event.target.value)}
-                    placeholder="Нэрээ оруулна уу"
-                    className="mt-2 min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] px-4 py-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-bold text-[#223548]">Утасны дугаар</span>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="9911 2233"
-                    className="mt-2 min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] px-4 py-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-sm font-bold text-[#223548]">И-мэйл</span>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="name@company.mn"
-                    className="mt-2 min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] px-4 py-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
-                  />
-                </label>
-
-                <div className="md:col-span-2">
+              <div className="mt-6 space-y-6">
+                <div>
                   <span className="text-sm font-bold text-[#223548]">Ажилтны тоо</span>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     {organizationHeadcountOptions.map((option) => {
@@ -341,8 +228,8 @@ export default function OrganizationQuoteCalculator() {
                   </div>
                 </div>
 
-                <label className="block md:col-span-2">
-                  <span className="text-sm font-bold text-[#223548]">Салбар</span>
+                <div>
+                  <span className="text-sm font-bold text-[#223548]">Чиглэл</span>
                   <div className="mt-2 relative">
                     <Building2
                       size={18}
@@ -361,39 +248,16 @@ export default function OrganizationQuoteCalculator() {
                     </select>
                   </div>
                   <p className="mt-2 text-xs leading-6 text-[#6C7C8D]">{quote.sector.description}</p>
-                </label>
-              </div>
-
-              {formError ? (
-                <div className="mt-5 rounded-2xl border border-[#F8C7CD] bg-[#FFF5F6] px-4 py-3 text-sm font-semibold text-[#C0272D]">
-                  {formError}
-                </div>
-              ) : null}
-
-              <div className="sticky bottom-3 mt-6 rounded-[1.5rem] border border-[#D6E6FA] bg-white/95 p-3 shadow-[0_-16px_40px_rgba(18,55,102,0.08)] backdrop-blur md:static md:mt-8 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="lg"
-                    className="min-h-14 sm:w-auto"
-                    onClick={handleBack}
-                  >
-                    <ArrowLeft size={16} />
-                    Буцах
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="lg"
-                    fullWidth
-                    loading={isPending}
-                    className="min-h-14"
-                  >
-                    Хүсэлт илгээх
-                  </Button>
                 </div>
               </div>
-            </form>
+
+              <div className="mt-8">
+                <Button type="button" variant="secondary" size="lg" onClick={handleBack}>
+                  <ArrowLeft size={16} />
+                  Буцах
+                </Button>
+              </div>
+            </div>
 
             <aside className="rounded-[2rem] bg-[#10233B] p-6 text-white shadow-[0_24px_80px_rgba(16,35,59,0.18)] md:p-7 xl:sticky xl:top-24">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-200">
@@ -408,9 +272,7 @@ export default function OrganizationQuoteCalculator() {
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
                   Тооцоолсон үнэ
                 </p>
-                <p className="mt-3 text-3xl font-black text-white">
-                  {currency(quote.totalPrice)}₮
-                </p>
+                <p className="mt-3 text-3xl font-black text-white">{currency(quote.totalPrice)}₮</p>
                 <p className="mt-2 text-sm text-slate-300">
                   Нэг ажилтанд {currency(quote.perEmployeePrice)}₮
                 </p>
@@ -418,9 +280,9 @@ export default function OrganizationQuoteCalculator() {
 
               <div className="mt-6 space-y-3">
                 {[
+                  ['Сонгосон багц', quote.selectedPackage.title],
                   ['Ажилтны тоо', `${selectedHeadcountOption.label} ажилтан`],
-                  ['Салбар', quote.sector.label],
-                  ['Тохирох хэмжээ', quote.selectedPackage.headcountLabel],
+                  ['Чиглэл', quote.sector.label],
                   ['Тайлан', quote.reportWindow],
                 ].map(([label, value]) => (
                   <div
@@ -436,13 +298,13 @@ export default function OrganizationQuoteCalculator() {
               {quote.recommendedPackage.id !== quote.selectedPackage.id ? (
                 <div className="mt-6 rounded-[1.5rem] border border-[#2A4668] bg-[#0B1A2E] p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
-                    Системийн зөвлөмж
+                    Зөвлөмж
                   </p>
                   <p className="mt-2 text-lg font-black text-white">
                     {quote.recommendedPackage.title}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Ажилтны тоо болон салбарын эрсдэлийг харгалзаад энэ багц илүү тохиромжтой байж
+                    Хүний тоо болон чиглэлээс шалтгаалаад энэ багц илүү тохиромжтой байж
                     магадгүй.
                   </p>
                 </div>
@@ -459,30 +321,7 @@ export default function OrganizationQuoteCalculator() {
                   ))}
                 </div>
               </div>
-
-              <div className="mt-5 flex items-start gap-3 rounded-[1.25rem] border border-white/10 bg-white/6 px-4 py-3">
-                <ShieldCheck size={18} className="mt-0.5 shrink-0 text-blue-200" />
-                <p className="text-sm leading-6 text-slate-300">
-                  Мэдээллийг зөвхөн санал боловсруулах болон холбоо барих зорилгоор ашиглана.
-                </p>
-              </div>
             </aside>
-          </div>
-        ) : null}
-
-        {selectedPackageId && submitted ? (
-          <div id="organization-request" className="mt-8 rounded-[2rem] border border-[#CDEDD8] bg-white p-8 shadow-sm">
-            <div className="mx-auto max-w-3xl text-center">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#EAF8EF] text-[#15803D]">
-                <CheckCircle2 size={30} />
-              </div>
-              <h3 className="mt-6 text-3xl font-black text-[#10233B]">
-                Баярлалаа. Танай байгууллагын мэдээллийг хүлээн авлаа.
-              </h3>
-              <p className="mt-4 text-base leading-8 text-[#5B6877]">
-                Манай баг тантай ажлын цагаар эргэн холбогдоно.
-              </p>
-            </div>
           </div>
         ) : null}
       </div>

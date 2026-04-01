@@ -67,6 +67,17 @@ function normalizeEmail(value: string | null | undefined) {
   return normalized ? normalized.toLowerCase() : null
 }
 
+function formatStaffAccountError(message: string, role: string) {
+  if (
+    role === 'organization_consultant' &&
+    message.includes('invalid input value for enum user_role')
+  ) {
+    return 'Supabase DB дээр organization_consultant role хараахан нэмэгдээгүй байна. supabase/migrations/20260401190000_add_organization_consultant_role.sql migration-ийг apply хийгээд дахин оролдоно уу.'
+  }
+
+  return message
+}
+
 function revalidateAdminAndPublic(extraPaths: string[] = []) {
   for (const path of [...ADMIN_PATHS, ...PUBLIC_PATHS, ...extraPaths]) {
     revalidatePath(path)
@@ -454,6 +465,7 @@ export async function saveStaffAccount(input: {
 
   const serviceRole = createServiceRoleClient()
   let userId = trimToNull(input.id)
+  let createdAuthUserId: string | null = null
 
   if (!userId) {
     const { user, error } = await findAuthUserByEmail(email)
@@ -484,6 +496,7 @@ export async function saveStaffAccount(input: {
     }
 
     userId = data.user.id
+    createdAuthUserId = data.user.id
   } else {
     const updatePayload = trimToNull(input.password)
       ? { ...authPayload, password: input.password.trim() }
@@ -507,7 +520,11 @@ export async function saveStaffAccount(input: {
   )
 
   if (profileError) {
-    return fail(profileError.message)
+    if (createdAuthUserId) {
+      await serviceRole.auth.admin.deleteUser(createdAuthUserId, true)
+    }
+
+    return fail(formatStaffAccountError(profileError.message, input.role))
   }
 
   revalidateAdminAndPublic(['/dashboard/admin/accounts'])

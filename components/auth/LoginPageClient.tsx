@@ -67,6 +67,7 @@ function LoginContent() {
     const redirectMap: Record<string, string> = {
       office_assistant: '/dashboard/assistant',
       operator: '/dashboard/operator',
+      organization_consultant: '/dashboard/consultant',
       doctor: '/dashboard/doctor',
       super_admin: '/dashboard/admin',
       patient: '/',

@@ -18,7 +18,7 @@ type StaffAccount = {
   id: string
   email: string
   full_name: string | null
-  role: 'office_assistant' | 'operator' | 'super_admin'
+  role: 'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
   created_at: string
 }
 
@@ -26,14 +26,14 @@ type StaffAccountInput = {
   id?: string
   full_name: string
   email: string
-  role: 'office_assistant' | 'operator' | 'super_admin'
+  role: 'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
   password: string
 }
 
 const blankForm: StaffAccountInput = {
   full_name: '',
   email: '',
-  role: 'operator',
+  role: 'organization_consultant',
   password: '',
 }
 
@@ -152,12 +152,17 @@ export default function StaffAccountsManager({
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    role: event.target.value as 'office_assistant' | 'operator' | 'super_admin',
+                    role: event.target.value as
+                      | 'office_assistant'
+                      | 'operator'
+                      | 'organization_consultant'
+                      | 'super_admin',
                   }))
                 }
               >
                 <option value="operator">Оператор</option>
                 <option value="office_assistant">Оффисын ажилтан</option>
+                <option value="organization_consultant">Байгууллагын зөвлөх</option>
                 <option value="super_admin">Super admin</option>
               </AdminSelect>
             </AdminField>
@@ -273,6 +278,8 @@ export default function StaffAccountsManager({
                             'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
                             account.role === 'super_admin'
                               ? 'bg-[#FFF1F2] text-[#F23645]'
+                              : account.role === 'organization_consultant'
+                                ? 'bg-[#ECFDF3] text-[#15803D]'
                               : account.role === 'operator'
                                 ? 'bg-[#EEF2FF] text-[#4338CA]'
                                 : 'bg-[#EAF3FF] text-[#1E63B5]',

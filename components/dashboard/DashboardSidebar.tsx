@@ -16,7 +16,12 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Role = 'office_assistant' | 'operator' | 'doctor' | 'super_admin'
+type Role =
+  | 'office_assistant'
+  | 'operator'
+  | 'organization_consultant'
+  | 'doctor'
+  | 'super_admin'
 
 const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNode }[]> = {
   office_assistant: [
@@ -26,6 +31,10 @@ const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNo
   operator: [
     { href: '/dashboard/operator', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
     { href: '/dashboard/operator', label: 'Лидүүд ба CRM', icon: <Users size={18} /> },
+  ],
+  organization_consultant: [
+    { href: '/dashboard/consultant', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
+    { href: '/dashboard/consultant', label: 'Байгууллагын хүсэлтүүд', icon: <Users size={18} /> },
   ],
   doctor: [
     { href: '/dashboard/doctor', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
@@ -46,6 +55,7 @@ const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNo
 const roleLabels: Record<Role, string> = {
   office_assistant: 'Оффисын туслах',
   operator: 'Оператор',
+  organization_consultant: 'Байгууллагын зөвлөх',
   doctor: 'Эмч',
   super_admin: 'Супер админ',
 }
@@ -70,7 +80,7 @@ export default function DashboardSidebar({ role, user }: SidebarProps) {
     <aside className="hidden min-h-screen w-64 shrink-0 flex-col border-r border-[#E5E7EB] bg-white lg:flex">
       <div className="border-b border-[#E5E7EB] px-5 py-5">
         <div className="text-base font-black">
-          <span className="text-[#F23645]">СУПЕР</span>
+          <span className="text-[#F23645]">СҮПЕР</span>
           <span className="text-[#1E63B5]">НОВА</span>
         </div>
         <p className="mt-1 text-xs font-medium text-[#9CA3AF]">

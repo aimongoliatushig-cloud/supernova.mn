@@ -14,7 +14,7 @@ function fail(error: string): AdminActionResult {
 }
 
 async function getStaffSupabase() {
-  const viewer = await requireRole(['office_assistant', 'super_admin'])
+  const viewer = await requireRole(['office_assistant', 'operator', 'super_admin'])
   return {
     viewer,
     supabase: await createClient(),
@@ -22,7 +22,7 @@ async function getStaffSupabase() {
 }
 
 function revalidateCrmPaths() {
-  for (const path of ['/dashboard/admin/crm', '/dashboard/assistant', '/dashboard/doctor']) {
+  for (const path of ['/dashboard/admin/crm', '/dashboard/assistant', '/dashboard/operator', '/dashboard/doctor']) {
     revalidatePath(path)
   }
 }

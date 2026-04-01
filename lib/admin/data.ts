@@ -125,14 +125,14 @@ export async function getStaffAccountsAdminData() {
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, email, full_name, role, created_at')
-    .in('role', ['office_assistant', 'super_admin'])
+    .in('role', ['office_assistant', 'operator', 'super_admin'])
     .order('created_at', { ascending: false })
 
   return (profiles ?? []) as Array<{
     id: string
     email: string
     full_name: string | null
-    role: 'office_assistant' | 'super_admin'
+    role: 'office_assistant' | 'operator' | 'super_admin'
     created_at: string
   }>
 }
@@ -274,5 +274,5 @@ export async function getCrmAdminData() {
 }
 
 export async function getCrmStaffData() {
-  return getCrmBoardData(['office_assistant', 'super_admin'])
+  return getCrmBoardData(['office_assistant', 'operator', 'super_admin'])
 }

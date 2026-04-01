@@ -16,12 +16,16 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
-type Role = 'office_assistant' | 'doctor' | 'super_admin'
+type Role = 'office_assistant' | 'operator' | 'doctor' | 'super_admin'
 
 const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNode }[]> = {
   office_assistant: [
     { href: '/dashboard/assistant', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
     { href: '/dashboard/assistant', label: 'Лидүүд ба CRM', icon: <Users size={18} /> },
+  ],
+  operator: [
+    { href: '/dashboard/operator', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
+    { href: '/dashboard/operator', label: 'Лидүүд ба CRM', icon: <Users size={18} /> },
   ],
   doctor: [
     { href: '/dashboard/doctor', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
@@ -41,6 +45,7 @@ const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNo
 
 const roleLabels: Record<Role, string> = {
   office_assistant: 'Оффисын туслах',
+  operator: 'Оператор',
   doctor: 'Эмч',
   super_admin: 'Супер админ',
 }

@@ -98,7 +98,7 @@ export default function CrmManager({
 }: {
   initialLeads: AdminLead[]
   doctors: Array<{ id: string; full_name: string; specialization: string }>
-  viewerRole?: Extract<Role, 'office_assistant' | 'super_admin'>
+  viewerRole?: Extract<Role, 'office_assistant' | 'operator' | 'super_admin'>
 }) {
   const { pending, error, success, runAction } = useServerAction()
   const [leads, setLeads] = useState(initialLeads)
@@ -177,19 +177,26 @@ export default function CrmManager({
   }
 
   const headerCopy =
-    viewerRole === 'office_assistant'
+    viewerRole === 'operator'
       ? {
-          eyebrow: 'Assistant CRM',
-          title: 'Оффисын CRM хяналт',
+          eyebrow: 'Operator CRM',
+          title: 'Операторын CRM хяналт',
           description:
-            'Lead, consultation, appointment урсгалуудыг шүүж, эмчид оноож, тэмдэглэл болон follow-up төлөвөө удирдана.',
+            'Эмчийн хариултыг хянаж, үйлчлүүлэгч рүү утсаар холбогдон зөвлөгөөг дамжуулж, consultation урсгалыг called эсвэл closed төлөвт шилжүүлнэ.',
         }
-      : {
-          eyebrow: 'CRM',
-          title: 'Лид, эрсдэл ба follow-up хяналт',
-          description:
-            'Public assessment, appointment, consultation урсгалуудаас ирсэн бүх лидуудыг нэг самбараас хянаж, эмчид оноох, тэмдэглэл оруулах, төлөв шинэчлэх боломжтой.',
-        }
+      : viewerRole === 'office_assistant'
+        ? {
+            eyebrow: 'Assistant CRM',
+            title: 'Оффисын CRM хяналт',
+            description:
+              'Lead, consultation, appointment урсгалуудыг шүүж, эмчид оноож, тэмдэглэл болон follow-up төлөвөө удирдана.',
+          }
+        : {
+            eyebrow: 'CRM',
+            title: 'Лид, эрсдэл ба follow-up хяналт',
+            description:
+              'Public assessment, appointment, consultation урсгалуудаас ирсэн бүх лидуудыг нэг самбараас хянаж, эмчид оноох, тэмдэглэл оруулах, төлөв шинэчлэх боломжтой.',
+          }
 
   return (
     <div className="space-y-6 p-4 md:p-6 xl:p-8">

@@ -18,7 +18,7 @@ type StaffAccount = {
   id: string
   email: string
   full_name: string | null
-  role: 'office_assistant' | 'super_admin'
+  role: 'office_assistant' | 'operator' | 'super_admin'
   created_at: string
 }
 
@@ -26,14 +26,14 @@ type StaffAccountInput = {
   id?: string
   full_name: string
   email: string
-  role: 'office_assistant' | 'super_admin'
+  role: 'office_assistant' | 'operator' | 'super_admin'
   password: string
 }
 
 const blankForm: StaffAccountInput = {
   full_name: '',
   email: '',
-  role: 'office_assistant',
+  role: 'operator',
   password: '',
 }
 
@@ -104,7 +104,7 @@ export default function StaffAccountsManager({
       <AdminPageHeader
         eyebrow="Staff Accounts"
         title="Оффис ба admin account удирдлага"
-        description="Оффисын ажилтан болон нэмэлт super admin account-уудыг эндээс үүсгэж, role болон нууц үгийг шинэчилнэ. Эмчийн account-уудыг эмчийн модуль дээрээс удирдана."
+        description="Оператор, оффисын ажилтан болон нэмэлт super admin account-уудыг эндээс үүсгэж, role болон нууц үгийг шинэчилнэ. Эмчийн account-уудыг эмчийн модуль дээрээс удирдана."
       />
 
       {error ? <AdminMessage tone="error">{error}</AdminMessage> : null}
@@ -152,10 +152,11 @@ export default function StaffAccountsManager({
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    role: event.target.value as 'office_assistant' | 'super_admin',
+                    role: event.target.value as 'office_assistant' | 'operator' | 'super_admin',
                   }))
                 }
               >
+                <option value="operator">Оператор</option>
                 <option value="office_assistant">Оффисын ажилтан</option>
                 <option value="super_admin">Super admin</option>
               </AdminSelect>
@@ -272,10 +273,16 @@ export default function StaffAccountsManager({
                             'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
                             account.role === 'super_admin'
                               ? 'bg-[#FFF1F2] text-[#F23645]'
-                              : 'bg-[#EAF3FF] text-[#1E63B5]',
+                              : account.role === 'operator'
+                                ? 'bg-[#EEF2FF] text-[#4338CA]'
+                                : 'bg-[#EAF3FF] text-[#1E63B5]',
                           ].join(' ')}
                         >
-                          {account.role === 'super_admin' ? 'Super admin' : 'Оффисын ажилтан'}
+                          {account.role === 'super_admin'
+                            ? 'Super admin'
+                            : account.role === 'operator'
+                              ? 'Оператор'
+                              : 'Оффисын ажилтан'}
                         </span>
                         <p className="text-xs text-[#9CA3AF]">
                           {new Date(account.created_at).toLocaleDateString('mn-MN')}

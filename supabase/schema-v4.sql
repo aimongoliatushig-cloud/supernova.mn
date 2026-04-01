@@ -24,8 +24,8 @@ CREATE INDEX IF NOT EXISTS idx_consultation_requests_assigned_doctor_id
 DROP POLICY IF EXISTS "staff_manage_consultations" ON consultation_requests;
 
 CREATE POLICY "staff_manage_consultations" ON consultation_requests FOR ALL
-  USING (current_user_role() IN ('office_assistant', 'super_admin'))
-  WITH CHECK (current_user_role() IN ('office_assistant', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'))
+  WITH CHECK (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
 
 CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR SELECT
   USING (

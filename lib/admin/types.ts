@@ -2,7 +2,7 @@ export type AdminActionResult<T = void> =
   | { ok: true; data?: T; message?: string }
   | { ok: false; error: string }
 
-export type Role = 'patient' | 'office_assistant' | 'doctor' | 'super_admin'
+export type Role = 'patient' | 'office_assistant' | 'operator' | 'doctor' | 'super_admin'
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type LeadStatus =
   | 'new'

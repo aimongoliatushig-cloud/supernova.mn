@@ -1,7 +1,7 @@
 // ─── Supernova Database Types ─────────────────────────────────────────────
 // Auto-synced with the Supabase schema defined in /supabase/schema.sql
 
-export type Role = 'patient' | 'office_assistant' | 'doctor' | 'super_admin'
+export type Role = 'patient' | 'office_assistant' | 'operator' | 'doctor' | 'super_admin'
 export type RiskLevel = 'low' | 'medium' | 'high'
 export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
 export type ConsultationStatus = 'new' | 'assigned' | 'answered' | 'called' | 'closed'

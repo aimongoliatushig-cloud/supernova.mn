@@ -434,7 +434,7 @@ export async function saveStaffAccount(input: {
   id?: string
   full_name: string
   email: string
-  role: 'office_assistant' | 'super_admin'
+  role: 'office_assistant' | 'operator' | 'super_admin'
   password: string
 }): Promise<AdminActionResult> {
   await requireRole(['super_admin'])

@@ -7,7 +7,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ─── ENUM types ──────────────────────────────────────────────────────────────
-CREATE TYPE user_role          AS ENUM ('patient', 'office_assistant', 'doctor', 'super_admin');
+CREATE TYPE user_role          AS ENUM ('patient', 'office_assistant', 'operator', 'doctor', 'super_admin');
 CREATE TYPE risk_level         AS ENUM ('low', 'medium', 'high');
 CREATE TYPE appointment_status AS ENUM ('pending', 'confirmed', 'cancelled', 'completed');
 CREATE TYPE consultation_status AS ENUM ('new', 'answered', 'called', 'closed');
@@ -277,35 +277,35 @@ CREATE POLICY "public_read_promotions"     ON promotions          FOR SELECT USI
 -- Leads: anyone can INSERT (lead capture), staff can SELECT/UPDATE
 CREATE POLICY "anon_insert_leads"     ON leads FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_select_leads"    ON leads FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'doctor', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'doctor', 'super_admin'));
 CREATE POLICY "staff_update_leads"    ON leads FOR UPDATE
-  USING (current_user_role() IN ('office_assistant', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
 
 -- Assessments & answers: anon insert, staff read
 CREATE POLICY "anon_insert_assessments"  ON assessments         FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "anon_insert_aa"           ON assessment_answers  FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_read_assessments"   ON assessments         FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'doctor', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'doctor', 'super_admin'));
 
 -- Appointments: anon insert, staff manage
 CREATE POLICY "anon_insert_appointments" ON appointments FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_manage_appointments" ON appointments FOR ALL
-  USING (current_user_role() IN ('office_assistant', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
 
 -- Consultation requests: anon insert, doctors & staff read
 CREATE POLICY "anon_insert_consultations" ON consultation_requests FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_manage_consultations" ON consultation_requests FOR ALL
-  USING (current_user_role() IN ('office_assistant', 'doctor', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'doctor', 'super_admin'));
 
 -- Doctor responses: doctors can insert, staff can read
 CREATE POLICY "doctor_insert_responses" ON doctor_responses FOR INSERT
   WITH CHECK (current_user_role() IN ('doctor', 'super_admin'));
 CREATE POLICY "staff_read_responses" ON doctor_responses FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'doctor', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'doctor', 'super_admin'));
 
 -- CRM notes: staff can manage
 CREATE POLICY "staff_manage_crm_notes" ON crm_notes FOR ALL
-  USING (current_user_role() IN ('office_assistant', 'super_admin'));
+  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
 
 -- Profiles: users see own, admins see all
 CREATE POLICY "user_read_own_profile"  ON profiles FOR SELECT USING (id = auth.uid());

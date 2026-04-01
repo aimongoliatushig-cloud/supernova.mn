@@ -36,7 +36,8 @@ const benefitCards: Array<{
     icon: Sparkles,
     eyebrow: 'Энэ сарын урамшуулал',
     title: 'Харааны шинжилгээ үнэгүй',
-    description: 'Энэ сард байгууллагын багц баталгаажуулбал харааны шинжилгээг урамшуулалд багтаана.',
+    description:
+      'Энэ сард байгууллагын багц баталгаажуулбал харааны шинжилгээг урамшуулалд багтаана.',
   },
   {
     icon: Building2,
@@ -51,6 +52,20 @@ const benefitCards: Array<{
     title: '24 цагийн дотор эргэн холбогдоно',
     description:
       'Компанийн нэр, утсаа үлдээгээд хүсэлт илгээхэд манай зөвлөх ажилтан тантай 24 цагийн дотор холбогдоно.',
+  },
+]
+
+const packageTrustItems: Array<{
+  icon: LucideIcon
+  title: string
+}> = [
+  {
+    icon: Sparkles,
+    title: 'Энэ сард харааны үзлэг үнэгүй',
+  },
+  {
+    icon: Building2,
+    title: 'Эмч байгууллага дээр очиж хариу тайлбарлана',
   },
 ]
 
@@ -292,6 +307,28 @@ export default function OrganizationQuoteCalculator() {
                     Илүү тохирох хэрэгцээ
                   </p>
                   <p className="mt-3 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
+                </div>
+
+                <div className="mt-5 rounded-[1.5rem] border border-[#CFE1F7] bg-[#F3F8FF] p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
+                    Нэмэлт давуу тал
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {packageTrustItems.map((item) => {
+                      const Icon = item.icon
+
+                      return (
+                        <div key={item.title} className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-[#1E63B5] shadow-sm">
+                            <Icon size={15} />
+                          </div>
+                          <p className="text-sm font-semibold leading-6 text-[#223548]">
+                            {item.title}
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 <div className="mt-auto pt-6">

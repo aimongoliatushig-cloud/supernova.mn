@@ -21,7 +21,7 @@ export default async function OrganizationPage() {
     <>
       <Navbar phone={phone} />
 
-      <main className="overflow-hidden">
+      <main className="overflow-x-hidden">
         <OrganizationQuoteCalculator />
       </main>
 

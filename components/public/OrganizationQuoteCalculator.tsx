@@ -84,7 +84,7 @@ export default function OrganizationQuoteCalculator() {
   }
 
   return (
-    <section id="packages" className="bg-[#FBFDFF] py-16 md:py-24">
+    <section id="packages" className="bg-[#FBFDFF] pb-20 pt-16 md:pb-28 md:pt-24">
       <div id="calculator" className="scroll-mt-24" />
       <div className="mx-auto max-w-6xl px-4">
         <div className="max-w-4xl">

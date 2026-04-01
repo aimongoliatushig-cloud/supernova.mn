@@ -57,28 +57,28 @@ export default function Footer({
   const address = safeContact?.address ?? DEFAULT_CONTACT_ADDRESS
 
   return (
-    <footer id="contact" className="relative overflow-hidden bg-[#0D2542] text-white">
+    <footer id="contact" className="relative overflow-x-hidden bg-[#0D2542] text-white">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent" />
-      <div className="mx-auto max-w-6xl px-4 py-14 md:py-16">
-        <div className="grid gap-8 rounded-[2rem] border border-white/10 bg-white/6 p-6 shadow-[0_24px_70px_rgba(5,14,28,0.25)] backdrop-blur md:grid-cols-[1.1fr_0.9fr_0.9fr] md:p-8">
-          <div>
+      <div className="mx-auto max-w-6xl px-4 py-10 md:py-16">
+        <div className="grid gap-6 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-[0_24px_70px_rgba(5,14,28,0.25)] backdrop-blur md:grid-cols-[1.1fr_0.9fr_0.9fr] md:gap-8 md:p-8">
+          <div className="min-w-0">
             <Link href="/" className="inline-flex items-center">
-              <span className="relative block h-20 w-56 overflow-visible">
+              <span className="relative block h-14 w-40 overflow-visible md:h-20 md:w-56">
                 <Image
                   src="/logo.png"
                   alt="СУПЕРНОВА эмнэлэг"
                   fill
                   sizes="224px"
-                  className="object-contain object-left brightness-0 invert scale-[1.65] origin-left"
+                  className="origin-left scale-[1.12] object-contain object-left brightness-0 invert md:scale-[1.65]"
                 />
               </span>
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-7 text-slate-300">
+            <p className="mt-3 max-w-sm text-sm leading-7 text-slate-300 md:mt-4">
               Эрүүл мэндийн эрсдэлийг эрт илрүүлэх, оношилгооны урсгалыг ойлгомжтой болгох,
               цаг захиалга болон зөвлөгөөг нэг цэгээс удирдах дижитал үйлчилгээ.
             </p>
 
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-4 flex flex-wrap gap-3 md:mt-5">
               {socials.map((social) => (
                 <a
                   key={social.id}
@@ -99,7 +99,7 @@ export default function Footer({
             </div>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-slate-300">
               Холбоо барих
             </h3>
@@ -125,7 +125,7 @@ export default function Footer({
             </div>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-slate-300">
               Ажлын цаг
             </h3>

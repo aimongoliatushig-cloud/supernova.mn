@@ -290,7 +290,7 @@ export default function OrganizationQuoteCalculator() {
 
                 <div className="mt-5 rounded-[1.5rem] bg-[#F8FBFF] p-4 ring-1 ring-[#E6EEF8]">
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
-                    Гол давуу тал
+                    Багцад багтсан үйлчилгээ
                   </p>
                   <ul className="mt-4 space-y-3">
                     {pkg.highlights.map((item) => (
@@ -300,13 +300,6 @@ export default function OrganizationQuoteCalculator() {
                       </li>
                     ))}
                   </ul>
-                </div>
-
-                <div className="mt-5 min-h-[7.5rem] rounded-[1.5rem] bg-white p-4 ring-1 ring-[#E6EEF8]">
-                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
-                    Илүү тохирох хэрэгцээ
-                  </p>
-                  <p className="mt-3 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
                 </div>
 
                 <div className="mt-5 rounded-[1.5rem] border border-[#CFE1F7] bg-[#F3F8FF] p-4">

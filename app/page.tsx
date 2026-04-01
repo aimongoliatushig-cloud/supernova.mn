@@ -203,7 +203,7 @@ export default async function HomePage() {
                     className="inline-flex items-center gap-2 rounded-full border border-[#D6E6FA] bg-white px-4 py-2.5 text-sm font-bold text-[#35506C] shadow-sm transition hover:border-[#1E63B5] hover:text-[#1E63B5]"
                   >
                     <Building2 size={16} className="text-[#1E63B5]" />
-                    Байгууллагын багц ба үнийн тооцоо
+                    Байгууллагын үйлчилгээ ба зөвлөгөө
                   </Link>
                 </div>
 

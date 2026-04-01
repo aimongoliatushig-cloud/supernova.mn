@@ -1,13 +1,13 @@
 import type { Metadata } from 'next'
 import Footer from '@/components/layout/Footer'
 import Navbar from '@/components/layout/Navbar'
-import OrganizationQuoteCalculator from '@/components/public/OrganizationQuoteCalculator'
+import OrganizationConsultationSection from '@/components/public/OrganizationQuoteCalculator'
 import { getLandingPageData } from '@/lib/public/data'
 
 export const metadata: Metadata = {
-  title: 'Байгууллагын багц | СУПЕРНОВА',
+  title: 'Байгууллагын үйлчилгээ | СУПЕРНОВА',
   description:
-    'Байгууллагын ажилтны тоо болон компанийн чиглэлд тохирсон шинжилгээний багц, урьдчилсан үнийн тооцоолол.',
+    'Байгууллагад зориулсан урьдчилан сэргийлэх үзлэг, on-site зохион байгуулалт, эмчийн тайлбарын үйлчилгээний танилцуулга болон зөвлөгөө авах хэсэг.',
 }
 
 export default async function OrganizationPage() {
@@ -22,7 +22,7 @@ export default async function OrganizationPage() {
       <Navbar phone={phone} />
 
       <main className="overflow-x-hidden">
-        <OrganizationQuoteCalculator />
+        <OrganizationConsultationSection />
       </main>
 
       <Footer

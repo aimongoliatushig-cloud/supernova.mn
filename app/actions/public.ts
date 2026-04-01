@@ -3,7 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { calculateAssessmentRisk } from '@/lib/public/risk'
 import { getDiagnosisFlowData } from '@/lib/public/data'
-import { calculateOrganizationQuote } from '@/lib/public/organization'
 import type {
   SubmitAppointmentInput,
   SubmitAssessmentInput,
@@ -357,12 +356,16 @@ export async function submitConsultationRequest(
 export async function submitOrganizationQuoteRequest(
   input: SubmitOrganizationQuoteInput
 ): Promise<PublicActionResult<{ consultationId: string; leadId: string }>> {
-  if (!input.organization_name.trim() || !input.contact_name.trim() || !input.phone.trim()) {
-    return fail('Байгууллагын нэр, холбоо барих хүний нэр, утасны дугаар шаардлагатай.')
+  if (!input.organization_name.trim() || !input.phone.trim() || !input.email.trim()) {
+    return fail('Байгууллагын нэр, утасны дугаар, имэйл шаардлагатай.')
   }
 
-  if (!input.employee_band_label.trim()) {
-    return fail('Ажилтны тоогоо сонгоно уу.')
+  const normalizedHeadcount = Number.isFinite(input.employee_count)
+    ? Math.max(1, Math.round(input.employee_count))
+    : 0
+
+  if (normalizedHeadcount < 1) {
+    return fail('Ажилтны тоогоо зөв оруулна уу.')
   }
 
   const normalizedPhone = input.phone.replace(/\s+/g, '')
@@ -370,17 +373,16 @@ export async function submitOrganizationQuoteRequest(
     return fail('Утасны дугаараа зөв оруулна уу.')
   }
 
-  const quote = calculateOrganizationQuote(
-    input.employee_count,
-    input.sector_id,
-    input.package_id
-  )
+  const normalizedEmail = input.email.trim().toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return fail('Имэйл хаягаа зөв оруулна уу.')
+  }
 
   const leadResult = await upsertLeadFromContact({
-    full_name: input.contact_name,
+    full_name: input.organization_name,
     phone: input.phone,
-    email: input.email,
-    source: 'organization_quote_request',
+    email: normalizedEmail,
+    source: 'organization_consultation_request',
   })
 
   if (leadResult.error || !leadResult.leadId) {
@@ -389,16 +391,11 @@ export async function submitOrganizationQuoteRequest(
 
   const requestSummary = [
     `Байгууллага: ${input.organization_name.trim()}`,
-    `Сонгосон багц: ${quote.selectedPackage.title}`,
-    `Ажилтны тоо: ${input.employee_band_label}`,
-    `Салбар: ${quote.sector.label}`,
-    `Нэг ажилтны урьдчилсан үнэ: ${formatCurrency(quote.perEmployeePrice)}₮`,
-    `Тооцоолсон нийт үнэ: ${formatCurrency(quote.totalPrice)}₮`,
-    `On-site зохион байгуулалт: ${quote.onsiteWindow}`,
-    `Тайлан гарах хугацаа: ${quote.reportWindow}`,
-    quote.recommendedPackage.id !== quote.selectedPackage.id
-      ? `Системийн зөвлөмж: ${quote.recommendedPackage.title}`
-      : 'Системийн зөвлөмж: Сонгосон багц тохирч байна',
+    'Хүсэлт: Байгууллагын үйлчилгээний зөвлөгөө авах',
+    `Ажилтны тоо: ${formatCurrency(normalizedHeadcount)}`,
+    `Имэйл: ${normalizedEmail}`,
+    `Утас: ${input.phone.trim()}`,
+    'Тэмдэглэл: Үнийн тооцоо хүсээгүй, зөвхөн байгууллагын үйлчилгээний зөвлөгөө авах хүсэлт.',
   ].join('\n')
 
   const supabase = await getMutationClient()

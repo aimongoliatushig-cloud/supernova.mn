@@ -209,4 +209,5 @@ export interface SubmitOrganizationQuoteInput {
   employee_band_label: string
   sector_id: OrganizationSectorId
   package_id: OrganizationPackageId
+  custom_sector_label?: string
 }

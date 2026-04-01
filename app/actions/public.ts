@@ -3,10 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { calculateAssessmentRisk } from '@/lib/public/risk'
 import { getDiagnosisFlowData } from '@/lib/public/data'
+import { calculateOrganizationQuote } from '@/lib/public/organization'
 import type {
   SubmitAppointmentInput,
   SubmitAssessmentInput,
   SubmitConsultationInput,
+  SubmitOrganizationQuoteInput,
 } from '@/lib/public/types'
 import {
   createServiceRoleClient,
@@ -34,6 +36,10 @@ function isUuid(value: string | null | undefined): value is string {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value ?? ''
   )
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('mn-MN').format(value)
 }
 
 async function getMutationClient() {
@@ -343,6 +349,72 @@ export async function submitConsultationRequest(
 
   if (error || !consultation) {
     return fail(error?.message ?? 'Зөвлөгөөний хүсэлт хадгалагдсангүй.')
+  }
+
+  return ok({ consultationId: consultation.id, leadId: leadResult.leadId })
+}
+
+export async function submitOrganizationQuoteRequest(
+  input: SubmitOrganizationQuoteInput
+): Promise<PublicActionResult<{ consultationId: string; leadId: string }>> {
+  if (!input.organization_name.trim() || !input.contact_name.trim() || !input.phone.trim()) {
+    return fail('Байгууллагын нэр, холбоо барих хүний нэр, утасны дугаар шаардлагатай.')
+  }
+
+  if (!input.employee_band_label.trim()) {
+    return fail('Ажилтны тоогоо сонгоно уу.')
+  }
+
+  const normalizedPhone = input.phone.replace(/\s+/g, '')
+  if (normalizedPhone.length < 8) {
+    return fail('Утасны дугаараа зөв оруулна уу.')
+  }
+
+  const quote = calculateOrganizationQuote(
+    input.employee_count,
+    input.sector_id,
+    input.package_id
+  )
+
+  const leadResult = await upsertLeadFromContact({
+    full_name: input.contact_name,
+    phone: input.phone,
+    email: input.email,
+    source: 'organization_quote_request',
+  })
+
+  if (leadResult.error || !leadResult.leadId) {
+    return fail(leadResult.error ?? 'Лидийн мэдээлэл хадгалагдсангүй.')
+  }
+
+  const requestSummary = [
+    `Байгууллага: ${input.organization_name.trim()}`,
+    `Сонгосон багц: ${quote.selectedPackage.title}`,
+    `Ажилтны тоо: ${input.employee_band_label}`,
+    `Салбар: ${quote.sector.label}`,
+    `Нэг ажилтны урьдчилсан үнэ: ${formatCurrency(quote.perEmployeePrice)}₮`,
+    `Тооцоолсон нийт үнэ: ${formatCurrency(quote.totalPrice)}₮`,
+    `On-site зохион байгуулалт: ${quote.onsiteWindow}`,
+    `Тайлан гарах хугацаа: ${quote.reportWindow}`,
+    quote.recommendedPackage.id !== quote.selectedPackage.id
+      ? `Системийн зөвлөмж: ${quote.recommendedPackage.title}`
+      : 'Системийн зөвлөмж: Сонгосон багц тохирч байна',
+  ].join('\n')
+
+  const supabase = await getMutationClient()
+  const { data: consultation, error } = await supabase
+    .from('consultation_requests')
+    .insert({
+      lead_id: leadResult.leadId,
+      preferred_callback_time: 'afternoon',
+      question: requestSummary,
+      status: 'new',
+    })
+    .select('id')
+    .single()
+
+  if (error || !consultation) {
+    return fail(error?.message ?? 'Байгууллагын хүсэлтийг хадгалж чадсангүй.')
   }
 
   return ok({ consultationId: consultation.id, leadId: leadResult.leadId })

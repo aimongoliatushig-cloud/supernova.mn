@@ -13,7 +13,6 @@ import Footer from '@/components/layout/Footer'
 import Navbar from '@/components/layout/Navbar'
 import OrganizationQuoteCalculator from '@/components/public/OrganizationQuoteCalculator'
 import { getLandingPageData } from '@/lib/public/data'
-import { organizationPackages } from '@/lib/public/organization'
 
 export const metadata: Metadata = {
   title: 'Байгууллагын багц | СУПЕРНОВА',
@@ -158,59 +157,6 @@ export default async function OrganizationPage() {
                   </a>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="packages" className="bg-[#FBFDFF] py-16 md:py-24">
-          <div className="mx-auto max-w-6xl px-4">
-            <div className="max-w-3xl">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
-                Байгууллагын багцууд
-              </p>
-              <h2 className="mt-4 text-3xl font-black text-[#10233B] md:text-4xl">
-                Багийн хэмжээ, эрсдэл, урсгалд тааруулсан 3 түвшний санал
-              </h2>
-              <p className="mt-4 text-base leading-8 text-[#5B6877]">
-                Дараах багцууд нь урьдчилсан бүтэц бөгөөд компанийн чиглэл, ажилтны тоо,
-                ажлын байрны эрсдэлээс хамааран нарийвчилж тохируулна.
-              </p>
-            </div>
-
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
-              {organizationPackages.map((pkg, index) => (
-                <article
-                  key={pkg.id}
-                  className={[
-                    'rounded-[2rem] border p-6 shadow-sm',
-                    index === 1
-                      ? 'border-[#B7D4F6] bg-[#F8FBFF]'
-                      : 'border-[#D6E6FA] bg-white',
-                  ].join(' ')}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
-                      {pkg.headcountLabel}
-                    </span>
-                    <span className="text-sm font-bold text-[#E8323F]">{pkg.priceLabel}</span>
-                  </div>
-                  <h3 className="mt-5 text-2xl font-black text-[#10233B]">{pkg.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-[#5B6877]">{pkg.description}</p>
-                  <p className="mt-4 text-sm font-semibold text-[#223548]">Илүү тохирох байгууллага:</p>
-                  <p className="mt-1 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
-
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {pkg.highlights.map((item) => (
-                      <span
-                        key={item}
-                        className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#35506C] ring-1 ring-[#D6E6FA]"
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                </article>
-              ))}
             </div>
           </div>
         </section>

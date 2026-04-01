@@ -1,4 +1,8 @@
 import type { RiskLevel } from '@/lib/admin/types'
+import type {
+  OrganizationPackageId,
+  OrganizationSectorId,
+} from '@/lib/public/organization'
 
 export interface PublicContactSettings {
   phone: string | null
@@ -194,4 +198,15 @@ export interface SubmitConsultationInput {
   email?: string
   preferred_callback_time: 'morning' | 'afternoon' | 'evening'
   question?: string
+}
+
+export interface SubmitOrganizationQuoteInput {
+  organization_name: string
+  contact_name: string
+  phone: string
+  email?: string
+  employee_count: number
+  employee_band_label: string
+  sector_id: OrganizationSectorId
+  package_id: OrganizationPackageId
 }

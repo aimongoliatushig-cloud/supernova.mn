@@ -7,6 +7,8 @@ export type OrganizationSectorId =
   | 'construction'
   | 'logistics'
 
+export type OrganizationPackageId = 'core' | 'growth' | 'industry'
+
 export interface OrganizationSector {
   id: OrganizationSectorId
   label: string
@@ -15,13 +17,22 @@ export interface OrganizationSector {
 }
 
 export interface OrganizationPackage {
-  id: string
+  id: OrganizationPackageId
   title: string
   headcountLabel: string
   priceLabel: string
+  basePrice: number
+  pricingMode: 'starting' | 'custom'
   description: string
   bestFor: string
   highlights: string[]
+}
+
+export interface OrganizationHeadcountOption {
+  id: string
+  label: string
+  estimateHeadcount: number
+  recommendedPackageId: OrganizationPackageId
 }
 
 export const organizationSectors: OrganizationSector[] = [
@@ -63,7 +74,7 @@ export const organizationSectors: OrganizationSector[] = [
   },
   {
     id: 'logistics',
-    label: 'Тээвэр, ложистик, агуулах',
+    label: 'Тээвэр, логистик, агуулах',
     description: 'Ээлж, хөдөлгөөн, зүрх судасны ачаалалтай орчин.',
     multiplier: 1.12,
   },
@@ -74,9 +85,11 @@ export const organizationPackages: OrganizationPackage[] = [
     id: 'core',
     title: 'Суурь урьдчилан сэргийлэх',
     headcountLabel: '15-60 ажилтан',
-    priceLabel: 'Нэг ажилтанд 165,000₮-с',
+    priceLabel: '165,000₮-с',
+    basePrice: 165000,
+    pricingMode: 'starting',
     description:
-      'Оффис болон дунд эрсдэлтэй багуудад зориулсан анхан шатны багц. Дижитал тайлан, ангилсан зөвлөмжтэй.',
+      'Оффис болон дунд эрсдэлтэй багуудад зориулсан нэг мөр, ойлгомжтой эхний санал.',
     bestFor: 'Оффис, IT, боловсрол, санхүүгийн байгууллага',
     highlights: [
       'Ерөнхий эмчийн үзлэг',
@@ -88,9 +101,11 @@ export const organizationPackages: OrganizationPackage[] = [
     id: 'growth',
     title: 'Өсөлтийн багц',
     headcountLabel: '61-180 ажилтан',
-    priceLabel: 'Нэг ажилтанд 149,000₮-с',
+    priceLabel: '149,000₮-с',
+    basePrice: 149000,
+    pricingMode: 'starting',
     description:
-      'Хэд хэдэн баг, салбар нэгжтэй компаниудад тохирсон. Хэсэг тус бүрээр тайлан гаргаж, follow-up зөвлөмж өгнө.',
+      'Олон баг, салбар нэгжтэй байгууллагад зориулсан илүү уян, менежментийн түвшний санал.',
     bestFor: 'Өсөлтийн шатанд байгаа компани, сүлжээ үйлчилгээ',
     highlights: [
       'Баг тус бүрийн эрсдэлийн тайлан',
@@ -102,10 +117,12 @@ export const organizationPackages: OrganizationPackage[] = [
     id: 'industry',
     title: 'Үйлдвэрлэлийн иж бүрэн',
     headcountLabel: '180+ ажилтан эсвэл өндөр эрсдэлтэй орчин',
-    priceLabel: 'Нэг ажилтанд 138,000₮-с',
+    priceLabel: 'Захиалгат үнэ',
+    basePrice: 138000,
+    pricingMode: 'custom',
     description:
-      'Физик ачаалалтай болон талбай дээрх багуудад зориулсан уян төлөвлөлттэй багц. On-site урсгал, ахисан хяналт багтана.',
-    bestFor: 'Үйлдвэрлэл, барилга, ложистик, олон салбартай компани',
+      'Физик ачаалалтай болон талбай дээрх багуудад зориулсан on-site зохион байгуулалттай багц.',
+    bestFor: 'Үйлдвэрлэл, барилга, логистик, олон салбартай компани',
     highlights: [
       'On-site зохион байгуулалтын урсгал',
       'Өндөр эрсдэлийн нэмэлт үзүүлэлт',
@@ -114,11 +131,41 @@ export const organizationPackages: OrganizationPackage[] = [
   },
 ]
 
-function resolveBasePrice(headcount: number) {
-  if (headcount >= 300) return 138000
-  if (headcount >= 150) return 149000
-  if (headcount >= 60) return 158000
-  return 165000
+export const organizationHeadcountOptions: OrganizationHeadcountOption[] = [
+  {
+    id: '15-30',
+    label: '15-30',
+    estimateHeadcount: 20,
+    recommendedPackageId: 'core',
+  },
+  {
+    id: '31-60',
+    label: '31-60',
+    estimateHeadcount: 45,
+    recommendedPackageId: 'core',
+  },
+  {
+    id: '61-120',
+    label: '61-120',
+    estimateHeadcount: 90,
+    recommendedPackageId: 'growth',
+  },
+  {
+    id: '121-250',
+    label: '121-250',
+    estimateHeadcount: 180,
+    recommendedPackageId: 'industry',
+  },
+  {
+    id: '250+',
+    label: '250+',
+    estimateHeadcount: 300,
+    recommendedPackageId: 'industry',
+  },
+]
+
+export function getOrganizationPackageById(packageId: OrganizationPackageId) {
+  return organizationPackages.find((item) => item.id === packageId) ?? organizationPackages[0]
 }
 
 function resolveRecommendedPackage(headcount: number, sectorId: OrganizationSectorId) {
@@ -128,25 +175,34 @@ function resolveRecommendedPackage(headcount: number, sectorId: OrganizationSect
     sectorId === 'logistics' ||
     headcount >= 180
   ) {
-    return organizationPackages[2]
+    return getOrganizationPackageById('industry')
   }
 
   if (headcount >= 61) {
-    return organizationPackages[1]
+    return getOrganizationPackageById('growth')
   }
 
-  return organizationPackages[0]
+  return getOrganizationPackageById('core')
 }
 
-export function calculateOrganizationQuote(headcount: number, sectorId: OrganizationSectorId) {
+export function calculateOrganizationQuote(
+  headcount: number,
+  sectorId: OrganizationSectorId,
+  packageId?: OrganizationPackageId
+) {
   const normalizedHeadcount = Number.isFinite(headcount) ? Math.max(15, Math.round(headcount)) : 15
   const sector = organizationSectors.find((item) => item.id === sectorId) ?? organizationSectors[0]
-  const perEmployeePrice =
-    Math.round((resolveBasePrice(normalizedHeadcount) * sector.multiplier) / 1000) * 1000
-  const totalPrice = perEmployeePrice * normalizedHeadcount
   const recommendedPackage = resolveRecommendedPackage(normalizedHeadcount, sector.id)
+  const selectedPackage = packageId ? getOrganizationPackageById(packageId) : recommendedPackage
+  const perEmployeePrice =
+    Math.round((selectedPackage.basePrice * sector.multiplier) / 1000) * 1000
+  const totalPrice = perEmployeePrice * normalizedHeadcount
   const onsiteWindow =
-    normalizedHeadcount >= 180 ? '2-4 өдөр' : normalizedHeadcount >= 60 ? '1-2 өдөр' : '1 өдөр'
+    normalizedHeadcount >= 180
+      ? '2-4 өдөр'
+      : normalizedHeadcount >= 60
+        ? '1-2 өдөр'
+        : '1 өдөр'
   const reportWindow =
     normalizedHeadcount >= 180
       ? '72 цагийн дотор'
@@ -157,6 +213,7 @@ export function calculateOrganizationQuote(headcount: number, sectorId: Organiza
   return {
     headcount: normalizedHeadcount,
     sector,
+    selectedPackage,
     perEmployeePrice,
     totalPrice,
     recommendedPackage,

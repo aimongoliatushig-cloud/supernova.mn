@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import {
+  ArrowRight,
   Calendar,
   Download,
   MessageSquare,
@@ -25,6 +26,7 @@ import {
   AdminMessage,
   AdminPageHeader,
   AdminSectionCard,
+  AdminSelect,
   AdminTextArea,
 } from '@/components/admin/AdminPrimitives'
 import { useServerAction } from '@/components/admin/useServerAction'
@@ -91,6 +93,110 @@ const callbackLabels: Record<string, string> = {
   evening: 'Орой',
 }
 
+type ViewerRole = Extract<Role, 'office_assistant' | 'operator' | 'super_admin'>
+type Tone = 'blue' | 'yellow' | 'green' | 'red' | 'gray'
+
+const workflowSurfaceClasses: Record<Tone, string> = {
+  blue: 'border-[#D6E6FA] bg-[#F7FAFF] text-[#1E63B5]',
+  yellow: 'border-[#FDE9B6] bg-[#FFFBF1] text-[#B45309]',
+  green: 'border-[#CDEDD8] bg-[#F5FCF8] text-[#166534]',
+  red: 'border-[#F9D2D6] bg-[#FFF7F8] text-[#C2253D]',
+  gray: 'border-[#E5E7EB] bg-[#F8FAFC] text-[#4B5563]',
+}
+
+function getPrimaryConsultation(lead: AdminLead) {
+  return lead.consultation_requests?.[0] ?? null
+}
+
+function getLeadWorkflow(
+  lead: AdminLead,
+  viewerRole: ViewerRole
+): { label: string; description: string; tone: Tone } {
+  const consultation = getPrimaryConsultation(lead)
+
+  if (lead.is_blacklisted) {
+    return {
+      label: 'Blacklist-тэй',
+      description: 'Энэ lead дээр идэвхтэй follow-up хийхгүй. Зөвхөн хэрэгтэй тэмдэглэл үлдээнэ.',
+      tone: 'red',
+    }
+  }
+
+  if (consultation?.status === 'new') {
+    return viewerRole === 'operator'
+      ? {
+          label: 'Эмч оноолт хүлээж байна',
+          description:
+            'Assistant эсвэл admin тохирох эмчид оноосны дараа operator дуудлагын урсгал үргэлжилнэ.',
+          tone: 'gray',
+        }
+      : {
+          label: 'Эмчид оноох шаардлагатай',
+          description:
+            'Шинэ consultation ирсэн байна. Тохирох эмчийг оноогоод дараагийн урсгалыг эхлүүлнэ.',
+          tone: 'yellow',
+        }
+  }
+
+  if (consultation?.status === 'assigned') {
+    return {
+      label: 'Эмчийн хариу хүлээж байна',
+      description:
+        viewerRole === 'operator'
+          ? 'Эмч мэргэжлийн зөвлөгөө бичсэний дараа та утсаар дамжуулж called эсвэл closed төлөвт шилжүүлнэ.'
+          : 'Эмч кейсийг хянаж байгаа тул lead-ийн note болон appointment мэдээллийг цэгцэлж бэлэн байлгана.',
+      tone: 'yellow',
+    }
+  }
+
+  if (consultation?.status === 'answered') {
+    return viewerRole === 'operator' || viewerRole === 'super_admin'
+      ? {
+          label: 'Үйлчлүүлэгч рүү залгах',
+          description:
+            'Эмчийн зөвлөгөө бэлэн болсон. Одоо үйлчлүүлэгчид утсаар дамжуулж follow-up төлөвийг шинэчилнэ.',
+          tone: 'green',
+        }
+      : {
+          label: 'Operator follow-up хүлээж байна',
+          description:
+            'Эмчийн зөвлөгөө бүртгэгдсэн тул operator утсаар холбогдох урсгал руу шилжинэ.',
+          tone: 'green',
+        }
+  }
+
+  if (consultation?.status === 'called') {
+    return {
+      label: 'Дуудлагын дараах баталгаажуулалт',
+      description: 'Үйлчлүүлэгчтэй холбогдсон кейсийг нэмэлт тэмдэглэлтэй хамт хаах эсэхээ шалгана.',
+      tone: 'blue',
+    }
+  }
+
+  if (consultation?.status === 'closed') {
+    return {
+      label: 'Кейс хаагдсан',
+      description: 'Одоогоор идэвхтэй ажиллагаа дууссан. Шаардлагатай бол зөвхөн CRM note шинэчилнэ.',
+      tone: 'gray',
+    }
+  }
+
+  if ((lead.appointments?.length ?? 0) > 0) {
+    return {
+      label: 'Appointment баталгаажуулах',
+      description:
+        'Цаг захиалгатай lead тул appointment-ийн мэдээллийг нягталж, note дээр follow-up үлдээнэ.',
+      tone: 'blue',
+    }
+  }
+
+  return {
+    label: 'Анхны follow-up',
+    description: 'Lead-тэй анх холбогдож хэрэгцээг тодруулан дараагийн алхмыг CRM дээр тэмдэглэнэ.',
+    tone: 'blue',
+  }
+}
+
 export default function CrmManager({
   initialLeads,
   doctors,
@@ -98,7 +204,7 @@ export default function CrmManager({
 }: {
   initialLeads: AdminLead[]
   doctors: Array<{ id: string; full_name: string; specialization: string }>
-  viewerRole?: Extract<Role, 'office_assistant' | 'operator' | 'super_admin'>
+  viewerRole?: ViewerRole
 }) {
   const { pending, error, success, runAction } = useServerAction()
   const [leads, setLeads] = useState(initialLeads)
@@ -110,22 +216,21 @@ export default function CrmManager({
 
   useEffect(() => {
     setLeads(initialLeads)
-    if (!selectedLeadId) {
-      if (initialLeads[0]) {
-        setSelectedLeadId(initialLeads[0].id)
+  }, [initialLeads])
+
+  useEffect(() => {
+    setSelectedLeadId((current) => {
+      if (initialLeads.length === 0) {
+        return null
       }
-      return
-    }
 
-    if (!initialLeads.some((lead) => lead.id === selectedLeadId)) {
-      setSelectedLeadId(initialLeads[0]?.id ?? null)
-    }
-  }, [initialLeads, selectedLeadId])
+      if (current && initialLeads.some((lead) => lead.id === current)) {
+        return current
+      }
 
-  const selectedLead = useMemo(
-    () => leads.find((lead) => lead.id === selectedLeadId) ?? null,
-    [leads, selectedLeadId]
-  )
+      return initialLeads[0].id
+    })
+  }, [initialLeads])
 
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
@@ -144,16 +249,44 @@ export default function CrmManager({
     })
   }, [leads, riskFilter, search, statusFilter])
 
+  useEffect(() => {
+    if (filteredLeads.length === 0) {
+      return
+    }
+
+    if (!selectedLeadId || !filteredLeads.some((lead) => lead.id === selectedLeadId)) {
+      setSelectedLeadId(filteredLeads[0].id)
+    }
+  }, [filteredLeads, selectedLeadId])
+
+  useEffect(() => {
+    setNoteText('')
+  }, [selectedLeadId])
+
+  const selectedLead = useMemo(() => {
+    if (filteredLeads.length === 0) {
+      return null
+    }
+
+    return filteredLeads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0]
+  }, [filteredLeads, selectedLeadId])
+
   const stats = useMemo(
     () => ({
       total: leads.length,
       highRisk: leads.filter((lead) => lead.risk_level === 'high').length,
-      waitingConsultations: leads.filter((lead) =>
-        (lead.consultation_requests ?? []).some(
-          (consultation) => consultation.status === 'new' || consultation.status === 'assigned'
-        )
+      needsAssignment: leads.filter((lead) =>
+        (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'new')
       ).length,
-      appointments: leads.filter((lead) => (lead.appointments?.length ?? 0) > 0).length,
+      waitingDoctor: leads.filter((lead) =>
+        (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'assigned')
+      ).length,
+      readyForCallback: leads.filter((lead) =>
+        (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'answered')
+      ).length,
+      called: leads.filter((lead) =>
+        (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'called')
+      ).length,
     }),
     [leads]
   )
@@ -162,7 +295,7 @@ export default function CrmManager({
     const rows = filteredLeads.map((lead) => ({
       Нэр: lead.full_name,
       Утас: lead.phone,
-      Имэйл: lead.email ?? '',
+      'И-мэйл': lead.email ?? '',
       Эрсдэл: lead.risk_level ? riskLabels[lead.risk_level] : 'Тооцоогүй',
       'Lead төлөв': leadLabels[lead.status],
       Appointment: lead.appointments?.[0]?.status ?? '',
@@ -182,20 +315,20 @@ export default function CrmManager({
           eyebrow: 'Operator CRM',
           title: 'Операторын CRM хяналт',
           description:
-            'Эмчийн хариултыг хянаж, үйлчлүүлэгч рүү утсаар холбогдон зөвлөгөөг дамжуулж, consultation урсгалыг called эсвэл closed төлөвт шилжүүлнэ.',
+            'Эмчийн зөвлөгөөг уншиж, үйлчлүүлэгч рүү утсаар дамжуулан consultation урсгалыг called эсвэл closed төлөвт шилжүүлнэ.',
         }
       : viewerRole === 'office_assistant'
         ? {
             eyebrow: 'Assistant CRM',
             title: 'Оффисын CRM хяналт',
             description:
-              'Lead, consultation, appointment урсгалуудыг шүүж, эмчид оноож, тэмдэглэл болон follow-up төлөвөө удирдана.',
+              'Lead, consultation, appointment урсгалуудыг шүүж, эмчид оноон, тэмдэглэл болон follow-up төлөвийг удирдана.',
           }
         : {
             eyebrow: 'CRM',
             title: 'Лид, эрсдэл ба follow-up хяналт',
             description:
-              'Public assessment, appointment, consultation урсгалуудаас ирсэн бүх лидуудыг нэг самбараас хянаж, эмчид оноох, тэмдэглэл оруулах, төлөв шинэчлэх боломжтой.',
+              'Public assessment, appointment, consultation урсгалуудаас ирсэн бүх лидуудыг нэг самбараас хянаж, эмчид оноох, note оруулах, төлөв шинэчлэх боломжтой.',
           }
 
   const canAssignConsultations = viewerRole !== 'operator'
@@ -208,6 +341,65 @@ export default function CrmManager({
     viewerRole === 'operator'
       ? 'Дуудлагын үр дүн, үйлчлүүлэгчид дамжуулсан зөвлөгөө, дахин холбогдох огноо...'
       : 'Дуудлагын үр дүн, follow-up, эмчид дамжуулах тайлбар...'
+  const roleTip =
+    viewerRole === 'operator'
+      ? `${stats.readyForCallback} кейс дээр эмчийн зөвлөгөө бэлэн байна. Эдгээрийг түрүүнд утсаар дамжуулж, дараа нь called эсвэл closed төлөвт шилжүүлнэ.`
+      : `${stats.needsAssignment} шинэ consultation эмчид оноох хүлээлттэй байна. Эхлээд эдгээр кейсүүдийг оноогоод дараа нь lead болон note урсгалыг цэгцлээрэй.`
+  const statItems =
+    viewerRole === 'operator'
+      ? [
+          {
+            label: 'Нийт lead',
+            value: stats.total,
+            caption: 'CRM жагсаалт',
+            tone: 'blue' as const,
+          },
+          {
+            label: 'Залгах бэлэн',
+            value: stats.readyForCallback,
+            caption: 'Эмчийн зөвлөгөө ирсэн',
+            tone: 'green' as const,
+          },
+          {
+            label: 'Дуудсан кейс',
+            value: stats.called,
+            caption: 'Хаалт хүлээж буй',
+            tone: 'yellow' as const,
+          },
+          {
+            label: 'Өндөр эрсдэл',
+            value: stats.highRisk,
+            caption: 'Анхаарах lead',
+            tone: 'red' as const,
+          },
+        ]
+      : [
+          {
+            label: 'Нийт lead',
+            value: stats.total,
+            caption: 'CRM жагсаалт',
+            tone: 'blue' as const,
+          },
+          {
+            label: 'Эмчид оноох',
+            value: stats.needsAssignment,
+            caption: 'Шинэ consultation',
+            tone: 'yellow' as const,
+          },
+          {
+            label: 'Эмчийн хариу хүлээж буй',
+            value: stats.waitingDoctor,
+            caption: 'Assigned кейс',
+            tone: 'green' as const,
+          },
+          {
+            label: 'Өндөр эрсдэл',
+            value: stats.highRisk,
+            caption: 'Анхаарах lead',
+            tone: 'red' as const,
+          },
+        ]
+  const selectedWorkflow = selectedLead ? getLeadWorkflow(selectedLead, viewerRole) : null
 
   return (
     <div className="space-y-6 p-4 md:p-6 xl:p-8">
@@ -216,14 +408,10 @@ export default function CrmManager({
         title={headerCopy.title}
         description={headerCopy.description}
         actions={
-          <button
-            type="button"
-            onClick={exportToExcel}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#B8D5FB] bg-white px-4 py-3 text-sm font-semibold text-[#1E63B5]"
-          >
+          <Button type="button" variant="outline" onClick={exportToExcel}>
             <Download size={14} />
             Excel татах
-          </button>
+          </Button>
         }
       />
 
@@ -231,14 +419,12 @@ export default function CrmManager({
       {success ? <AdminMessage tone="success">{success}</AdminMessage> : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Нийт lead', value: stats.total, tone: 'blue' as const },
-          { label: 'Өндөр эрсдэл', value: stats.highRisk, tone: 'red' as const },
-          { label: 'Consultation хүлээгдэж буй', value: stats.waitingConsultations, tone: 'yellow' as const },
-          { label: 'Appointment-той lead', value: stats.appointments, tone: 'green' as const },
-        ].map((item) => (
-          <div key={item.label} className="rounded-3xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9CA3AF]">
+        {statItems.map((item) => (
+          <div
+            key={item.label}
+            className="rounded-[28px] border border-[#E5E7EB] bg-white p-5 shadow-[0_16px_50px_rgba(17,37,68,0.06)]"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#9CA3AF]">
               {item.label}
             </p>
             <p
@@ -255,36 +441,42 @@ export default function CrmManager({
             >
               {item.value}
             </p>
+            <p className="mt-2 text-sm text-[#6B7280]">{item.caption}</p>
           </div>
         ))}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr]">
+      <AdminMessage tone="info">{roleTip}</AdminMessage>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(360px,0.92fr)]">
         <AdminSectionCard
           title="CRM жагсаалт"
-          description="Нэр, утас, эрсдэл, appointment/consultation урсгалаар шүүж шалгана."
+          description="Хайлт, эрсдэл, төлөвөөр шүүгээд дараагийн алхам хамгийн ойр кейсүүдийг түрүүнд авна."
+          action={
+            <div className="rounded-full border border-[#D6E6FA] bg-[#F7FAFF] px-3 py-2 text-xs font-semibold text-[#1E63B5]">
+              {filteredLeads.length} / {leads.length} lead
+            </div>
+          }
         >
           <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_repeat(2,minmax(0,0.8fr))]">
               <AdminInput
                 placeholder="Нэр, утас, и-мэйлээр хайх"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
-              <select
+              <AdminSelect
                 value={riskFilter}
                 onChange={(event) => setRiskFilter(event.target.value as 'all' | RiskLevel)}
-                className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
               >
                 <option value="all">Бүх эрсдэл</option>
                 <option value="low">Бага</option>
                 <option value="medium">Дунд</option>
                 <option value="high">Өндөр</option>
-              </select>
-              <select
+              </AdminSelect>
+              <AdminSelect
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as 'all' | LeadStatus)}
-                className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
               >
                 <option value="all">Бүх lead төлөв</option>
                 {Object.entries(leadLabels).map(([value, label]) => (
@@ -292,19 +484,20 @@ export default function CrmManager({
                     {label}
                   </option>
                 ))}
-              </select>
+              </AdminSelect>
             </div>
 
             {filteredLeads.length === 0 ? (
               <AdminEmptyState
                 title="Lead олдсонгүй"
-                description="Шүүлтүүрээ өөрчилнө үү эсвэл шинэ public leads орж ирэхийг хүлээнэ үү."
+                description="Шүүлтүүрээ өөрчилнө үү эсвэл шинэ public lead ирэхийг хүлээнэ үү."
               />
             ) : (
               <div className="space-y-3">
                 {filteredLeads.map((lead) => {
                   const appointment = lead.appointments?.[0]
-                  const consultation = lead.consultation_requests?.[0]
+                  const consultation = getPrimaryConsultation(lead)
+                  const workflow = getLeadWorkflow(lead, viewerRole)
 
                   return (
                     <button
@@ -312,60 +505,86 @@ export default function CrmManager({
                       type="button"
                       onClick={() => setSelectedLeadId(lead.id)}
                       className={[
-                        'block w-full rounded-3xl border-2 bg-white p-4 text-left transition hover:shadow-sm',
-                        selectedLeadId === lead.id
+                        'block w-full rounded-[28px] border-2 bg-white p-4 text-left transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(17,37,68,0.08)]',
+                        selectedLead?.id === lead.id
                           ? 'border-[#1E63B5] bg-[#F7FAFF]'
                           : 'border-[#E5E7EB]',
                       ].join(' ')}
                     >
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-base font-black text-[#1F2937]">{lead.full_name}</p>
-                            {lead.risk_level ? (
-                              <Badge color={riskColors[lead.risk_level]}>
-                                {riskLabels[lead.risk_level]}
-                              </Badge>
-                            ) : null}
-                            <Badge color={leadColors[lead.status]}>{leadLabels[lead.status]}</Badge>
-                            {lead.is_blacklisted ? <Badge color="red">Blacklist</Badge> : null}
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-black text-[#1F2937]">{lead.full_name}</p>
+                              {lead.risk_level ? (
+                                <Badge color={riskColors[lead.risk_level]}>
+                                  {riskLabels[lead.risk_level]}
+                                </Badge>
+                              ) : null}
+                              <Badge color={leadColors[lead.status]}>{leadLabels[lead.status]}</Badge>
+                              {lead.is_blacklisted ? <Badge color="red">Blacklist</Badge> : null}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-[#6B7280]">
+                              <span className="inline-flex items-center gap-1">
+                                <Phone size={14} />
+                                {lead.phone}
+                              </span>
+                              {lead.email ? <span>{lead.email}</span> : null}
+                              <span>{new Date(lead.created_at).toLocaleDateString('mn-MN')}</span>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 text-sm text-[#6B7280]">
-                            <span className="inline-flex items-center gap-1">
-                              <Phone size={14} />
-                              {lead.phone}
-                            </span>
-                            {lead.email ? <span>{lead.email}</span> : null}
-                            <span>{new Date(lead.created_at).toLocaleDateString('mn-MN')}</span>
+
+                          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[21rem]">
+                            <div className="rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                Appointment
+                              </p>
+                              <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                                {appointment?.services?.name ?? 'Байхгүй'}
+                              </p>
+                              <p className="mt-1 text-xs text-[#6B7280]">
+                                {appointment
+                                  ? `${appointment.appointment_date} ${appointment.appointment_time}`
+                                  : 'Цаг авалтгүй'}
+                              </p>
+                            </div>
+                            <div className="rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-3">
+                              <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                Consultation
+                              </p>
+                              <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                                {consultation ? consultationLabels[consultation.status] : 'Байхгүй'}
+                              </p>
+                              <p className="mt-1 text-xs text-[#6B7280]">
+                                {consultation?.doctors?.full_name ??
+                                  callbackLabels[consultation?.preferred_callback_time ?? ''] ??
+                                  'Оноолтгүй'}
+                              </p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[20rem]">
-                          <div className="rounded-2xl bg-[#F7FAFF] p-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                              Appointment
-                            </p>
-                            <p className="mt-2 text-sm font-semibold text-[#1F2937]">
-                              {appointment?.services?.name ?? 'Байхгүй'}
-                            </p>
-                            <p className="mt-1 text-xs text-[#6B7280]">
-                              {appointment
-                                ? `${appointment.appointment_date} ${appointment.appointment_time}`
-                                : 'Цаг авалтгүй'}
-                            </p>
-                          </div>
-                          <div className="rounded-2xl bg-[#F7FAFF] p-3">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                              Consultation
-                            </p>
-                            <p className="mt-2 text-sm font-semibold text-[#1F2937]">
-                              {consultation ? consultationLabels[consultation.status] : 'Байхгүй'}
-                            </p>
-                            <p className="mt-1 text-xs text-[#6B7280]">
-                              {consultation?.doctors?.full_name ??
-                                callbackLabels[consultation?.preferred_callback_time ?? ''] ??
-                                'Оноолтгүй'}
-                            </p>
+                        <div
+                          className={`rounded-2xl border px-4 py-3 ${workflowSurfaceClasses[workflow.tone]}`}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-70">
+                                Дараагийн алхам
+                              </p>
+                              <p className="mt-2 text-sm font-bold">{workflow.label}</p>
+                              <p className="mt-1 text-sm leading-6 opacity-90">
+                                {workflow.description}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-semibold">
+                              {consultation ? (
+                                <span className="rounded-full bg-white/80 px-3 py-1 text-[#475569]">
+                                  Хариулт: {consultation.doctor_responses?.length ?? 0}
+                                </span>
+                              ) : null}
+                              <ArrowRight size={14} />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -379,7 +598,13 @@ export default function CrmManager({
 
         <AdminSectionCard
           title="Lead detail"
-          description="Follow-up, appointment, consultation assignment, doctor response, notes."
+          description="Сонгосон lead-ийн consultation, appointment, note болон follow-up урсгалыг нэг дор удирдана."
+          className="xl:sticky xl:top-6 self-start"
+          action={
+            selectedWorkflow ? (
+              <Badge color={selectedWorkflow.tone}>{selectedWorkflow.label}</Badge>
+            ) : null
+          }
         >
           {!selectedLead ? (
             <AdminEmptyState
@@ -407,11 +632,53 @@ export default function CrmManager({
                   <Badge color={leadColors[selectedLead.status]}>
                     Төлөв: {leadLabels[selectedLead.status]}
                   </Badge>
+                  {selectedLead.source ? <Badge color="gray">{selectedLead.source}</Badge> : null}
+                </div>
+              </div>
+
+              {selectedWorkflow ? (
+                <div
+                  className={`rounded-[28px] border px-4 py-4 ${workflowSurfaceClasses[selectedWorkflow.tone]}`}
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-70">
+                    Одоогийн фокус
+                  </p>
+                  <p className="mt-2 text-lg font-bold">{selectedWorkflow.label}</p>
+                  <p className="mt-1 text-sm leading-6 opacity-90">
+                    {selectedWorkflow.description}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    Үнэлгээний оноо
+                  </p>
+                  <p className="mt-2 text-lg font-black text-[#10233B]">
+                    {selectedLead.risk_score ?? 'Тооцоогүй'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    Consultation
+                  </p>
+                  <p className="mt-2 text-lg font-black text-[#10233B]">
+                    {selectedLead.consultation_requests?.length ?? 0}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                    CRM тэмдэглэл
+                  </p>
+                  <p className="mt-2 text-lg font-black text-[#10233B]">
+                    {selectedLead.crm_notes?.length ?? 0}
+                  </p>
                 </div>
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border border-[#E5E7EB] bg-[#FBFDFF] p-4">
+                <div className="rounded-[28px] border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     <Calendar size={14} />
                     Appointment
@@ -419,7 +686,7 @@ export default function CrmManager({
                   {selectedLead.appointments?.length ? (
                     <div className="mt-3 space-y-3">
                       {selectedLead.appointments.map((appointment) => (
-                        <div key={appointment.id} className="rounded-2xl bg-white p-3">
+                        <div key={appointment.id} className="rounded-2xl border border-[#EEF2F7] bg-white p-3">
                           <p className="font-semibold text-[#1F2937]">
                             {appointment.services?.name ?? 'Үйлчилгээ сонгоогүй'}
                           </p>
@@ -438,129 +705,143 @@ export default function CrmManager({
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-[#E5E7EB] bg-[#FBFDFF] p-4">
+                <div className="rounded-[28px] border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     <MessageSquare size={14} />
                     Consultation
                   </div>
                   {selectedLead.consultation_requests?.length ? (
                     <div className="mt-3 space-y-3">
-                      {selectedLead.consultation_requests.map((consultation) => (
-                        <div key={consultation.id} className="rounded-2xl bg-white p-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge color={consultationColors[consultation.status]}>
-                              {consultationLabels[consultation.status]}
-                            </Badge>
-                            {consultation.doctors?.full_name ? (
-                              <Badge color="blue">{consultation.doctors.full_name}</Badge>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 text-sm text-[#6B7280]">
-                            Callback: {callbackLabels[consultation.preferred_callback_time] ?? consultation.preferred_callback_time}
-                          </p>
-                          {consultation.question ? (
-                            <p className="mt-2 text-sm leading-6 text-[#1F2937]">
-                              {consultation.question}
+                      {selectedLead.consultation_requests.map((consultation) => {
+                        const responseCount = consultation.doctor_responses?.length ?? 0
+
+                        return (
+                          <div key={consultation.id} className="rounded-2xl border border-[#EEF2F7] bg-white p-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge color={consultationColors[consultation.status]}>
+                                {consultationLabels[consultation.status]}
+                              </Badge>
+                              {consultation.doctors?.full_name ? (
+                                <Badge color="blue">{consultation.doctors.full_name}</Badge>
+                              ) : null}
+                              <span className="text-xs font-semibold text-[#6B7280]">
+                                Хариулт: {responseCount}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-[#6B7280]">
+                              Callback:{' '}
+                              {callbackLabels[consultation.preferred_callback_time] ??
+                                consultation.preferred_callback_time}
                             </p>
-                          ) : null}
-
-                          <div className="mt-4 grid gap-3">
-                            {canAssignConsultations ? (
-                              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                                <select
-                                  value={consultation.assigned_doctor_id ?? ''}
-                                  disabled={pending}
-                                  onChange={(event) =>
-                                    runAction(
-                                      () =>
-                                        assignConsultationDoctor(
-                                          consultation.id,
-                                          event.target.value || null
-                                        ),
-                                      { successMessage: 'Consultation assignment шинэчлэгдлээ.' }
-                                    )
-                                  }
-                                  className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA] disabled:opacity-60"
-                                >
-                                  <option value="">Эмч оноогоогүй</option>
-                                  {doctors.map((doctor) => (
-                                    <option key={doctor.id} value={doctor.id}>
-                                      {doctor.full_name} · {doctor.specialization}
-                                    </option>
-                                  ))}
-                                </select>
-                                <div className="inline-flex items-center gap-2 rounded-xl bg-[#F7FAFF] px-4 py-3 text-sm font-semibold text-[#1E63B5]">
-                                  <UserRoundPlus size={15} />
-                                  Эмч оноох
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="rounded-2xl bg-[#F7FAFF] p-3 text-sm text-[#1F2937]">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                                  Оноосон эмч
-                                </p>
-                                <p className="mt-2 font-semibold">
-                                  {consultation.doctors?.full_name ?? 'Одоогоор эмч оноогоогүй'}
-                                </p>
-                              </div>
-                            )}
-
-                            {followUpStatuses.length > 0 ? (
-                              <div className="space-y-2">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                                  Follow-up төлөв
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {followUpStatuses.map((status) => (
-                                    <button
-                                      key={status}
-                                      type="button"
-                                      disabled={pending || (consultation.doctor_responses?.length ?? 0) === 0}
-                                      onClick={() =>
-                                        runAction(
-                                          () => updateConsultationStatusForStaff(consultation.id, status),
-                                          { successMessage: 'Consultation төлөв шинэчлэгдлээ.' }
-                                        )
-                                      }
-                                      className={[
-                                        'rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
-                                        consultation.status === status
-                                          ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
-                                          : 'border-[#E5E7EB] bg-white text-[#6B7280]',
-                                      ].join(' ')}
-                                    >
-                                      {consultationLabels[status]}
-                                    </button>
-                                  ))}
-                                </div>
-                                {(consultation.doctor_responses?.length ?? 0) === 0 ? (
-                                  <p className="text-xs text-[#9CA3AF]">
-                                    Эмчийн хариу ирсний дараа оператор дуудлагын follow-up хийнэ.
-                                  </p>
-                                ) : null}
-                              </div>
+                            {consultation.question ? (
+                              <p className="mt-2 text-sm leading-6 text-[#1F2937]">
+                                {consultation.question}
+                              </p>
                             ) : null}
 
-                            {consultation.doctor_responses?.length ? (
-                              <div className="space-y-2 rounded-2xl border border-[#CDEDD8] bg-[#F5FCF8] p-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-[#15803D]">
-                                  Эмчийн хариулт
-                                </p>
-                                {consultation.doctor_responses.map((response) => (
-                                  <div key={response.id} className="rounded-2xl bg-white p-3">
-                                    <p className="text-sm leading-6 text-[#166534]">
-                                      {response.response_text}
-                                    </p>
-                                    <p className="mt-2 text-xs text-[#6B7280]">
-                                      {new Date(response.created_at).toLocaleString('mn-MN')}
-                                    </p>
+                            <div className="mt-4 grid gap-3">
+                              {canAssignConsultations ? (
+                                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                                  <AdminSelect
+                                    value={consultation.assigned_doctor_id ?? ''}
+                                    disabled={pending}
+                                    onChange={(event) =>
+                                      runAction(
+                                        () =>
+                                          assignConsultationDoctor(
+                                            consultation.id,
+                                            event.target.value || null
+                                          ),
+                                        {
+                                          successMessage: 'Consultation assignment шинэчлэгдлээ.',
+                                        }
+                                      )
+                                    }
+                                    className="disabled:opacity-60"
+                                  >
+                                    <option value="">Эмч оноогоогүй</option>
+                                    {doctors.map((doctor) => (
+                                      <option key={doctor.id} value={doctor.id}>
+                                        {doctor.full_name} · {doctor.specialization}
+                                      </option>
+                                    ))}
+                                  </AdminSelect>
+                                  <div className="inline-flex items-center gap-2 rounded-xl bg-[#F7FAFF] px-4 py-3 text-sm font-semibold text-[#1E63B5]">
+                                    <UserRoundPlus size={15} />
+                                    Эмч оноох
                                   </div>
-                                ))}
-                              </div>
-                            ) : null}
+                                </div>
+                              ) : (
+                                <div className="rounded-2xl bg-[#F7FAFF] p-3 text-sm text-[#1F2937]">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                    Оноосон эмч
+                                  </p>
+                                  <p className="mt-2 font-semibold">
+                                    {consultation.doctors?.full_name ?? 'Одоогоор эмч оноогоогүй'}
+                                  </p>
+                                </div>
+                              )}
+
+                              {followUpStatuses.length > 0 ? (
+                                <div className="space-y-2">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                    Follow-up төлөв
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {followUpStatuses.map((status) => (
+                                      <button
+                                        key={status}
+                                        type="button"
+                                        disabled={pending || responseCount === 0}
+                                        onClick={() =>
+                                          runAction(
+                                            () => updateConsultationStatusForStaff(consultation.id, status),
+                                            {
+                                              successMessage:
+                                                'Consultation төлөв шинэчлэгдлээ.',
+                                            }
+                                          )
+                                        }
+                                        className={[
+                                          'rounded-xl border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50',
+                                          consultation.status === status
+                                            ? 'border-[#B8D5FB] bg-[#EAF3FF] text-[#1E63B5]'
+                                            : 'border-[#E5E7EB] bg-white text-[#6B7280]',
+                                        ].join(' ')}
+                                      >
+                                        {consultationLabels[status]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {responseCount === 0 ? (
+                                    <p className="text-xs text-[#9CA3AF]">
+                                      Эмчийн хариу ирсний дараа operator дуудлагын follow-up хийнэ.
+                                    </p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+
+                              {responseCount > 0 ? (
+                                <div className="space-y-2 rounded-2xl border border-[#CDEDD8] bg-[#F5FCF8] p-3">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[#15803D]">
+                                    Эмчийн хариулт
+                                  </p>
+                                  {consultation.doctor_responses?.map((response) => (
+                                    <div key={response.id} className="rounded-2xl bg-white p-3">
+                                      <p className="text-sm leading-6 text-[#166534]">
+                                        {response.response_text}
+                                      </p>
+                                      <p className="mt-2 text-xs text-[#6B7280]">
+                                        {new Date(response.created_at).toLocaleString('mn-MN')}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <p className="mt-3 text-sm text-[#9CA3AF]">Consultation хүсэлт байхгүй.</p>
@@ -569,7 +850,7 @@ export default function CrmManager({
               </div>
 
               {canManageLeadStatus ? (
-                <div className="space-y-5">
+                <div className="space-y-5 rounded-[28px] border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-[#1F2937]">Lead төлөв шинэчлэх</p>
                     <div className="flex flex-wrap gap-2">
@@ -629,7 +910,9 @@ export default function CrmManager({
                         ].join(' ')}
                       >
                         <ShieldAlert size={14} />
-                        {selectedLead.is_blacklisted ? 'Blacklist-ээс гаргах' : 'Blacklist болгох'}
+                        {selectedLead.is_blacklisted
+                          ? 'Blacklist-ээс гаргах'
+                          : 'Blacklist болгох'}
                       </button>
                     </div>
                   </div>
@@ -644,7 +927,7 @@ export default function CrmManager({
                   </span>
                 </div>
 
-                <div className="max-h-64 space-y-3 overflow-y-auto rounded-3xl border border-[#E5E7EB] bg-[#FBFDFF] p-4">
+                <div className="max-h-64 space-y-3 overflow-y-auto rounded-[28px] border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   {selectedLead.crm_notes?.length ? (
                     selectedLead.crm_notes.map((note) => (
                       <div key={note.id} className="rounded-2xl bg-white p-3 text-sm text-[#1F2937]">

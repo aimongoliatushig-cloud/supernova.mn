@@ -1,7 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Clock, MessageSquare, Send, ShieldAlert, Stethoscope } from 'lucide-react'
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  MessageSquare,
+  PhoneCall,
+  Send,
+  ShieldAlert,
+  Stethoscope,
+} from 'lucide-react'
 import { submitDoctorConsultationResponse } from '@/app/dashboard/doctor/actions'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -69,6 +78,59 @@ const riskColors = {
   medium: 'yellow',
   high: 'red',
 } as const
+
+const workflowSurfaceClasses = {
+  new: 'border-[#F9D2D6] bg-[#FFF7F8] text-[#C2253D]',
+  assigned: 'border-[#FDE9B6] bg-[#FFFBF1] text-[#B45309]',
+  answered: 'border-[#CDEDD8] bg-[#F5FCF8] text-[#166534]',
+  called: 'border-[#D6E6FA] bg-[#F7FAFF] text-[#1E63B5]',
+  closed: 'border-[#E5E7EB] bg-[#F8FAFC] text-[#4B5563]',
+} as const
+
+function getConsultationWorkflow(
+  consultation: Consultation,
+  doctorId: string | null
+): { label: string; description: string } {
+  const respondedByMe = (consultation.doctor_responses ?? []).some(
+    (doctorResponse) => doctorResponse.doctor_id === doctorId
+  )
+
+  if (consultation.status === 'assigned') {
+    return {
+      label: 'Одоо мэргэжлийн зөвлөгөө бичнэ',
+      description:
+        'Хариулт илгээсний дараа operator үйлчлүүлэгч рүү утсаар дамжуулна. Гол зөвлөмжөө товч, ойлгомжтой оруулна.',
+    }
+  }
+
+  if (consultation.status === 'answered') {
+    return {
+      label: respondedByMe ? 'Миний хариулт operator руу шилжсэн' : 'Эмчийн хариулт бүртгэгдсэн',
+      description:
+        'Одоогоор эмчийн шат дууссан. Хэрэв нэмэлт асуулт гарвал өмнөх хариултаа шалгаад тайлбар нэмж болно.',
+    }
+  }
+
+  if (consultation.status === 'called') {
+    return {
+      label: 'Operator холбогдсон',
+      description:
+        'Үйлчлүүлэгчтэй холбоо тогтсон байна. Кейсийн нэмэлт тайлбар хэрэгтэй эсэхийг өмнөх response-оос шалгана.',
+    }
+  }
+
+  if (consultation.status === 'closed') {
+    return {
+      label: 'Кейс хаагдсан',
+      description: 'Энэ consultation идэвхтэй урсгалгүй болсон. Хуучин хариултуудаа лавлах хэлбэрээр ашиглаж болно.',
+    }
+  }
+
+  return {
+    label: 'Шинэ хүсэлт',
+    description: 'Дэлгэрэнгүйг нээгээд асуултыг уншин, шаардлагатай бол богино зөвлөгөө өгнө.',
+  }
+}
 
 export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
   const [doctorId, setDoctorId] = useState<string | null>(null)
@@ -187,7 +249,9 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
 
       setConsultations(scopedConsultations)
       setSelected((current) =>
-        current ? scopedConsultations.find((consultation) => consultation.id === current.id) ?? null : null
+        current
+          ? scopedConsultations.find((consultation) => consultation.id === current.id) ?? null
+          : null
       )
       setBooting(false)
     }
@@ -204,13 +268,53 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
       ? consultations
       : consultations.filter((consultation) => consultation.status === filter)
 
+  useEffect(() => {
+    if (displayed.length === 0) {
+      setSelected(null)
+      return
+    }
+
+    setSelected((current) => {
+      if (!current) {
+        return displayed[0]
+      }
+
+      return displayed.find((consultation) => consultation.id === current.id) ?? displayed[0]
+    })
+  }, [displayed])
+
+  useEffect(() => {
+    setResponse('')
+  }, [selected?.id])
+
   const stats = {
     total: consultations.length,
     new: consultations.filter((consultation) => consultation.status === 'new').length,
+    assigned: consultations.filter((consultation) => consultation.status === 'assigned').length,
+    answered: consultations.filter((consultation) => consultation.status === 'answered').length,
     mine: consultations.filter((consultation) =>
       (consultation.doctor_responses ?? []).some((doctorResponse) => doctorResponse.doctor_id === doctorId)
     ).length,
   }
+
+  const filterOptions = [
+    { value: 'all', label: 'Бүгд', count: consultations.length },
+    { value: 'assigned', label: statusLabels.assigned, count: stats.assigned },
+    { value: 'answered', label: statusLabels.answered, count: stats.answered },
+    {
+      value: 'called',
+      label: statusLabels.called,
+      count: consultations.filter((consultation) => consultation.status === 'called').length,
+    },
+    {
+      value: 'closed',
+      label: statusLabels.closed,
+      count: consultations.filter((consultation) => consultation.status === 'closed').length,
+    },
+  ] as const
+
+  const selectedWorkflow = selected ? getConsultationWorkflow(selected, doctorId) : null
+  const selectedResponseCount = selected?.doctor_responses?.length ?? 0
 
   async function submitResponse() {
     if (!selected || !doctorId || !response.trim()) {
@@ -265,38 +369,51 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="rounded-3xl border border-[#D8E6F6] bg-white p-5 shadow-[0_20px_70px_rgba(17,37,68,0.06)]">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="rounded-[32px] border border-[#D8E6F6] bg-[linear-gradient(135deg,#ffffff_0%,#f7faff_68%,#eef5ff_100%)] p-5 shadow-[0_20px_70px_rgba(17,37,68,0.06)]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#1E63B5]">
               Doctor CRM
             </p>
             <div>
-              <h1 className="text-2xl font-black text-[#10233B]">Эмчийн зөвлөгөөний самбар</h1>
+              <h1 className="text-2xl font-black text-[#10233B] md:text-3xl">
+                Эмчийн зөвлөгөөний самбар
+              </h1>
               <p className="mt-2 text-sm leading-7 text-[#5B6877]">
-                {doctorLabel} эмчийн хувьд шинэ зөвлөгөөний хүсэлтүүд болон өөрийн өмнө
-                хариулсан кейсүүд энд харагдана.
+                {doctorLabel} эмчид оноогдсон consultation хүсэлтүүд болон таны өмнө нь хариулсан кейсүүд энд харагдана.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-2xl border border-[#D6E6FA] bg-[#F7FAFF] px-4 py-3">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-[#D6E6FA] bg-white/80 px-4 py-3 backdrop-blur">
               <p className="text-xs font-semibold text-[#6B7280]">Харагдах хүсэлт</p>
               <p className="mt-1 text-2xl font-black text-[#1E63B5]">{stats.total}</p>
             </div>
-            <div className="rounded-2xl border border-[#FAD7DC] bg-[#FFF7F8] px-4 py-3">
+            <div className="rounded-2xl border border-[#FDE9B6] bg-white/80 px-4 py-3 backdrop-blur">
+              <p className="text-xs font-semibold text-[#6B7280]">Хариу хүлээж буй</p>
+              <p className="mt-1 text-2xl font-black text-[#D97706]">{stats.assigned}</p>
+            </div>
+            <div className="rounded-2xl border border-[#FAD7DC] bg-white/80 px-4 py-3 backdrop-blur">
               <p className="text-xs font-semibold text-[#6B7280]">Шинэ асуулт</p>
               <p className="mt-1 text-2xl font-black text-[#F23645]">{stats.new}</p>
             </div>
-            <div className="rounded-2xl border border-[#CDEDD8] bg-[#F5FCF8] px-4 py-3">
+            <div className="rounded-2xl border border-[#CDEDD8] bg-white/80 px-4 py-3 backdrop-blur">
               <p className="text-xs font-semibold text-[#6B7280]">Миний хариулсан</p>
               <p className="mt-1 text-2xl font-black text-[#16A34A]">{stats.mine}</p>
             </div>
           </div>
         </div>
       </div>
+
+      {doctorId ? (
+        <div className="rounded-2xl border border-[#D6E6FA] bg-[#F7FAFF] px-4 py-3 text-sm text-[#1E63B5]">
+          {stats.assigned > 0
+            ? `${stats.assigned} кейс дээр таны мэргэжлийн зөвлөгөө хүлээгдэж байна. Эхлээд assigned төлөвтэй кейсүүдэд хариу өгөөд, дараа нь answered кейсээ review хийж болно.`
+            : 'Одоогоор шинэ assigned кейс алга. Өмнөх хариултуудаа лавлаж, шаардлагатай бол асуултын түүхээ нягталж болно.'}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="rounded-2xl border border-[#FFD7DC] bg-[#FFF4F5] px-4 py-3 text-sm text-[#D63045]">
@@ -309,30 +426,39 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#FFF1F2] text-[#F23645]">
             <ShieldAlert size={26} />
           </div>
-          <h2 className="mt-4 text-xl font-black text-[#10233B]">Эмчийн account холбогдоогүй байна</h2>
+          <h2 className="mt-4 text-xl font-black text-[#10233B]">
+            Эмчийн account холбогдоогүй байна
+          </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-7 text-[#5B6877]">
-            Таны нэвтрэлт doctor profile-той холбогдоогүй тул consultation CRM харах боломжгүй
-            байна. Super admin хэсэгт орж тухайн эмч дээр login и-мэйл, нууц үгийг тохируулна уу.
+            Таны нэвтрэлт doctor profile-той холбогдоогүй тул consultation CRM харах боломжгүй байна. Super admin хэсэгт орж тухайн эмч дээр login и-мэйл, нууц үгийг тохируулна уу.
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6 xl:flex-row">
-          <div className="min-w-0 flex-1 space-y-4">
-            <div className="rounded-2xl border border-[#E5E7EB] bg-white p-3">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_28rem]">
+          <div className="min-w-0 space-y-4">
+            <div className="rounded-[28px] border border-[#E5E7EB] bg-white p-4 shadow-sm">
               <div className="flex flex-wrap gap-2">
-                {(['all', 'new', 'assigned', 'answered', 'called', 'closed'] as const).map((status) => (
+                {filterOptions.map((option) => (
                   <button
-                    key={status}
+                    key={option.value}
                     type="button"
-                    onClick={() => setFilter(status)}
+                    onClick={() => setFilter(option.value)}
                     className={[
-                      'rounded-xl px-3 py-2 text-xs font-semibold transition',
-                      filter === status
+                      'inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition',
+                      filter === option.value
                         ? 'bg-[#1E63B5] text-white'
                         : 'bg-[#F7FAFF] text-[#6B7280] hover:bg-[#EAF3FF]',
                     ].join(' ')}
                   >
-                    {status === 'all' ? 'Бүгд' : statusLabels[status]}
+                    <span>{option.label}</span>
+                    <span
+                      className={[
+                        'rounded-full px-2 py-0.5 text-[11px]',
+                        filter === option.value ? 'bg-white/20 text-white' : 'bg-white text-[#1E63B5]',
+                      ].join(' ')}
+                    >
+                      {option.count}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -354,58 +480,80 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                   const respondedByMe = (consultation.doctor_responses ?? []).some(
                     (doctorResponse) => doctorResponse.doctor_id === doctorId
                   )
+                  const workflow = getConsultationWorkflow(consultation, doctorId)
 
                   return (
                     <button
                       key={consultation.id}
                       type="button"
-                      onClick={() => {
-                        setSelected(consultation)
-                        setResponse('')
-                      }}
+                      onClick={() => setSelected(consultation)}
                       className={[
-                        'block w-full rounded-3xl border-2 bg-white p-5 text-left transition hover:shadow-sm',
+                        'block w-full rounded-[28px] border-2 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(17,37,68,0.08)]',
                         selected?.id === consultation.id
-                          ? 'border-[#1E63B5]'
+                          ? 'border-[#1E63B5] bg-[#F7FAFF]'
                           : 'border-[#E5E7EB]',
                       ].join(' ')}
                     >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-base font-bold text-[#1F2937]">
-                              {consultation.leads?.full_name ?? 'Нэргүй lead'}
-                            </p>
-                            <Badge color={statusColors[consultation.status]}>
-                              {statusLabels[consultation.status]}
-                            </Badge>
-                            {consultation.leads?.risk_level ? (
-                              <Badge color={riskColors[consultation.leads.risk_level]}>
-                                {riskLabels[consultation.leads.risk_level]}
+                      <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-bold text-[#1F2937]">
+                                {consultation.leads?.full_name ?? 'Нэргүй lead'}
+                              </p>
+                              <Badge color={statusColors[consultation.status]}>
+                                {statusLabels[consultation.status]}
                               </Badge>
-                            ) : null}
+                              {consultation.leads?.risk_level ? (
+                                <Badge color={riskColors[consultation.leads.risk_level]}>
+                                  {riskLabels[consultation.leads.risk_level]}
+                                </Badge>
+                              ) : null}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7280]">
+                              <span className="inline-flex items-center gap-1">
+                                <Clock size={12} />
+                                {timeLabels[consultation.preferred_callback_time]}
+                              </span>
+                              <span>{new Date(consultation.created_at).toLocaleString('mn-MN')}</span>
+                              <span>{consultation.leads?.phone}</span>
+                            </div>
+
+                            {consultation.question ? (
+                              <p className="line-clamp-2 text-sm leading-7 text-[#5B6877]">
+                                {consultation.question}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-[#9CA3AF]">Асуулт оруулаагүй хүсэлт.</p>
+                            )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-[#6B7280]">
-                            <span className="inline-flex items-center gap-1">
-                              <Clock size={12} />
-                              {timeLabels[consultation.preferred_callback_time]}
-                            </span>
-                            <span>{new Date(consultation.created_at).toLocaleString('mn-MN')}</span>
-                            <span>{consultation.leads?.phone}</span>
+                          <div className="text-xs font-semibold text-[#6B7280]">
+                            {respondedByMe ? 'Миний өмнөх хариулттай' : 'Шинэ үнэлгээ шаардлагатай'}
                           </div>
-
-                          {consultation.question ? (
-                            <p className="line-clamp-2 text-sm leading-7 text-[#5B6877]">
-                              {consultation.question}
-                            </p>
-                          ) : (
-                            <p className="text-sm text-[#9CA3AF]">Асуулт оруулаагүй хүсэлт.</p>
-                          )}
                         </div>
 
-                        <div className="text-xs font-semibold text-[#6B7280]">
-                          {respondedByMe ? 'Миний өмнөх хариулттай' : 'Шинэ үнэлгээ шаардлагатай'}
+                        <div
+                          className={`rounded-2xl border px-4 py-3 ${workflowSurfaceClasses[consultation.status]}`}
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-70">
+                                Дараагийн алхам
+                              </p>
+                              <p className="mt-2 text-sm font-bold">{workflow.label}</p>
+                              <p className="mt-1 text-sm leading-6 opacity-90">
+                                {workflow.description}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs font-semibold">
+                              <span className="rounded-full bg-white/80 px-3 py-1 text-[#475569]">
+                                Хариулт: {consultation.doctor_responses?.length ?? 0}
+                              </span>
+                              <ArrowRight size={14} />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -415,9 +563,9 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
             </div>
           </div>
 
-          <div className="xl:w-[26rem]">
+          <div className="xl:w-[28rem]">
             {selected ? (
-              <div className="sticky top-6 rounded-3xl border border-[#E5E7EB] bg-white p-5 shadow-[0_20px_60px_rgba(17,37,68,0.06)]">
+              <div className="sticky top-6 rounded-[28px] border border-[#E5E7EB] bg-white p-5 shadow-[0_20px_60px_rgba(17,37,68,0.06)]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-xl font-black text-[#10233B]">
@@ -427,6 +575,20 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                   </div>
                   <Badge color={statusColors[selected.status]}>{statusLabels[selected.status]}</Badge>
                 </div>
+
+                {selectedWorkflow ? (
+                  <div
+                    className={`mt-5 rounded-[24px] border px-4 py-4 ${workflowSurfaceClasses[selected.status]}`}
+                  >
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-70">
+                      Одоогийн фокус
+                    </p>
+                    <p className="mt-2 text-base font-bold">{selectedWorkflow.label}</p>
+                    <p className="mt-1 text-sm leading-6 opacity-90">
+                      {selectedWorkflow.description}
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <div className="rounded-2xl bg-[#F7FAFF] p-3">
@@ -445,6 +607,23 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                   </div>
                 </div>
 
+                <div className="mt-5 rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                      <PhoneCall size={12} />
+                      Operator-д дамжуулахад
+                    </div>
+                    <span className="text-xs font-semibold text-[#1E63B5]">
+                      Хариулт: {selectedResponseCount}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-[#1F2937]">
+                    {selected.status === 'assigned'
+                      ? 'Зөвлөгөөг илгээсний дараа operator утсаар үйлчлүүлэгчид дамжуулна.'
+                      : 'Энэ кейсийн дараагийн алхам operator болон CRM follow-up урсгалаар үргэлжилнэ.'}
+                  </p>
+                </div>
+
                 <div className="mt-5">
                   <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
                     <MessageSquare size={12} />
@@ -455,7 +634,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                   </div>
                 </div>
 
-                {(selected.doctor_responses ?? []).length > 0 ? (
+                {selectedResponseCount > 0 ? (
                   <div className="mt-5 space-y-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
                       Өмнөх эмчийн хариултууд
@@ -467,7 +646,9 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                       >
                         <div className="flex items-center gap-2 text-xs font-semibold text-[#15803D]">
                           <CheckCircle2 size={12} />
-                          {doctorResponse.doctor_id === doctorId ? 'Миний хариулт' : 'Бусад эмчийн хариулт'}
+                          {doctorResponse.doctor_id === doctorId
+                            ? 'Миний хариулт'
+                            : 'Бусад эмчийн хариулт'}
                         </div>
                         <p className="mt-2 text-sm leading-7 text-[#166534]">
                           {doctorResponse.response_text}
@@ -482,15 +663,21 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
 
                 {selected.status === 'assigned' ? (
                   <div className="mt-5">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
-                      Мэргэжлийн хариулт
-                    </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
+                        Мэргэжлийн хариулт
+                      </p>
+                      <span className="text-xs text-[#9CA3AF]">{response.trim().length} тэмдэгт</span>
+                    </div>
+                    <div className="mt-2 rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-3 text-xs leading-6 text-[#5B6877]">
+                      Товч оношилгооны чиглэл, аль шинжилгээ эсвэл эмчид хандахыг, мөн яаралтай эсэхийг ойлгомжтой бичвэл operator утсаар дамжуулахад илүү амар болно.
+                    </div>
                     <textarea
                       value={response}
                       onChange={(event) => setResponse(event.target.value)}
-                      rows={6}
+                      rows={7}
                       placeholder="Шинжилгээ, оношилгоо эсвэл эмчид хандах зөвлөмжөө бичнэ үү..."
-                      className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm text-[#1F2937] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                      className="mt-3 w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm text-[#1F2937] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
                     />
                     <div className="mt-3">
                       <Button

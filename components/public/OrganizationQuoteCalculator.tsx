@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowLeft, Building2, CheckCircle2, Clock3, Users } from 'lucide-react'
+import { ArrowLeft, Building2, CheckCircle2, Clock3, Sparkles, Users } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import {
   calculateOrganizationQuote,
@@ -25,9 +25,9 @@ const trustPoints = [
 ]
 
 const nextSteps = [
-  'Хүний тоо, чиглэл өөрчлөгдөх бүрт үнэ автоматаар шинэчлэгдэнэ.',
-  'Тохирох багцыг хурдан харьцуулж шийднэ.',
-  'Шаардлагатай бол дараагийн алхмаар манай багтай холбогдож болно.',
+  'Хүний тоо, чиглэлээ өөрчлөх бүрт үнэ автоматаар шинэчлэгдэнэ.',
+  'Багцуудын хооронд хурдан харьцуулж шийдвэр гаргаж болно.',
+  'Шаардлагатай бол дараагийн алхмаар манай багтай холбогдоно.',
 ]
 
 function currency(value: number) {
@@ -91,8 +91,8 @@ export default function OrganizationQuoteCalculator() {
             Байгууллагад тохирсон 3 багц
           </h1>
           <p className="mt-4 text-base leading-8 text-[#5B6877]">
-            Эхлээд багцаа харна. Дараа нь `Үнийн тооцоо гаргах` дээр дарж ажилтны тоо,
-            чиглэлээ сонгоод урьдчилсан үнийг шууд бодно.
+            Багцаа эхлээд харьцуулна. Дараа нь &quot;Үнийн тооцоо гаргах&quot; дээр дарж ажилтны
+            тоо, чиглэлээ сонгоод урьдчилсан үнийг шууд бодно.
           </p>
         </div>
 
@@ -108,7 +108,7 @@ export default function OrganizationQuoteCalculator() {
           ))}
         </div>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="mt-8 grid gap-5 lg:grid-cols-3">
           {organizationPackages.map((pkg) => {
             const isActive = selectedPackageId === pkg.id
 
@@ -118,51 +118,65 @@ export default function OrganizationQuoteCalculator() {
                 className={[
                   'flex h-full flex-col rounded-[2rem] border p-6 shadow-sm transition',
                   isActive
-                    ? 'border-[#1E63B5] bg-[#F7FAFF] shadow-[0_24px_60px_rgba(30,99,181,0.14)]'
+                    ? 'border-[#1E63B5] bg-[#F7FAFF] shadow-[0_28px_70px_rgba(30,99,181,0.14)]'
                     : 'border-[#D6E6FA] bg-white hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(18,55,102,0.08)]',
                 ].join(' ')}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
+                <div className="flex min-h-[3.5rem] items-start justify-between gap-3">
+                  <span className="inline-flex max-w-[14rem] rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
                     {pkg.headcountLabel}
                   </span>
-                  <span className="text-right text-sm font-bold text-[#E8323F]">
-                    {pkg.priceLabel}
-                  </span>
+                  {isActive ? (
+                    <span className="inline-flex rounded-full bg-[#10233B] px-3 py-1 text-xs font-bold text-white">
+                      Сонгосон
+                    </span>
+                  ) : null}
                 </div>
 
-                <h2 className="mt-5 text-2xl font-black text-[#10233B]">{pkg.title}</h2>
-                <p className="mt-3 text-sm leading-7 text-[#5B6877]">{pkg.description}</p>
+                <div className="mt-5 min-h-[9rem]">
+                  <h2 className="text-[1.9rem] font-black leading-[1.08] text-[#10233B]">
+                    {pkg.title}
+                  </h2>
+                  <p className="mt-3 text-sm leading-7 text-[#5B6877]">{pkg.description}</p>
+                </div>
 
-                <ul className="mt-5 space-y-3">
-                  {pkg.highlights.map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-sm text-[#223548]">
-                      <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#1E63B5]" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="mt-5 rounded-[1.5rem] bg-[#F8FBFF] p-4 ring-1 ring-[#E6EEF8]">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
+                    Гол давуу тал
+                  </p>
+                  <ul className="mt-4 space-y-3">
+                    {pkg.highlights.map((item) => (
+                      <li key={item} className="flex items-start gap-3 text-sm text-[#223548]">
+                        <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-[#1E63B5]" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-                <div className="mt-6 rounded-[1.5rem] bg-[#FBFDFF] p-4 ring-1 ring-[#E6EEF8]">
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#1E63B5]">
+                <div className="mt-5 min-h-[7.5rem] rounded-[1.5rem] bg-white p-4 ring-1 ring-[#E6EEF8]">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
                     Тохиромжтой байгууллага
                   </p>
-                  <p className="mt-2 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
+                  <p className="mt-3 text-sm leading-6 text-[#5B6877]">{pkg.bestFor}</p>
                 </div>
 
-                <div className="mt-6 flex items-end justify-between gap-4">
-                  <div>
+                <div className="mt-auto pt-6">
+                  <div className="rounded-[1.5rem] border border-[#D6E6FA] bg-white p-4">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#8B98A5]">
-                      {pkg.pricingMode === 'custom' ? 'Захиалгат үнэ' : 'Эхлэх үнэ'}
+                      {pkg.pricingMode === 'custom' ? 'Үнэ' : 'Эхлэх үнэ'}
                     </p>
-                    <p className="mt-2 text-xl font-black text-[#10233B]">{pkg.priceLabel}</p>
+                    <div className="mt-2 flex min-h-[3.5rem] items-end">
+                      <p className="text-2xl font-black text-[#10233B]">{pkg.priceLabel}</p>
+                    </div>
                   </div>
 
                   <Button
                     type="button"
                     variant={isActive ? 'primary' : 'outline'}
                     size="lg"
-                    className="min-w-[170px]"
+                    fullWidth
+                    className="mt-4 min-h-[3.5rem]"
                     onClick={() => handleCalculate(pkg.id)}
                   >
                     Үнийн тооцоо гаргах
@@ -176,7 +190,7 @@ export default function OrganizationQuoteCalculator() {
         {selectedPackageId && quote ? (
           <div
             id="organization-calculator"
-            className="mt-8 grid gap-6 xl:grid-cols-[1.02fr_0.98fr] xl:items-start"
+            className="mt-10 grid gap-6 xl:grid-cols-[1.02fr_0.98fr] xl:items-start"
           >
             <div className="rounded-[2rem] border border-[#D6E6FA] bg-white p-6 shadow-sm md:p-7">
               <div className="flex flex-wrap items-center gap-3">
@@ -193,13 +207,13 @@ export default function OrganizationQuoteCalculator() {
                 Байгууллагын хүний тоо, чиглэлээ сонгоно уу
               </h3>
               <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-                Сонголтоо өөрчлөх бүрт урьдчилсан үнэ автоматаар бодогдоно.
+                Сонголтоо өөрчлөх бүрт урьдчилсан үнэ автоматаар шинэчлэгдэнэ.
               </p>
 
-              <div className="mt-6 space-y-6">
+              <div className="mt-7 space-y-7">
                 <div>
                   <span className="text-sm font-bold text-[#223548]">Ажилтны тоо</span>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     {organizationHeadcountOptions.map((option) => {
                       const isActive = headcountOptionId === option.id
 
@@ -209,17 +223,17 @@ export default function OrganizationQuoteCalculator() {
                           type="button"
                           onClick={() => setHeadcountOptionId(option.id)}
                           className={[
-                            'rounded-2xl border px-4 py-4 text-left transition',
+                            'flex min-h-[5.75rem] flex-col justify-between rounded-2xl border px-4 py-4 text-left transition',
                             isActive
                               ? 'border-[#1E63B5] bg-[#EAF3FF] text-[#10233B]'
                               : 'border-[#D6E6FA] bg-[#FBFDFF] text-[#5B6877] hover:border-[#1E63B5]/60',
                           ].join(' ')}
                         >
                           <div className="flex items-center gap-2">
-                            <Users size={16} className="text-[#1E63B5]" />
+                            <Users size={16} className="shrink-0 text-[#1E63B5]" />
                             <span className="text-base font-bold">{option.label}</span>
                           </div>
-                          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8B98A5]">
                             ажилтан
                           </p>
                         </button>
@@ -230,7 +244,7 @@ export default function OrganizationQuoteCalculator() {
 
                 <div>
                   <span className="text-sm font-bold text-[#223548]">Чиглэл</span>
-                  <div className="mt-2 relative">
+                  <div className="mt-3 relative">
                     <Building2
                       size={18}
                       className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E63B5]"
@@ -251,28 +265,40 @@ export default function OrganizationQuoteCalculator() {
                 </div>
               </div>
 
-              <div className="mt-8">
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <Button type="button" variant="secondary" size="lg" onClick={handleBack}>
                   <ArrowLeft size={16} />
-                  Буцах
+                  Өөр багц харах
                 </Button>
+                <p className="text-sm font-medium text-[#6C7C8D]">
+                  Сонгосон багц: <span className="font-bold text-[#10233B]">{quote.selectedPackage.title}</span>
+                </p>
               </div>
             </div>
 
             <aside className="rounded-[2rem] bg-[#10233B] p-6 text-white shadow-[0_24px_80px_rgba(16,35,59,0.18)] md:p-7 xl:sticky xl:top-24">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-200">
-                Урьдчилсан санал
-              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-blue-200">
+                  Урьдчилсан санал
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-blue-100">
+                  <Sparkles size={12} />
+                  {quote.recommendedPackage.id === quote.selectedPackage.id
+                    ? 'Тохирсон сонголт'
+                    : 'Нэмэлт зөвлөмжтэй'}
+                </span>
+              </div>
+
               <h3 className="mt-4 text-3xl font-black leading-tight">{quote.selectedPackage.title}</h3>
               <p className="mt-3 text-sm leading-7 text-slate-300">
                 {quote.selectedPackage.description}
               </p>
 
-              <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/6 p-4">
+              <div className="mt-6 rounded-[1.5rem] border border-white/10 bg-white/6 p-5">
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
                   Тооцоолсон үнэ
                 </p>
-                <p className="mt-3 text-3xl font-black text-white">{currency(quote.totalPrice)}₮</p>
+                <p className="mt-3 text-4xl font-black text-white">{currency(quote.totalPrice)}₮</p>
                 <p className="mt-2 text-sm text-slate-300">
                   Нэг ажилтанд {currency(quote.perEmployeePrice)}₮
                 </p>
@@ -290,7 +316,9 @@ export default function OrganizationQuoteCalculator() {
                     className="flex items-start justify-between gap-4 rounded-[1.25rem] border border-white/10 bg-white/6 px-4 py-3"
                   >
                     <span className="text-sm text-slate-300">{label}</span>
-                    <span className="text-right text-sm font-semibold text-white">{value}</span>
+                    <span className="max-w-[13rem] text-right text-sm font-semibold text-white">
+                      {value}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -298,14 +326,14 @@ export default function OrganizationQuoteCalculator() {
               {quote.recommendedPackage.id !== quote.selectedPackage.id ? (
                 <div className="mt-6 rounded-[1.5rem] border border-[#2A4668] bg-[#0B1A2E] p-4">
                   <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-200">
-                    Зөвлөмж
+                    Системийн зөвлөмж
                   </p>
                   <p className="mt-2 text-lg font-black text-white">
                     {quote.recommendedPackage.title}
                   </p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
-                    Хүний тоо болон чиглэлээс шалтгаалаад энэ багц илүү тохиромжтой байж
-                    магадгүй.
+                    Хүний тоо болон чиглэлийн эрсдэлийг харгалзаад энэ багц илүү тохиромжтой
+                    байж магадгүй.
                   </p>
                 </div>
               ) : null}

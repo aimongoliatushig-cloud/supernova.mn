@@ -5,10 +5,22 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/admin/auth'
 import type { AdminActionResult, LeadStatus, Role } from '@/lib/admin/types'
 
-type StaffViewerRole = Extract<Role, 'office_assistant' | 'operator' | 'super_admin'>
+type StaffViewerRole = Extract<
+  Role,
+  'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
+>
 
-const LEAD_MANAGER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
-const NOTE_WRITER_ROLES: StaffViewerRole[] = ['office_assistant', 'operator', 'super_admin']
+const LEAD_MANAGER_ROLES: StaffViewerRole[] = [
+  'office_assistant',
+  'organization_consultant',
+  'super_admin',
+]
+const NOTE_WRITER_ROLES: StaffViewerRole[] = [
+  'office_assistant',
+  'operator',
+  'organization_consultant',
+  'super_admin',
+]
 const CONSULTATION_ASSIGNER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 const CONSULTATION_FOLLOW_UP_ROLES: StaffViewerRole[] = ['operator', 'super_admin']
 
@@ -21,7 +33,12 @@ function fail(error: string): AdminActionResult {
 }
 
 async function getStaffSupabase() {
-  const viewer = await requireRole(['office_assistant', 'operator', 'super_admin'])
+  const viewer = await requireRole([
+    'office_assistant',
+    'operator',
+    'organization_consultant',
+    'super_admin',
+  ])
   return {
     viewer,
     supabase: await createClient(),
@@ -36,6 +53,7 @@ function revalidateCrmPaths() {
   for (const path of [
     '/dashboard/admin/crm',
     '/dashboard/assistant',
+    '/dashboard/consultant',
     '/dashboard/operator',
     '/dashboard/doctor',
   ]) {
@@ -54,7 +72,7 @@ export async function updateLeadStatusForStaff(
   const { viewer, supabase } = await getStaffSupabase()
 
   if (!hasViewerRole(viewer.role, LEAD_MANAGER_ROLES)) {
-    return fail('Оператор lead төлөвийг өөрчилдөггүй. Зөвхөн оффис эсвэл админ засна.')
+    return fail('Таны role lead төлөв өөрчлөх эрхгүй байна.')
   }
 
   const payload = {
@@ -79,7 +97,7 @@ export async function toggleLeadBlacklistForStaff(
   const { viewer, supabase } = await getStaffSupabase()
 
   if (!hasViewerRole(viewer.role, LEAD_MANAGER_ROLES)) {
-    return fail('Оператор blacklist өөрчилдөггүй. Зөвхөн оффис эсвэл админ засна.')
+    return fail('Таны role blacklist өөрчлөх эрхгүй байна.')
   }
 
   const { data: currentLead, error: fetchError } = await supabase
@@ -154,7 +172,7 @@ export async function assignConsultationDoctor(
   const { viewer, supabase } = await getStaffSupabase()
 
   if (!hasViewerRole(viewer.role, CONSULTATION_ASSIGNER_ROLES)) {
-    return fail('Оператор consultation-г эмчид оноохгүй. Зөвхөн оффис эсвэл админ онооно.')
+    return fail('Consultation-ийг зөвхөн оффис эсвэл админ эмчид онооно.')
   }
 
   const { error } = await supabase.rpc('assign_consultation_doctor', {

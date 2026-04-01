@@ -14,11 +14,17 @@ import {
 } from '@/components/admin/AdminPrimitives'
 import { useServerAction } from '@/components/admin/useServerAction'
 
+type StaffRole =
+  | 'office_assistant'
+  | 'operator'
+  | 'organization_consultant'
+  | 'super_admin'
+
 type StaffAccount = {
   id: string
   email: string
   full_name: string | null
-  role: 'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
+  role: StaffRole
   created_at: string
 }
 
@@ -26,7 +32,7 @@ type StaffAccountInput = {
   id?: string
   full_name: string
   email: string
-  role: 'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
+  role: StaffRole
   password: string
 }
 
@@ -104,7 +110,7 @@ export default function StaffAccountsManager({
       <AdminPageHeader
         eyebrow="Staff Accounts"
         title="Оффис ба admin account удирдлага"
-        description="Оператор, оффисын ажилтан болон нэмэлт super admin account-уудыг эндээс үүсгэж, role болон нууц үгийг шинэчилнэ. Эмчийн account-уудыг эмчийн модуль дээрээс удирдана."
+        description="Оператор, байгууллагын зөвлөх, оффисын ажилтан болон нэмэлт super admin account-уудыг эндээс үүсгэж, role болон нууц үгийг шинэчилнэ. Эмчийн account-уудыг эмчийн модуль дээрээс удирдана."
       />
 
       {error ? <AdminMessage tone="error">{error}</AdminMessage> : null}
@@ -152,24 +158,24 @@ export default function StaffAccountsManager({
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
-                    role: event.target.value as
-                      | 'office_assistant'
-                      | 'operator'
-                      | 'organization_consultant'
-                      | 'super_admin',
+                    role: event.target.value as StaffRole,
                   }))
                 }
               >
+                <option value="organization_consultant">Байгууллагын зөвлөх</option>
                 <option value="operator">Оператор</option>
                 <option value="office_assistant">Оффисын ажилтан</option>
-                <option value="organization_consultant">Байгууллагын зөвлөх</option>
                 <option value="super_admin">Super admin</option>
               </AdminSelect>
             </AdminField>
 
             <AdminField
               label={selectedId ? 'Шинэ нууц үг' : 'Нууц үг'}
-              hint={selectedId ? 'Хоосон үлдээвэл хуучин нууц үг хэвээр үлдэнэ.' : 'Шинэ account дээр заавал.'}
+              hint={
+                selectedId
+                  ? 'Хоосон үлдээвэл хуучин нууц үг хэвээр үлдэнэ.'
+                  : 'Шинэ account дээр заавал.'
+              }
             >
               <AdminInput
                 type="password"
@@ -224,7 +230,7 @@ export default function StaffAccountsManager({
 
         <AdminSectionCard
           title="Staff жагсаалт"
-          description="Оффисын ажилтан болон super admin account-ууд."
+          description="Оффисын ажилтан, байгууллагын зөвлөх, оператор болон super admin account-ууд."
         >
           <div className="space-y-4">
             <AdminInput
@@ -280,16 +286,18 @@ export default function StaffAccountsManager({
                               ? 'bg-[#FFF1F2] text-[#F23645]'
                               : account.role === 'organization_consultant'
                                 ? 'bg-[#ECFDF3] text-[#15803D]'
-                              : account.role === 'operator'
-                                ? 'bg-[#EEF2FF] text-[#4338CA]'
-                                : 'bg-[#EAF3FF] text-[#1E63B5]',
+                                : account.role === 'operator'
+                                  ? 'bg-[#EEF2FF] text-[#4338CA]'
+                                  : 'bg-[#EAF3FF] text-[#1E63B5]',
                           ].join(' ')}
                         >
                           {account.role === 'super_admin'
                             ? 'Super admin'
-                            : account.role === 'operator'
-                              ? 'Оператор'
-                              : 'Оффисын ажилтан'}
+                            : account.role === 'organization_consultant'
+                              ? 'Байгууллагын зөвлөх'
+                              : account.role === 'operator'
+                                ? 'Оператор'
+                                : 'Оффисын ажилтан'}
                         </span>
                         <p className="text-xs text-[#9CA3AF]">
                           {new Date(account.created_at).toLocaleDateString('mn-MN')}

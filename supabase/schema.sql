@@ -7,7 +7,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ─── ENUM types ──────────────────────────────────────────────────────────────
-CREATE TYPE user_role          AS ENUM ('patient', 'office_assistant', 'operator', 'doctor', 'super_admin');
+CREATE TYPE user_role          AS ENUM ('patient', 'office_assistant', 'operator', 'organization_consultant', 'doctor', 'super_admin');
 CREATE TYPE risk_level         AS ENUM ('low', 'medium', 'high');
 CREATE TYPE appointment_status AS ENUM ('pending', 'confirmed', 'cancelled', 'completed');
 CREATE TYPE consultation_status AS ENUM ('new', 'assigned', 'answered', 'called', 'closed');
@@ -303,6 +303,15 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
+    FROM leads
+    WHERE id = consultation_row.lead_id
+      AND source = 'organization_consultation_request'
+  ) THEN
+    RAISE EXCEPTION 'Organization consultations cannot be assigned to doctors.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
     FROM doctor_responses
     WHERE consultation_id = target_consultation_id
   ) THEN
@@ -357,6 +366,15 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Consultation not found.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM leads
+    WHERE id = consultation_row.lead_id
+      AND source = 'organization_consultation_request'
+  ) THEN
+    RAISE EXCEPTION 'Organization consultations are handled by organization consultants.';
   END IF;
 
   IF NOT EXISTS (
@@ -426,6 +444,15 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Consultation not found.';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM leads
+    WHERE id = consultation_row.lead_id
+      AND source = 'organization_consultation_request'
+  ) THEN
+    RAISE EXCEPTION 'Organization consultations cannot receive doctor responses.';
   END IF;
 
   IF actor_role = 'doctor' THEN
@@ -505,10 +532,40 @@ CREATE POLICY "public_read_promotions"     ON promotions          FOR SELECT USI
 -- Leads: anyone can INSERT (lead capture), staff can SELECT/UPDATE
 CREATE POLICY "anon_insert_leads"     ON leads FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_select_leads"    ON leads FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'operator', 'doctor', 'super_admin'));
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND source = 'organization_consultation_request'
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator', 'doctor')
+      AND (source IS NULL OR source <> 'organization_consultation_request')
+    )
+  );
 CREATE POLICY "staff_update_leads"    ON leads FOR UPDATE
-  USING (current_user_role() IN ('office_assistant', 'super_admin'))
-  WITH CHECK (current_user_role() IN ('office_assistant', 'super_admin'));
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND source = 'organization_consultation_request'
+    )
+    OR (
+      current_user_role() = 'office_assistant'
+      AND (source IS NULL OR source <> 'organization_consultation_request')
+    )
+  )
+  WITH CHECK (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND source = 'organization_consultation_request'
+    )
+    OR (
+      current_user_role() = 'office_assistant'
+      AND (source IS NULL OR source <> 'organization_consultation_request')
+    )
+  );
 
 -- Assessments & answers: anon insert, staff read
 CREATE POLICY "anon_insert_assessments"  ON assessments         FOR INSERT WITH CHECK (TRUE);
@@ -527,13 +584,39 @@ CREATE POLICY "staff_read_appointments" ON appointments FOR SELECT
 -- Consultation requests: anon insert, doctors & staff read
 CREATE POLICY "anon_insert_consultations" ON consultation_requests FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_read_consultations" ON consultation_requests FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = consultation_requests.lead_id
+          AND leads.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator')
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = consultation_requests.lead_id
+          AND (leads.source IS NULL OR leads.source <> 'organization_consultation_request')
+      )
+    )
+  );
 CREATE POLICY "admin_manage_consultations" ON consultation_requests FOR ALL
   USING (current_user_role() = 'super_admin')
   WITH CHECK (current_user_role() = 'super_admin');
 CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR SELECT
   USING (
     current_user_role() = 'doctor'
+    AND EXISTS (
+      SELECT 1
+      FROM leads
+      WHERE leads.id = consultation_requests.lead_id
+        AND (leads.source IS NULL OR leads.source <> 'organization_consultation_request')
+    )
     AND (
       assigned_doctor_id IN (
         SELECT id FROM doctors WHERE profile_id = auth.uid()
@@ -550,11 +633,74 @@ CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR 
 
 -- Doctor responses: staff and doctors can read
 CREATE POLICY "staff_read_responses" ON doctor_responses FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'operator', 'doctor', 'super_admin'));
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM consultation_requests cr
+        JOIN leads l ON l.id = cr.lead_id
+        WHERE cr.id = doctor_responses.consultation_id
+          AND l.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator', 'doctor')
+      AND EXISTS (
+        SELECT 1
+        FROM consultation_requests cr
+        JOIN leads l ON l.id = cr.lead_id
+        WHERE cr.id = doctor_responses.consultation_id
+          AND (l.source IS NULL OR l.source <> 'organization_consultation_request')
+      )
+    )
+  );
 
 -- CRM notes: staff can manage
 CREATE POLICY "staff_manage_crm_notes" ON crm_notes FOR ALL
-  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND leads.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator')
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND (leads.source IS NULL OR leads.source <> 'organization_consultation_request')
+      )
+    )
+  )
+  WITH CHECK (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND leads.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator')
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND (leads.source IS NULL OR leads.source <> 'organization_consultation_request')
+      )
+    )
+  );
 
 -- Profiles: users see own, admins see all
 CREATE POLICY "user_read_own_profile"  ON profiles FOR SELECT USING (id = auth.uid());

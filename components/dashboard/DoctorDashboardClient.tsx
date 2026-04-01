@@ -41,6 +41,7 @@ interface Consultation {
     full_name: string
     phone: string
     risk_level: 'low' | 'medium' | 'high' | null
+    source?: string | null
   }
   doctor_responses?: ConsultationResponse[]
 }
@@ -184,7 +185,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
       const enhancedQuery = await supabase
         .from('consultation_requests')
         .select(
-          'id, lead_id, preferred_callback_time, question, status, assigned_doctor_id, created_at, leads(full_name, phone, risk_level), doctor_responses(id, doctor_id, response_text, created_at)'
+          'id, lead_id, preferred_callback_time, question, status, assigned_doctor_id, created_at, leads(full_name, phone, risk_level, source), doctor_responses(id, doctor_id, response_text, created_at)'
         )
         .order('created_at', { ascending: false })
 
@@ -192,7 +193,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
         ? await supabase
             .from('consultation_requests')
             .select(
-              'id, lead_id, preferred_callback_time, question, status, created_at, leads(full_name, phone, risk_level), doctor_responses(id, doctor_id, response_text, created_at)'
+              'id, lead_id, preferred_callback_time, question, status, created_at, leads(full_name, phone, risk_level, source), doctor_responses(id, doctor_id, response_text, created_at)'
             )
             .order('created_at', { ascending: false })
         : enhancedQuery
@@ -229,6 +230,10 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
       )
 
       const scopedConsultations = normalizedConsultations.filter((consultation) => {
+        if (consultation.leads?.source === 'organization_consultation_request') {
+          return false
+        }
+
         if (supportsAssignment) {
           return (
             consultation.assigned_doctor_id === doctor.id ||
@@ -381,7 +386,7 @@ export default function DoctorDashboardClient({ viewer }: { viewer: Viewer }) {
                 Эмчийн зөвлөгөөний самбар
               </h1>
               <p className="mt-2 text-sm leading-7 text-[#5B6877]">
-                {doctorLabel} эмчид оноогдсон consultation хүсэлтүүд болон таны өмнө нь хариулсан кейсүүд энд харагдана.
+                {doctorLabel} эмчид оноогдсон өвчтөний consultation хүсэлтүүд болон таны өмнө нь хариулсан кейсүүд энд харагдана.
               </p>
             </div>
           </div>

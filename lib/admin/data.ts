@@ -125,14 +125,14 @@ export async function getStaffAccountsAdminData() {
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, email, full_name, role, created_at')
-    .in('role', ['office_assistant', 'operator', 'super_admin'])
+    .in('role', ['office_assistant', 'operator', 'organization_consultant', 'super_admin'])
     .order('created_at', { ascending: false })
 
   return (profiles ?? []) as Array<{
     id: string
     email: string
     full_name: string | null
-    role: 'office_assistant' | 'operator' | 'super_admin'
+    role: 'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
     created_at: string
   }>
 }
@@ -202,7 +202,9 @@ export async function getDiagnosisAdminData() {
   }
 }
 
-async function getCrmBoardData(roles: Role[]) {
+type LeadScope = 'all' | 'patient' | 'organization'
+
+async function getCrmBoardData(roles: Role[], leadScope: LeadScope = 'all') {
   const supabase = await getRoleAwareClient(roles)
 
   const baseSelect = `
@@ -235,18 +237,38 @@ async function getCrmBoardData(roles: Role[]) {
     )
   `
 
-  const enhancedQuery = await supabase
+  let enhancedLeadQuery = supabase
     .from('leads')
     .select(`${baseSelect}, ${enhancedConsultationSelect}`)
     .order('created_at', { ascending: false })
     .limit(250)
 
+  if (leadScope === 'organization') {
+    enhancedLeadQuery = enhancedLeadQuery.eq('source', 'organization_consultation_request')
+  } else if (leadScope === 'patient') {
+    enhancedLeadQuery = enhancedLeadQuery.or(
+      'source.is.null,source.neq.organization_consultation_request'
+    )
+  }
+
+  const enhancedQuery = await enhancedLeadQuery
+
+  let legacyLeadQuery = supabase
+    .from('leads')
+    .select(`${baseSelect}, ${legacyConsultationSelect}`)
+    .order('created_at', { ascending: false })
+    .limit(250)
+
+  if (leadScope === 'organization') {
+    legacyLeadQuery = legacyLeadQuery.eq('source', 'organization_consultation_request')
+  } else if (leadScope === 'patient') {
+    legacyLeadQuery = legacyLeadQuery.or(
+      'source.is.null,source.neq.organization_consultation_request'
+    )
+  }
+
   const { data: leads } = enhancedQuery.error
-    ? await supabase
-        .from('leads')
-        .select(`${baseSelect}, ${legacyConsultationSelect}`)
-        .order('created_at', { ascending: false })
-        .limit(250)
+    ? await legacyLeadQuery
     : enhancedQuery
 
   const { data: doctors } = await supabase
@@ -270,9 +292,24 @@ async function getCrmBoardData(roles: Role[]) {
 }
 
 export async function getCrmAdminData() {
-  return getCrmBoardData(['super_admin'])
+  return getCrmBoardData(['super_admin'], 'all')
 }
 
 export async function getCrmStaffData() {
-  return getCrmBoardData(['office_assistant', 'operator', 'super_admin'])
+  return getCrmBoardData(['office_assistant', 'operator', 'super_admin'], 'patient')
+}
+
+export async function getOrganizationConsultantCrmData() {
+  const { leads } = await getCrmBoardData(['organization_consultant', 'super_admin'], 'organization')
+
+  return {
+    leads,
+    doctors: [] as Array<{
+      id: string
+      full_name: string
+      specialization: string
+      is_active: boolean
+      available_for_booking: boolean
+    }>,
+  }
 }

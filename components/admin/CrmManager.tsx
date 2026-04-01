@@ -93,7 +93,10 @@ const callbackLabels: Record<string, string> = {
   evening: 'Орой',
 }
 
-type ViewerRole = Extract<Role, 'office_assistant' | 'operator' | 'super_admin'>
+type ViewerRole = Extract<
+  Role,
+  'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
+>
 type Tone = 'blue' | 'yellow' | 'green' | 'red' | 'gray'
 
 const workflowSurfaceClasses: Record<Tone, string> = {
@@ -108,6 +111,22 @@ function getPrimaryConsultation(lead: AdminLead) {
   return lead.consultation_requests?.[0] ?? null
 }
 
+function isOrganizationLead(lead: AdminLead) {
+  return lead.source === 'organization_consultation_request'
+}
+
+function formatSourceLabel(source: string | null) {
+  if (!source) {
+    return null
+  }
+
+  if (source === 'organization_consultation_request') {
+    return 'Байгууллагын зөвлөгөө'
+  }
+
+  return source
+}
+
 function getLeadWorkflow(
   lead: AdminLead,
   viewerRole: ViewerRole
@@ -120,6 +139,58 @@ function getLeadWorkflow(
       description: 'Энэ lead дээр идэвхтэй follow-up хийхгүй. Зөвхөн хэрэгтэй тэмдэглэл үлдээнэ.',
       tone: 'red',
     }
+  }
+
+  if (isOrganizationLead(lead)) {
+    if (lead.status === 'confirmed') {
+      return {
+        label: 'Байгууллагын кейс баталгаажсан',
+        description:
+          'Зөвлөгөө болон дараагийн алхам баталгаажсан тул кейсийг хаагдсан төлөвтэй хадгалж, шаардлагатай note-оо л шинэчилнэ.',
+        tone: 'green',
+      }
+    }
+
+    if (lead.status === 'contacted' || lead.status === 'pending') {
+      return {
+        label: 'Follow-up үргэлжилж байна',
+        description:
+          'Анхны зөвлөгөө өгсөн тул дараагийн уулзалт, санал илгээх эсвэл дахин холбогдох алхмаа CRM note дээр үргэлжлүүлнэ.',
+        tone: 'blue',
+      }
+    }
+
+    if (consultation?.status === 'closed') {
+      return {
+        label: 'Байгууллагын кейс хаагдсан',
+        description:
+          'Зөвлөгөөний урсгал дууссан. Шаардлагатай бол CRM тэмдэглэл болон lead төлөвийг л шинэчилнэ.',
+        tone: 'gray',
+      }
+    }
+
+    if (consultation?.status === 'called') {
+      return {
+        label: 'Байгууллагатай холбогдсон',
+        description:
+          'Утас, и-мэйл эсвэл follow-up-аар холбогдсон тул дараагийн алхам, санал болгосон үйлчилгээг CRM note дээр баталгаажуулна.',
+        tone: 'green',
+      }
+    }
+
+    return viewerRole === 'organization_consultant'
+      ? {
+          label: 'Байгууллагад зөвлөгөө өгөх',
+          description:
+            'Хүссэн үйлчилгээний хүрээ, ажилтны тоонд тохирох багцуудыг тайлбарлаж, дараагийн уулзалт эсвэл саналын мэдээллээ CRM note дээр үлдээнэ.',
+          tone: 'blue',
+        }
+      : {
+          label: 'Байгууллагын зөвлөгөөний хүсэлт',
+          description:
+            'Энэ хүсэлт нь байгууллагын үйлчилгээний урсгалд хамаарах тул байгууллагын зөвлөх эсвэл super admin хариуцна.',
+          tone: 'gray',
+        }
   }
 
   if (consultation?.status === 'new') {
@@ -287,6 +358,17 @@ export default function CrmManager({
       called: leads.filter((lead) =>
         (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'called')
       ).length,
+      contacted: leads.filter(
+        (lead) =>
+          lead.status === 'contacted' ||
+          (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'called')
+      ).length,
+      closed: leads.filter(
+        (lead) =>
+          lead.status === 'confirmed' ||
+          (lead.consultation_requests ?? []).some((consultation) => consultation.status === 'closed')
+      ).length,
+      newLeads: leads.filter((lead) => lead.status === 'new').length,
     }),
     [leads]
   )
@@ -317,6 +399,13 @@ export default function CrmManager({
           description:
             'Эмчийн зөвлөгөөг уншиж, үйлчлүүлэгч рүү утсаар дамжуулан consultation урсгалыг called эсвэл closed төлөвт шилжүүлнэ.',
         }
+      : viewerRole === 'organization_consultant'
+        ? {
+            eyebrow: 'Organization CRM',
+            title: 'Байгууллагын зөвлөгөөний самбар',
+            description:
+              'Байгууллагаас ирсэн хүсэлтүүдийг л харж, ямар үйлчилгээ тохирохыг тайлбарлан, дараагийн алхам болон харилцсан тэмдэглэлээ CRM дээр удирдана.',
+          }
       : viewerRole === 'office_assistant'
         ? {
             eyebrow: 'Assistant CRM',
@@ -331,8 +420,12 @@ export default function CrmManager({
               'Public assessment, appointment, consultation урсгалуудаас ирсэн бүх лидуудыг нэг самбараас хянаж, эмчид оноох, note оруулах, төлөв шинэчлэх боломжтой.',
           }
 
-  const canAssignConsultations = viewerRole !== 'operator'
-  const canManageLeadStatus = viewerRole !== 'operator'
+  const canAssignConsultations =
+    viewerRole === 'office_assistant' || viewerRole === 'super_admin'
+  const canManageLeadStatus =
+    viewerRole === 'office_assistant' ||
+    viewerRole === 'organization_consultant' ||
+    viewerRole === 'super_admin'
   const followUpStatuses =
     viewerRole === 'operator' || viewerRole === 'super_admin'
       ? (['called', 'closed'] as const)
@@ -400,13 +493,71 @@ export default function CrmManager({
           },
         ]
   const selectedWorkflow = selectedLead ? getLeadWorkflow(selectedLead, viewerRole) : null
+  const resolvedHeaderCopy =
+    viewerRole === 'organization_consultant'
+      ? {
+          eyebrow: 'Organization CRM',
+          title: 'Байгууллагын зөвлөгөөний самбар',
+          description:
+            'Байгууллагаас ирсэн хүсэлтүүдийг л харж, ямар үйлчилгээ тохирохыг тайлбарлан, дараагийн алхам болон харилцсан тэмдэглэлээ CRM дээр удирдана.',
+        }
+      : headerCopy
+  const resolvedRoleTip =
+    viewerRole === 'organization_consultant'
+      ? `${stats.newLeads} шинэ байгууллагын хүсэлт хүлээгдэж байна. Эхлээд эдгээр байгууллагуудтай холбогдож, тохирох үйлчилгээ болон дараагийн алхмыг CRM note дээр тэмдэглээрэй.`
+      : roleTip
+  const resolvedNotePlaceholder =
+    viewerRole === 'organization_consultant'
+      ? 'Байгууллагад санал болгосон үйлчилгээ, ажилтны тоонд тохирсон шийдэл, дараагийн уулзалт эсвэл follow-up...'
+      : notePlaceholder
+  const resolvedStatItems =
+    viewerRole === 'organization_consultant'
+      ? [
+          {
+            label: 'Нийт хүсэлт',
+            value: stats.total,
+            caption: 'Байгууллагын CRM',
+            tone: 'blue' as const,
+          },
+          {
+            label: 'Шинэ хүсэлт',
+            value: stats.newLeads,
+            caption: 'Зөвлөгөө хүлээж буй',
+            tone: 'yellow' as const,
+          },
+          {
+            label: 'Холбогдсон',
+            value: stats.contacted,
+            caption: 'Follow-up үргэлжилж буй',
+            tone: 'green' as const,
+          },
+          {
+            label: 'Хаагдсан',
+            value: stats.closed,
+            caption: 'Дууссан кейс',
+            tone: 'blue' as const,
+          },
+        ]
+      : statItems
+  const listTitle =
+    viewerRole === 'organization_consultant' ? 'Байгууллагын хүсэлтүүд' : 'CRM жагсаалт'
+  const listDescription =
+    viewerRole === 'organization_consultant'
+      ? 'Байгууллагын нэр, утас, имэйл болон ажилтны тоогоор нь шүүж, эхлээд зөвлөгөө өгөх шаардлагатай кейсүүдийг түрүүлж авна.'
+      : 'Хайлт, эрсдэл, төлвөөр шүүгээд дараагийн алхам хамгийн ойр кейсүүдийг түрүүнд авна.'
+  const detailTitle =
+    viewerRole === 'organization_consultant' ? 'Байгууллагын detail' : 'Lead detail'
+  const detailDescription =
+    viewerRole === 'organization_consultant'
+      ? 'Сонгосон байгууллагын зөвлөгөөний хүсэлт, холбоо барих мэдээлэл болон CRM note-уудыг нэг дороос удирдана.'
+      : 'Сонгосон lead-ийн consultation, appointment, note болон follow-up урсгалыг нэг дор удирдана.'
 
   return (
     <div className="space-y-6 p-4 md:p-6 xl:p-8">
       <AdminPageHeader
-        eyebrow={headerCopy.eyebrow}
-        title={headerCopy.title}
-        description={headerCopy.description}
+        eyebrow={resolvedHeaderCopy.eyebrow}
+        title={resolvedHeaderCopy.title}
+        description={resolvedHeaderCopy.description}
         actions={
           <Button type="button" variant="outline" onClick={exportToExcel}>
             <Download size={14} />
@@ -419,7 +570,7 @@ export default function CrmManager({
       {success ? <AdminMessage tone="success">{success}</AdminMessage> : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {statItems.map((item) => (
+        {resolvedStatItems.map((item) => (
           <div
             key={item.label}
             className="rounded-[28px] border border-[#E5E7EB] bg-white p-5 shadow-[0_16px_50px_rgba(17,37,68,0.06)]"
@@ -446,12 +597,12 @@ export default function CrmManager({
         ))}
       </section>
 
-      <AdminMessage tone="info">{roleTip}</AdminMessage>
+      <AdminMessage tone="info">{resolvedRoleTip}</AdminMessage>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.18fr)_minmax(360px,0.92fr)]">
         <AdminSectionCard
-          title="CRM жагсаалт"
-          description="Хайлт, эрсдэл, төлөвөөр шүүгээд дараагийн алхам хамгийн ойр кейсүүдийг түрүүнд авна."
+          title={listTitle}
+          description={listDescription}
           action={
             <div className="rounded-full border border-[#D6E6FA] bg-[#F7FAFF] px-3 py-2 text-xs font-semibold text-[#1E63B5]">
               {filteredLeads.length} / {leads.length} lead
@@ -597,8 +748,8 @@ export default function CrmManager({
         </AdminSectionCard>
 
         <AdminSectionCard
-          title="Lead detail"
-          description="Сонгосон lead-ийн consultation, appointment, note болон follow-up урсгалыг нэг дор удирдана."
+          title={detailTitle}
+          description={detailDescription}
           className="xl:sticky xl:top-6 self-start"
           action={
             selectedWorkflow ? (
@@ -632,7 +783,9 @@ export default function CrmManager({
                   <Badge color={leadColors[selectedLead.status]}>
                     Төлөв: {leadLabels[selectedLead.status]}
                   </Badge>
-                  {selectedLead.source ? <Badge color="gray">{selectedLead.source}</Badge> : null}
+                  {selectedLead.source ? (
+                    <Badge color="gray">{formatSourceLabel(selectedLead.source)}</Badge>
+                  ) : null}
                 </div>
               </div>
 
@@ -714,6 +867,7 @@ export default function CrmManager({
                     <div className="mt-3 space-y-3">
                       {selectedLead.consultation_requests.map((consultation) => {
                         const responseCount = consultation.doctor_responses?.length ?? 0
+                        const organizationLead = isOrganizationLead(selectedLead)
 
                         return (
                           <div key={consultation.id} className="rounded-2xl border border-[#EEF2F7] bg-white p-3">
@@ -740,7 +894,7 @@ export default function CrmManager({
                             ) : null}
 
                             <div className="mt-4 grid gap-3">
-                              {canAssignConsultations ? (
+                              {canAssignConsultations && !organizationLead ? (
                                 <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                                   <AdminSelect
                                     value={consultation.assigned_doctor_id ?? ''}
@@ -770,6 +924,15 @@ export default function CrmManager({
                                     <UserRoundPlus size={15} />
                                     Эмч оноох
                                   </div>
+                                </div>
+                              ) : organizationLead ? (
+                                <div className="rounded-2xl bg-[#F7FAFF] p-3 text-sm text-[#1F2937]">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                    Байгууллагын зөвлөгөө
+                                  </p>
+                                  <p className="mt-2 font-semibold">
+                                    Энэ хүсэлтэд эмч оноохгүй. Зөвлөгөө, дараагийн алхмаа CRM note болон lead төлөв дээр тэмдэглэнэ.
+                                  </p>
                                 </div>
                               ) : (
                                 <div className="rounded-2xl bg-[#F7FAFF] p-3 text-sm text-[#1F2937]">
@@ -815,7 +978,9 @@ export default function CrmManager({
                                   </div>
                                   {responseCount === 0 ? (
                                     <p className="text-xs text-[#9CA3AF]">
-                                      Эмчийн хариу ирсний дараа operator дуудлагын follow-up хийнэ.
+                                      {organizationLead
+                                        ? 'Энэ урсгалд эмчийн хариу шаардахгүй. Байгууллагатай харилцсан үр дүнгээ CRM note дээр үлдээнэ.'
+                                        : 'Эмчийн хариу ирсний дараа operator дуудлагын follow-up хийнэ.'}
                                     </p>
                                   ) : null}
                                 </div>
@@ -947,7 +1112,7 @@ export default function CrmManager({
                     rows={4}
                     value={noteText}
                     onChange={(event) => setNoteText(event.target.value)}
-                    placeholder={notePlaceholder}
+                    placeholder={resolvedNotePlaceholder}
                   />
                 </AdminField>
 

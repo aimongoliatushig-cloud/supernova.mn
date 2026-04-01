@@ -1,25 +1,15 @@
--- Consultation workflow guards and stricter CRM access
-
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1
     FROM pg_type t
     JOIN pg_enum e ON e.enumtypid = t.oid
-    WHERE t.typname = 'consultation_status'
-      AND e.enumlabel = 'assigned'
+    WHERE t.typname = 'user_role'
+      AND e.enumlabel = 'organization_consultant'
   ) THEN
-    ALTER TYPE consultation_status ADD VALUE 'assigned' AFTER 'new';
+    ALTER TYPE user_role ADD VALUE 'organization_consultant' AFTER 'operator';
   END IF;
 END $$;
-
-ALTER TABLE consultation_requests
-  ADD COLUMN IF NOT EXISTS assigned_doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS assigned_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMPTZ;
-
-CREATE INDEX IF NOT EXISTS idx_consultation_requests_assigned_doctor_id
-  ON consultation_requests(assigned_doctor_id);
 
 CREATE OR REPLACE FUNCTION assign_consultation_doctor(
   target_consultation_id UUID,
@@ -270,25 +260,47 @@ BEGIN
 END;
 $$;
 
+DROP POLICY IF EXISTS "staff_select_leads" ON leads;
+CREATE POLICY "staff_select_leads" ON leads FOR SELECT
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND source = 'organization_consultation_request'
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator', 'doctor')
+      AND (source IS NULL OR source <> 'organization_consultation_request')
+    )
+  );
+
 DROP POLICY IF EXISTS "staff_update_leads" ON leads;
 CREATE POLICY "staff_update_leads" ON leads FOR UPDATE
-  USING (current_user_role() IN ('office_assistant', 'super_admin'))
-  WITH CHECK (current_user_role() IN ('office_assistant', 'super_admin'));
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND source = 'organization_consultation_request'
+    )
+    OR (
+      current_user_role() = 'office_assistant'
+      AND (source IS NULL OR source <> 'organization_consultation_request')
+    )
+  )
+  WITH CHECK (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND source = 'organization_consultation_request'
+    )
+    OR (
+      current_user_role() = 'office_assistant'
+      AND (source IS NULL OR source <> 'organization_consultation_request')
+    )
+  );
 
-DROP POLICY IF EXISTS "staff_manage_appointments" ON appointments;
-CREATE POLICY "staff_manage_appointments" ON appointments FOR ALL
-  USING (current_user_role() IN ('office_assistant', 'super_admin'))
-  WITH CHECK (current_user_role() IN ('office_assistant', 'super_admin'));
-
-DROP POLICY IF EXISTS "staff_read_appointments" ON appointments;
-CREATE POLICY "staff_read_appointments" ON appointments FOR SELECT
-  USING (current_user_role() IN ('office_assistant', 'operator', 'super_admin'));
-
-DROP POLICY IF EXISTS "staff_manage_consultations" ON consultation_requests;
 DROP POLICY IF EXISTS "staff_read_consultations" ON consultation_requests;
-DROP POLICY IF EXISTS "admin_manage_consultations" ON consultation_requests;
 DROP POLICY IF EXISTS "doctor_read_assigned_consultations" ON consultation_requests;
-DROP POLICY IF EXISTS "doctor_update_assigned_consultations" ON consultation_requests;
 
 CREATE POLICY "staff_read_consultations" ON consultation_requests FOR SELECT
   USING (
@@ -313,10 +325,6 @@ CREATE POLICY "staff_read_consultations" ON consultation_requests FOR SELECT
     )
   );
 
-CREATE POLICY "admin_manage_consultations" ON consultation_requests FOR ALL
-  USING (current_user_role() = 'super_admin')
-  WITH CHECK (current_user_role() = 'super_admin');
-
 CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR SELECT
   USING (
     current_user_role() = 'doctor'
@@ -340,4 +348,73 @@ CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR 
     )
   );
 
-DROP POLICY IF EXISTS "doctor_insert_responses" ON doctor_responses;
+DROP POLICY IF EXISTS "staff_read_responses" ON doctor_responses;
+CREATE POLICY "staff_read_responses" ON doctor_responses FOR SELECT
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM consultation_requests cr
+        JOIN leads l ON l.id = cr.lead_id
+        WHERE cr.id = doctor_responses.consultation_id
+          AND l.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator', 'doctor')
+      AND EXISTS (
+        SELECT 1
+        FROM consultation_requests cr
+        JOIN leads l ON l.id = cr.lead_id
+        WHERE cr.id = doctor_responses.consultation_id
+          AND (l.source IS NULL OR l.source <> 'organization_consultation_request')
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "staff_manage_crm_notes" ON crm_notes;
+CREATE POLICY "staff_manage_crm_notes" ON crm_notes FOR ALL
+  USING (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND leads.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator')
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND (leads.source IS NULL OR leads.source <> 'organization_consultation_request')
+      )
+    )
+  )
+  WITH CHECK (
+    current_user_role() = 'super_admin'
+    OR (
+      current_user_role() = 'organization_consultant'
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND leads.source = 'organization_consultation_request'
+      )
+    )
+    OR (
+      current_user_role() IN ('office_assistant', 'operator')
+      AND EXISTS (
+        SELECT 1
+        FROM leads
+        WHERE leads.id = crm_notes.lead_id
+          AND (leads.source IS NULL OR leads.source <> 'organization_consultation_request')
+      )
+    )
+  );

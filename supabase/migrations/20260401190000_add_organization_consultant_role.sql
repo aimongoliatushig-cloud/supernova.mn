@@ -5,11 +5,69 @@ BEGIN
     FROM pg_type t
     JOIN pg_enum e ON e.enumtypid = t.oid
     WHERE t.typname = 'user_role'
+      AND e.enumlabel = 'operator'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_type t
+      JOIN pg_enum e ON e.enumtypid = t.oid
+      WHERE t.typname = 'user_role'
+        AND e.enumlabel = 'office_assistant'
+    ) THEN
+      ALTER TYPE user_role ADD VALUE 'operator' AFTER 'office_assistant';
+    ELSE
+      ALTER TYPE user_role ADD VALUE 'operator';
+    END IF;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_enum e ON e.enumtypid = t.oid
+    WHERE t.typname = 'user_role'
       AND e.enumlabel = 'organization_consultant'
   ) THEN
-    ALTER TYPE user_role ADD VALUE 'organization_consultant' AFTER 'operator';
+    IF EXISTS (
+      SELECT 1
+      FROM pg_type t
+      JOIN pg_enum e ON e.enumtypid = t.oid
+      WHERE t.typname = 'user_role'
+        AND e.enumlabel = 'operator'
+    ) THEN
+      ALTER TYPE user_role ADD VALUE 'organization_consultant' AFTER 'operator';
+    ELSE
+      ALTER TYPE user_role ADD VALUE 'organization_consultant';
+    END IF;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_enum e ON e.enumtypid = t.oid
+    WHERE t.typname = 'consultation_status'
+      AND e.enumlabel = 'assigned'
+  ) THEN
+    IF EXISTS (
+      SELECT 1
+      FROM pg_type t
+      JOIN pg_enum e ON e.enumtypid = t.oid
+      WHERE t.typname = 'consultation_status'
+        AND e.enumlabel = 'new'
+    ) THEN
+      ALTER TYPE consultation_status ADD VALUE 'assigned' AFTER 'new';
+    ELSE
+      ALTER TYPE consultation_status ADD VALUE 'assigned';
+    END IF;
   END IF;
 END $$;
+
+ALTER TABLE consultation_requests
+  ADD COLUMN IF NOT EXISTS assigned_doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS assigned_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_consultation_requests_assigned_doctor_id
+  ON consultation_requests(assigned_doctor_id);
 
 CREATE OR REPLACE FUNCTION assign_consultation_doctor(
   target_consultation_id UUID,

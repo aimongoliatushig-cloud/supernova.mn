@@ -2,6 +2,7 @@ import Link from 'next/link'
 import {
   Activity,
   ArrowRight,
+  Building2,
   Calendar,
   CheckCircle2,
   Clock3,
@@ -156,10 +157,10 @@ export default async function HomePage() {
       <Navbar phone={phone} />
 
       <main className="overflow-hidden">
-        <section className="relative pb-16 pt-10 md:pb-24 md:pt-16">
+        <section className="relative pb-16 pt-5 md:pb-24 md:pt-5">
           <div className="absolute inset-x-0 top-0 h-[540px] bg-[radial-gradient(circle_at_top_left,_rgba(30,99,181,0.16),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(232,50,63,0.08),_transparent_22%)]" />
           <div className="relative mx-auto max-w-6xl px-4">
-            <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+            <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#C8DCF5] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5] shadow-sm">
                   <Sparkles size={13} className="text-[#E8323F]" />
@@ -195,6 +196,16 @@ export default async function HomePage() {
                   >
                     <Phone size={16} />
                     15 минутын зөвлөгөө
+                  </Link>
+                </div>
+
+                <div className="mt-4">
+                  <Link
+                    href="/organization"
+                    className="inline-flex items-center gap-2 rounded-full border border-[#D6E6FA] bg-white px-4 py-2.5 text-sm font-bold text-[#35506C] shadow-sm transition hover:border-[#1E63B5] hover:text-[#1E63B5]"
+                  >
+                    <Building2 size={16} className="text-[#1E63B5]" />
+                    Байгууллагын багц ба үнийн тооцоо
                   </Link>
                 </div>
 

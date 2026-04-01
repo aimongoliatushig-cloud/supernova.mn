@@ -221,10 +221,7 @@ export default function OrganizationQuoteCalculator() {
       <div id="calculator" className="scroll-mt-24" />
       <div className="mx-auto max-w-6xl px-4">
         <div className="max-w-4xl">
-          <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
-            Байгууллагын багц үйлчилгээ
-          </p>
-          <h1 className="mt-4 text-5xl font-black leading-[0.98] text-[#10233B] md:text-6xl">
+          <h1 className="text-5xl font-black leading-[0.98] text-[#10233B] md:text-6xl">
             Байгууллагын багц үйлчилгээ
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#5B6877]">

@@ -198,6 +198,8 @@ export interface SubmitConsultationInput {
 
 export interface SubmitOrganizationQuoteInput {
   organization_name: string
+  organization_industry: string
+  contact_name: string
   phone: string
   email: string
   employee_count: number

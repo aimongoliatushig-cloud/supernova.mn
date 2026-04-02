@@ -3,6 +3,10 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/admin/auth'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 import type { AdminActionResult, LeadStatus, Role } from '@/lib/admin/types'
 
 type StaffViewerRole = Extract<
@@ -39,9 +43,16 @@ async function getStaffSupabase() {
     'organization_consultant',
     'super_admin',
   ])
+
+  const supabase =
+    (viewer.role === 'super_admin' || viewer.role === 'organization_consultant') &&
+    hasServiceRoleConfig()
+      ? createServiceRoleClient()
+      : await createClient()
+
   return {
     viewer,
-    supabase: await createClient(),
+    supabase,
   }
 }
 
@@ -65,6 +76,32 @@ function isMissingWorkflowFunction(errorMessage: string, functionName: string) {
   return errorMessage.includes(functionName) || errorMessage.includes('assigned_doctor_id')
 }
 
+async function assertLeadScopeAccess(
+  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createServiceRoleClient>,
+  viewer: { role: Role },
+  lead_id: string
+) {
+  if (viewer.role !== 'organization_consultant') {
+    return null
+  }
+
+  const { data: lead, error } = await supabase
+    .from('leads')
+    .select('source')
+    .eq('id', lead_id)
+    .single()
+
+  if (error) {
+    return error.message
+  }
+
+  if (lead.source !== 'organization_consultation_request') {
+    return 'Байгууллагын зөвлөх зөвхөн компанийн хүсэлтүүд дээр ажиллана.'
+  }
+
+  return null
+}
+
 export async function updateLeadStatusForStaff(
   lead_id: string,
   status: LeadStatus
@@ -73,6 +110,11 @@ export async function updateLeadStatusForStaff(
 
   if (!hasViewerRole(viewer.role, LEAD_MANAGER_ROLES)) {
     return fail('Таны role lead төлөв өөрчлөх эрхгүй байна.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, lead_id)
+  if (accessError) {
+    return fail(accessError)
   }
 
   const payload = {
@@ -98,6 +140,11 @@ export async function toggleLeadBlacklistForStaff(
 
   if (!hasViewerRole(viewer.role, LEAD_MANAGER_ROLES)) {
     return fail('Таны role blacklist өөрчлөх эрхгүй байна.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, lead_id)
+  if (accessError) {
+    return fail(accessError)
   }
 
   const { data: currentLead, error: fetchError } = await supabase
@@ -144,6 +191,11 @@ export async function addLeadNoteForStaff(
 
   if (!hasViewerRole(viewer.role, NOTE_WRITER_ROLES)) {
     return fail('Тухайн хэрэглэгч CRM тэмдэглэл хадгалах эрхгүй байна.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, lead_id)
+  if (accessError) {
+    return fail(accessError)
   }
 
   const { error } = await supabase.from('crm_notes').insert({

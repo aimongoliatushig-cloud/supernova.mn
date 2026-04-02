@@ -98,7 +98,7 @@ export default function DashboardSidebar({ role, user }: SidebarProps) {
 
           return (
             <Link
-              key={item.href}
+              key={`${item.href}:${item.label}`}
               href={item.href}
               className={[
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',

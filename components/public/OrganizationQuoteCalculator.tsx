@@ -3,12 +3,14 @@
 import { useState, useTransition } from 'react'
 import {
   ArrowRight,
+  BriefcaseBusiness,
   Building2,
   CheckCircle2,
   Clock3,
   Mail,
   Phone,
   Sparkles,
+  UserRound,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -24,35 +26,50 @@ const benefitCards: Array<{
 }> = [
   {
     icon: Sparkles,
-    eyebrow: 'Байгууллагын зөвлөгөө',
-    title: 'Үйлчилгээгээ тохируулж сонгоно',
+    eyebrow: 'Урамшуулалтай санал',
+    title: 'Компанидаа тохирсон үнийн санал авна',
     description:
-      'Танай байгууллагын чиглэл, ажилтны тоонд таарсан үйлчилгээний багцыг манай зөвлөх баг санал болгоно.',
+      'Танай компанийн салбар, ажилтны тоо, хэрэгцээнд таарсан багц, нөхцөлийг манай баг санал болгоно.',
   },
   {
     icon: Clock3,
-    eyebrow: 'Холбоо барих хугацаа',
+    eyebrow: 'Шуурхай хариу',
     title: '24 цагийн дотор эргэн холбогдоно',
     description:
-      'Байгууллагын нэр, утас, имэйл, ажилтны тоогоо үлдээхэд манай баг ажлын 24 цагийн дотор холбогдоно.',
+      'Формоо илгээсний дараа манай баг ажлын 24 цагийн дотор хамгийн тохиромжтой үнийн саналыг танилцуулна.',
   },
   {
     icon: Building2,
     eyebrow: 'Дараагийн шат',
-    title: 'On-site болон тайлбарын урсгалыг төлөвлөнө',
+    title: 'Хөтөлбөр, зохион байгуулалтыг баталгаажуулна',
     description:
-      'Шаардлагатай бол танай байгууллага дээр үзлэг зохион байгуулах болон эмчийн тайлбарын хувилбарыг хамт төлөвлөнө.',
+      'Санал таарвал on-site үзлэг, эмчийн тайлбар, тайлангийн форматыг хамт төлөвлөнө.',
   },
 ]
 
+const industryOptions = [
+  'Мэдээллийн технологи',
+  'Санхүү, даатгал',
+  'Уул уурхай, эрчим хүч',
+  'Үйлдвэрлэл',
+  'Худалдаа, үйлчилгээ',
+  'Барилга, үл хөдлөх',
+  'Боловсрол',
+  'Эрүүл мэнд',
+  'Ложистик, тээвэр',
+  'Бусад',
+]
+
 const nextSteps = [
-  'Манай байгууллагын зөвлөх баг танай хүсэлтийг хүлээж аваад 24 цагийн дотор холбогдоно.',
-  'Ажилтны тоо болон байгууллагын онцлогт таарсан үйлчилгээний санал гаргаж өгнө.',
-  'Шаардлагатай бол on-site зохион байгуулалт, эмчийн тайлбар, дараагийн шатны төлөвлөгөөг хамт баталгаажуулна.',
+  'Манай баг хүсэлтийг хүлээж аваад ажлын 24 цагийн дотор танай багтай холбогдоно.',
+  'Компанийн салбар, ажилтны тоонд тохирсон урамшуулалтай үнийн саналыг боловсруулж илгээнэ.',
+  'Санал таарвал үзлэгийн зохион байгуулалт, тайлан, дараагийн алхмуудыг хамт баталгаажуулна.',
 ]
 
 type SubmittedRequest = {
   organizationName: string
+  industry: string
+  contactName: string
   phone: string
   email: string
   employeeCount: number
@@ -67,6 +84,8 @@ function scrollToConsultationForm() {
 
 export default function OrganizationConsultationSection() {
   const [organizationName, setOrganizationName] = useState('')
+  const [organizationIndustry, setOrganizationIndustry] = useState('')
+  const [contactName, setContactName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [employeeCount, setEmployeeCount] = useState('')
@@ -91,12 +110,21 @@ export default function OrganizationConsultationSection() {
 
   function handleSubmit() {
     const normalizedOrganizationName = organizationName.trim()
+    const normalizedIndustry = organizationIndustry.trim()
+    const normalizedContactName = contactName.trim()
     const normalizedPhone = phone.trim()
     const normalizedEmail = email.trim().toLowerCase()
     const normalizedEmployeeCount = Number.parseInt(employeeCount, 10)
 
-    if (!normalizedOrganizationName || !normalizedPhone || !normalizedEmail || !employeeCount.trim()) {
-      setError('Байгууллагын нэр, утас, имэйл, ажилтны тоог бүрэн оруулна уу.')
+    if (
+      !normalizedOrganizationName ||
+      !normalizedIndustry ||
+      !normalizedContactName ||
+      !normalizedPhone ||
+      !normalizedEmail ||
+      !employeeCount.trim()
+    ) {
+      setError('Компанийн нэр, салбар, ажилтны тоо, холбоо барих мэдээллээ бүрэн оруулна уу.')
       return
     }
 
@@ -121,6 +149,8 @@ export default function OrganizationConsultationSection() {
     startTransition(async () => {
       const result = await submitOrganizationQuoteRequest({
         organization_name: normalizedOrganizationName,
+        organization_industry: normalizedIndustry,
+        contact_name: normalizedContactName,
         phone: normalizedPhone,
         email: normalizedEmail,
         employee_count: normalizedEmployeeCount,
@@ -133,11 +163,15 @@ export default function OrganizationConsultationSection() {
 
       setSubmittedRequest({
         organizationName: normalizedOrganizationName,
+        industry: normalizedIndustry,
+        contactName: normalizedContactName,
         phone: normalizedPhone,
         email: normalizedEmail,
         employeeCount: normalizedEmployeeCount,
       })
-      setSuccessMessage('Манай зөвлөх баг танай хүсэлтийг хүлээн авлаа. 24 цагийн дотор холбогдоно.')
+      setSuccessMessage(
+        'Хүсэлтийг хүлээн авлаа. Манай баг ажлын 24 цагийн дотор танай компанид тохирсон хамгийн сайн үнийн саналыг хүргэнэ.'
+      )
     })
   }
 
@@ -147,23 +181,25 @@ export default function OrganizationConsultationSection() {
         <div className="max-w-4xl">
           <span className="inline-flex items-center gap-2 rounded-full border border-[#D6E6FA] bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5] shadow-sm">
             <Building2 size={14} />
-            Байгууллагын үйлчилгээ
+            Байгууллагын үнийн санал
           </span>
 
           <h1 className="mt-6 text-4xl font-black leading-[0.98] text-[#10233B] md:text-6xl">
-            Байгууллагын үйлчилгээ ба зөвлөгөө
+            Компанидаа тохирсон урамшуулалтай үнийн санал аваарай
           </h1>
           <p className="mt-5 max-w-3xl text-base leading-8 text-[#5B6877]">
-            Танай байгууллагад тохирох урьдчилан сэргийлэх үзлэг, тайлан, эмчийн тайлбарын үйлчилгээнүүдийг эндээс харж болно. Үнийн тооцоо гаргахгүй, зөвхөн байгууллагын мэдээллээ үлдээгээд зөвлөгөө авна.
+            Танай компанийн салбар, ажилтны тоо, хэрэгцээнд тохирсон үйлчилгээний багц,
+            урамшуулалтай үнийн саналыг эндээс хүсээрэй. Формоо илгээсний дараа манай баг
+            ажлын 24 цагийн дотор хамгийн тохиромжтой саналаар эргэн холбогдоно.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
             <Button type="button" size="lg" onClick={scrollToConsultationForm}>
-              Байгууллагын зөвлөгөө авах
+              Үнийн санал хүсэх
               <ArrowRight size={16} />
             </Button>
             <div className="inline-flex items-center rounded-2xl border border-[#D6E6FA] bg-white px-5 py-4 text-sm font-semibold text-[#35506C]">
-              24 цагийн дотор эргэн холбогдоно
+              24 цагийн дотор хамгийн сайн санал хүргэнэ
             </div>
           </div>
         </div>
@@ -239,7 +275,7 @@ export default function OrganizationConsultationSection() {
                   onClick={scrollToConsultationForm}
                   className="inline-flex items-center gap-2 text-sm font-bold text-[#1E63B5] transition hover:text-[#154d8f]"
                 >
-                  Энэ үйлчилгээний талаар зөвлөгөө авах
+                  Энэ багцаар санал авах
                   <ArrowRight size={15} />
                 </button>
               </div>
@@ -255,21 +291,23 @@ export default function OrganizationConsultationSection() {
             <div className="flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-[#EAF3FF] px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-[#1E63B5]">
                 <Building2 size={14} />
-                Байгууллагын зөвлөгөө
+                Байгууллагын үнийн санал
               </span>
             </div>
 
             <h3 className="mt-5 text-3xl font-black leading-tight text-[#10233B]">
-              Байгууллагын мэдээллээ үлдээнэ үү
+              Та өөрийн компанидаа тохирсон урамшуулалтай үнийн санал авмаар байна уу?
             </h3>
             <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-              Үнийн дүн бодохгүй. Танай байгууллагын нэр, холбоо барих мэдээлэл, ажилтны тоонд үндэслээд зөвлөх баг таньтай холбогдоно.
+              Тэгвэл доорх формыг бөглөөрэй. Танай компанийн салбар, ажилтны тоо, холбоо
+              барих хүний мэдээлэлд үндэслэн манай баг ажлын 24 цагийн дотор хамгийн сайн
+              үнийн саналыг хүргэнэ.
             </p>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
               <label className="block md:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-[#223548]">
-                  Байгууллагын нэр
+                  Компанийн нэр
                 </span>
                 <input
                   type="text"
@@ -284,46 +322,31 @@ export default function OrganizationConsultationSection() {
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-[#223548]">Утасны дугаар</span>
+                <span className="mb-2 block text-sm font-bold text-[#223548]">Компанийн салбар</span>
                 <div className="relative">
-                  <Phone
+                  <BriefcaseBusiness
                     size={18}
                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E63B5]"
                   />
-                  <input
-                    type="tel"
-                    value={phone}
+                  <select
+                    value={organizationIndustry}
                     onChange={(event) => {
                       resetMessages()
-                      setPhone(event.target.value.replace(/[^\d+\s-]/g, ''))
+                      setOrganizationIndustry(event.target.value)
                     }}
-                    placeholder="9911 2233"
-                    className="min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] py-4 pl-12 pr-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
-                  />
+                    className="min-h-14 w-full appearance-none rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] py-4 pl-12 pr-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
+                  >
+                    <option value="">Салбараа сонгоно уу</option>
+                    {industryOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-bold text-[#223548]">Имэйл / Gmail</span>
-                <div className="relative">
-                  <Mail
-                    size={18}
-                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E63B5]"
-                  />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => {
-                      resetMessages()
-                      setEmail(event.target.value)
-                    }}
-                    placeholder="company@gmail.com"
-                    className="min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] py-4 pl-12 pr-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
-                  />
-                </div>
-              </label>
-
-              <label className="block md:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-[#223548]">Ажилтны тоо</span>
                 <div className="relative">
                   <Users
@@ -345,6 +368,66 @@ export default function OrganizationConsultationSection() {
                   />
                 </div>
               </label>
+
+              <label className="block md:col-span-2">
+                <span className="mb-2 block text-sm font-bold text-[#223548]">Холбоо барих хүн</span>
+                <div className="relative">
+                  <UserRound
+                    size={18}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E63B5]"
+                  />
+                  <input
+                    type="text"
+                    value={contactName}
+                    onChange={(event) => {
+                      resetMessages()
+                      setContactName(event.target.value)
+                    }}
+                    placeholder="Жишээ: Г. Энхтуяа"
+                    className="min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] py-4 pl-12 pr-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-[#223548]">Имэйл</span>
+                <div className="relative">
+                  <Mail
+                    size={18}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E63B5]"
+                  />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => {
+                      resetMessages()
+                      setEmail(event.target.value)
+                    }}
+                    placeholder="contact@company.mn"
+                    className="min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] py-4 pl-12 pr-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-[#223548]">Утасны дугаар</span>
+                <div className="relative">
+                  <Phone
+                    size={18}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#1E63B5]"
+                  />
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => {
+                      resetMessages()
+                      setPhone(event.target.value.replace(/[^\d+\s-]/g, ''))
+                    }}
+                    placeholder="9911 2233"
+                    className="min-h-14 w-full rounded-2xl border border-[#D6E6FA] bg-[#FBFDFF] py-4 pl-12 pr-4 text-base font-semibold text-[#10233B] outline-none transition focus:border-[#1E63B5] focus:bg-white"
+                  />
+                </div>
+              </label>
             </div>
 
             {error ? <p className="mt-5 text-sm font-semibold text-[#E8323F]">{error}</p> : null}
@@ -358,7 +441,7 @@ export default function OrganizationConsultationSection() {
 
             <div className="mt-8">
               <Button type="button" size="lg" fullWidth loading={pending} onClick={handleSubmit}>
-                Байгууллагын зөвлөгөө хүсэх
+                Үнийн санал хүсэх
               </Button>
             </div>
           </div>
@@ -372,7 +455,7 @@ export default function OrganizationConsultationSection() {
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
                     <CheckCircle2 size={12} />
-                    24 цагийн дотор холбоо барина
+                    24 цагийн дотор санал хүргэнэ
                   </span>
                 </div>
 
@@ -380,22 +463,26 @@ export default function OrganizationConsultationSection() {
                   {submittedRequest.organizationName}
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Танай байгууллагын хүсэлтийг хүлээн авлаа. Дараагийн шатны зөвлөгөөг манай баг таньтай хамт тохируулна.
+                  Танай хүсэлтийг хүлээн авлаа. Манай баг компанийн тань салбар болон
+                  ажилтны тоонд тохирсон хамгийн сайн үнийн саналыг бэлдээд ажлын 24 цагийн
+                  дотор холбоо барина.
                 </p>
 
                 <div className="mt-6 space-y-3">
                   {[
-                    ['Байгууллага', submittedRequest.organizationName],
-                    ['Холбоо барих утас', submittedRequest.phone],
-                    ['Имэйл', submittedRequest.email],
+                    ['Компанийн нэр', submittedRequest.organizationName],
+                    ['Компанийн салбар', submittedRequest.industry],
                     ['Ажилтны тоо', `${new Intl.NumberFormat('mn-MN').format(submittedRequest.employeeCount)} ажилтан`],
+                    ['Холбоо барих хүн', submittedRequest.contactName],
+                    ['Имэйл', submittedRequest.email],
+                    ['Утас', submittedRequest.phone],
                   ].map(([label, value]) => (
                     <div
                       key={label}
                       className="flex items-start justify-between gap-4 rounded-[1.25rem] border border-white/10 bg-white/6 px-4 py-3"
                     >
                       <span className="text-sm text-slate-300">{label}</span>
-                      <span className="max-w-[13rem] text-right text-sm font-semibold text-white">
+                      <span className="max-w-[14rem] text-right text-sm font-semibold text-white">
                         {value}
                       </span>
                     </div>
@@ -417,10 +504,11 @@ export default function OrganizationConsultationSection() {
                   Хүсэлт илгээсний дараа
                 </p>
                 <h3 className="mt-4 text-3xl font-black leading-tight">
-                  Байгууллагын зөвлөгөөний дараагийн алхам
+                  Үнийн санал авах дараагийн алхам
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-slate-300">
-                  Хүсэлтээ илгээснээр үнийн санал биш, харин танай байгууллагад тохирох үйлчилгээний чиглэл, зохион байгуулалтын зөвлөгөөг авна.
+                  Формоо илгээсний дараа манай баг танай салбар, ажилтны тоо, хэрэгцээнд
+                  тохирсон урамшуулалтай үнийн саналыг ажлын 24 цагийн дотор хүргэнэ.
                 </p>
 
                 <div className="mt-6 space-y-3">

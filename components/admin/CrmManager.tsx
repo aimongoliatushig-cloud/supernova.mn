@@ -93,6 +93,33 @@ const callbackLabels: Record<string, string> = {
   evening: 'Орой',
 }
 
+type OrganizationRequestDetails = {
+  organizationName?: string
+  industry?: string
+  employeeCount?: string
+  contactName?: string
+  email?: string
+  phone?: string
+  requestType?: string
+  note?: string
+}
+
+const organizationDetailLabelMap: Record<string, keyof OrganizationRequestDetails> = {
+  Байгууллага: 'organizationName',
+  'Компанийн нэр': 'organizationName',
+  Салбар: 'industry',
+  'Компанийн салбар': 'industry',
+  'Ажилтны тоо': 'employeeCount',
+  'Холбоо барих хүн': 'contactName',
+  Имэйл: 'email',
+  'И-мэйл': 'email',
+  Утас: 'phone',
+  'Утасны дугаар': 'phone',
+  'Холбоо барих утас': 'phone',
+  Хүсэлт: 'requestType',
+  Тэмдэглэл: 'note',
+}
+
 type ViewerRole = Extract<
   Role,
   'office_assistant' | 'operator' | 'organization_consultant' | 'super_admin'
@@ -125,6 +152,41 @@ function formatSourceLabel(source: string | null) {
   }
 
   return source
+}
+
+function parseOrganizationRequestDetails(
+  question: string | null | undefined
+): OrganizationRequestDetails | null {
+  if (!question) {
+    return null
+  }
+
+  const details: OrganizationRequestDetails = {}
+
+  for (const rawLine of question.split(/\r?\n/)) {
+    const line = rawLine.trim()
+
+    if (!line) {
+      continue
+    }
+
+    const separatorIndex = line.indexOf(':')
+    if (separatorIndex < 0) {
+      continue
+    }
+
+    const label = line.slice(0, separatorIndex).trim()
+    const value = line.slice(separatorIndex + 1).trim()
+    const key = organizationDetailLabelMap[label]
+
+    if (!key || !value) {
+      continue
+    }
+
+    details[key] = value
+  }
+
+  return Object.keys(details).length > 0 ? details : null
 }
 
 function getLeadWorkflow(
@@ -306,12 +368,18 @@ export default function CrmManager({
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       const query = search.trim().toLowerCase()
+      const organizationDetails = isOrganizationLead(lead)
+        ? parseOrganizationRequestDetails(getPrimaryConsultation(lead)?.question)
+        : null
       const matchesSearch =
         query.length === 0
           ? true
           : lead.full_name.toLowerCase().includes(query) ||
             lead.phone.includes(query) ||
-            (lead.email ?? '').toLowerCase().includes(query)
+            (lead.email ?? '').toLowerCase().includes(query) ||
+            (organizationDetails?.industry ?? '').toLowerCase().includes(query) ||
+            (organizationDetails?.employeeCount ?? '').toLowerCase().includes(query) ||
+            (organizationDetails?.contactName ?? '').toLowerCase().includes(query)
 
       const matchesRisk = riskFilter === 'all' ? true : lead.risk_level === riskFilter
       const matchesStatus = statusFilter === 'all' ? true : lead.status === statusFilter
@@ -341,6 +409,10 @@ export default function CrmManager({
 
     return filteredLeads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0]
   }, [filteredLeads, selectedLeadId])
+  const selectedOrganizationDetails =
+    selectedLead && isOrganizationLead(selectedLead)
+      ? parseOrganizationRequestDetails(getPrimaryConsultation(selectedLead)?.question)
+      : null
 
   const stats = useMemo(
     () => ({
@@ -374,16 +446,25 @@ export default function CrmManager({
   )
 
   function exportToExcel() {
-    const rows = filteredLeads.map((lead) => ({
-      Нэр: lead.full_name,
-      Утас: lead.phone,
-      'И-мэйл': lead.email ?? '',
-      Эрсдэл: lead.risk_level ? riskLabels[lead.risk_level] : 'Тооцоогүй',
-      'Lead төлөв': leadLabels[lead.status],
-      Appointment: lead.appointments?.[0]?.status ?? '',
-      Consultation: lead.consultation_requests?.[0]?.status ?? '',
-      'Бүртгүүлсэн огноо': new Date(lead.created_at).toLocaleDateString('mn-MN'),
-    }))
+    const rows = filteredLeads.map((lead) => {
+      const organizationDetails = isOrganizationLead(lead)
+        ? parseOrganizationRequestDetails(getPrimaryConsultation(lead)?.question)
+        : null
+
+      return {
+        Нэр: lead.full_name,
+        Утас: lead.phone,
+        'И-мэйл': lead.email ?? '',
+        'Компанийн салбар': organizationDetails?.industry ?? '',
+        'Ажилтны тоо': organizationDetails?.employeeCount ?? '',
+        'Холбоо барих хүн': organizationDetails?.contactName ?? '',
+        Эрсдэл: lead.risk_level ? riskLabels[lead.risk_level] : 'Тооцоогүй',
+        'Lead төлөв': leadLabels[lead.status],
+        Appointment: lead.appointments?.[0]?.status ?? '',
+        Consultation: lead.consultation_requests?.[0]?.status ?? '',
+        'Бүртгүүлсэн огноо': new Date(lead.created_at).toLocaleDateString('mn-MN'),
+      }
+    })
 
     const sheet = XLSX.utils.json_to_sheet(rows)
     const book = XLSX.utils.book_new()
@@ -649,6 +730,9 @@ export default function CrmManager({
                   const appointment = lead.appointments?.[0]
                   const consultation = getPrimaryConsultation(lead)
                   const workflow = getLeadWorkflow(lead, viewerRole)
+                  const organizationDetails = isOrganizationLead(lead)
+                    ? parseOrganizationRequestDetails(consultation?.question)
+                    : null
 
                   return (
                     <button
@@ -683,6 +767,25 @@ export default function CrmManager({
                               {lead.email ? <span>{lead.email}</span> : null}
                               <span>{new Date(lead.created_at).toLocaleDateString('mn-MN')}</span>
                             </div>
+                            {organizationDetails ? (
+                              <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#35506C]">
+                                {organizationDetails.industry ? (
+                                  <span className="rounded-full bg-[#EEF6FF] px-3 py-1">
+                                    Салбар: {organizationDetails.industry}
+                                  </span>
+                                ) : null}
+                                {organizationDetails.employeeCount ? (
+                                  <span className="rounded-full bg-[#EEF6FF] px-3 py-1">
+                                    Ажилтны тоо: {organizationDetails.employeeCount}
+                                  </span>
+                                ) : null}
+                                {organizationDetails.contactName ? (
+                                  <span className="rounded-full bg-[#EEF6FF] px-3 py-1">
+                                    Холбоо барих хүн: {organizationDetails.contactName}
+                                  </span>
+                                ) : null}
+                              </div>
+                            ) : null}
                           </div>
 
                           <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[21rem]">
@@ -787,6 +890,31 @@ export default function CrmManager({
                     <Badge color="gray">{formatSourceLabel(selectedLead.source)}</Badge>
                   ) : null}
                 </div>
+                {selectedOrganizationDetails ? (
+                  <div className="grid gap-3 pt-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {[
+                      ['Компанийн нэр', selectedLead.full_name],
+                      ['Компанийн салбар', selectedOrganizationDetails.industry],
+                      ['Ажилтны тоо', selectedOrganizationDetails.employeeCount],
+                      ['Холбоо барих хүн', selectedOrganizationDetails.contactName],
+                      ['Имэйл', selectedOrganizationDetails.email],
+                      ['Утас', selectedOrganizationDetails.phone],
+                      ['Орж ирсэн огноо', new Date(selectedLead.created_at).toLocaleString('mn-MN')],
+                    ]
+                      .filter(([, value]) => Boolean(value))
+                      .map(([label, value]) => (
+                        <div
+                          key={label}
+                          className="rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] p-4"
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                            {label}
+                          </p>
+                          <p className="mt-2 text-sm font-bold text-[#10233B]">{value}</p>
+                        </div>
+                      ))}
+                  </div>
+                ) : null}
               </div>
 
               {selectedWorkflow ? (
@@ -868,6 +996,9 @@ export default function CrmManager({
                       {selectedLead.consultation_requests.map((consultation) => {
                         const responseCount = consultation.doctor_responses?.length ?? 0
                         const organizationLead = isOrganizationLead(selectedLead)
+                        const organizationDetails = organizationLead
+                          ? parseOrganizationRequestDetails(consultation.question)
+                          : null
 
                         return (
                           <div key={consultation.id} className="rounded-2xl border border-[#EEF2F7] bg-white p-3">
@@ -887,8 +1018,33 @@ export default function CrmManager({
                               {callbackLabels[consultation.preferred_callback_time] ??
                                 consultation.preferred_callback_time}
                             </p>
+                            {organizationDetails ? (
+                              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                                {[
+                                  ['Компанийн салбар', organizationDetails.industry],
+                                  ['Ажилтны тоо', organizationDetails.employeeCount],
+                                  ['Холбоо барих хүн', organizationDetails.contactName],
+                                  ['Имэйл', organizationDetails.email],
+                                  ['Утас', organizationDetails.phone],
+                                ]
+                                  .filter(([, value]) => Boolean(value))
+                                  .map(([label, value]) => (
+                                    <div
+                                      key={label}
+                                      className="rounded-2xl bg-[#F7FAFF] px-3 py-2"
+                                    >
+                                      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                                        {label}
+                                      </p>
+                                      <p className="mt-1 text-sm font-semibold text-[#1F2937]">
+                                        {value}
+                                      </p>
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : null}
                             {consultation.question ? (
-                              <p className="mt-2 text-sm leading-6 text-[#1F2937]">
+                              <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#1F2937]">
                                 {consultation.question}
                               </p>
                             ) : null}

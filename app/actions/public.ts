@@ -356,8 +356,18 @@ export async function submitConsultationRequest(
 export async function submitOrganizationQuoteRequest(
   input: SubmitOrganizationQuoteInput
 ): Promise<PublicActionResult<{ consultationId: string; leadId: string }>> {
-  if (!input.organization_name.trim() || !input.phone.trim() || !input.email.trim()) {
-    return fail('Байгууллагын нэр, утасны дугаар, имэйл шаардлагатай.')
+  const normalizedOrganizationName = input.organization_name.trim()
+  const normalizedIndustry = input.organization_industry.trim()
+  const normalizedContactName = input.contact_name.trim()
+
+  if (
+    !normalizedOrganizationName ||
+    !normalizedIndustry ||
+    !normalizedContactName ||
+    !input.phone.trim() ||
+    !input.email.trim()
+  ) {
+    return fail('Компанийн нэр, салбар, холбоо барих хүн, утасны дугаар, имэйл шаардлагатай.')
   }
 
   const normalizedHeadcount = Number.isFinite(input.employee_count)
@@ -379,7 +389,7 @@ export async function submitOrganizationQuoteRequest(
   }
 
   const leadResult = await upsertLeadFromContact({
-    full_name: input.organization_name,
+    full_name: normalizedOrganizationName,
     phone: input.phone,
     email: normalizedEmail,
     source: 'organization_consultation_request',
@@ -390,12 +400,14 @@ export async function submitOrganizationQuoteRequest(
   }
 
   const requestSummary = [
-    `Байгууллага: ${input.organization_name.trim()}`,
-    'Хүсэлт: Байгууллагын үйлчилгээний зөвлөгөө авах',
+    `Байгууллага: ${normalizedOrganizationName}`,
+    `Салбар: ${normalizedIndustry}`,
     `Ажилтны тоо: ${formatCurrency(normalizedHeadcount)}`,
+    `Холбоо барих хүн: ${normalizedContactName}`,
     `Имэйл: ${normalizedEmail}`,
     `Утас: ${input.phone.trim()}`,
-    'Тэмдэглэл: Үнийн тооцоо хүсээгүй, зөвхөн байгууллагын үйлчилгээний зөвлөгөө авах хүсэлт.',
+    'Хүсэлт: Компанид тохирсон урамшуулалтай үнийн санал авах',
+    'Тэмдэглэл: Форм илгээснээс хойш 24 цагийн дотор хамгийн сайн үнийн саналыг хүргэх.',
   ].join('\n')
 
   const supabase = await getMutationClient()

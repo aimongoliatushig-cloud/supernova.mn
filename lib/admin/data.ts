@@ -1,4 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 import { requireRole } from '@/lib/admin/auth'
 import type {
   AdminLead,
@@ -18,12 +22,28 @@ import type {
 } from '@/lib/admin/types'
 
 async function getAdminClient() {
-  await requireRole(['super_admin'])
+  const viewer = await requireRole(['super_admin'])
+
+  if (viewer.role === 'super_admin' && hasServiceRoleConfig()) {
+    return createServiceRoleClient()
+  }
+
   return createClient()
 }
 
-async function getRoleAwareClient(roles: Role[]) {
-  await requireRole(roles)
+async function getRoleAwareClient(
+  roles: Role[],
+  options?: { serviceRoleFor?: Role[] }
+) {
+  const viewer = await requireRole(roles)
+
+  if (
+    hasServiceRoleConfig() &&
+    (viewer.role === 'super_admin' || options?.serviceRoleFor?.includes(viewer.role))
+  ) {
+    return createServiceRoleClient()
+  }
+
   return createClient()
 }
 
@@ -205,37 +225,20 @@ export async function getDiagnosisAdminData() {
 type LeadScope = 'all' | 'patient' | 'organization'
 
 async function getCrmBoardData(roles: Role[], leadScope: LeadScope = 'all') {
-  const supabase = await getRoleAwareClient(roles)
+  const supabase = await getRoleAwareClient(roles, {
+    serviceRoleFor: leadScope === 'organization' ? ['organization_consultant'] : [],
+  })
 
-  const baseSelect = `
-    *,
-    assessments(id, risk_level, risk_score, created_at),
-    appointments(id, appointment_date, appointment_time, status, doctors(full_name), services(name)),
-    crm_notes(id, author_id, note_text, created_at)
-  `
+  const baseSelect =
+    leadScope === 'organization'
+      ? '*, crm_notes(id, author_id, note_text, created_at)'
+      : '*, assessments(id, risk_level, risk_score, created_at), appointments(id, appointment_date, appointment_time, status, doctors(full_name), services(name)), crm_notes(id, author_id, note_text, created_at)'
 
-  const enhancedConsultationSelect = `
-    consultation_requests(
-      id,
-      preferred_callback_time,
-      question,
-      status,
-      assigned_doctor_id,
-      assigned_at,
-      doctors(full_name, specialization),
-      doctor_responses(id, response_text, created_at)
-    )
-  `
+  const enhancedConsultationSelect =
+    'consultation_requests(id, preferred_callback_time, question, status, assigned_doctor_id, assigned_at, doctors(full_name, specialization), doctor_responses(id, response_text, created_at))'
 
-  const legacyConsultationSelect = `
-    consultation_requests(
-      id,
-      preferred_callback_time,
-      question,
-      status,
-      doctor_responses(id, response_text, created_at)
-    )
-  `
+  const legacyConsultationSelect =
+    'consultation_requests(id, preferred_callback_time, question, status, doctor_responses(id, response_text, created_at))'
 
   let enhancedLeadQuery = supabase
     .from('leads')
@@ -271,15 +274,24 @@ async function getCrmBoardData(roles: Role[], leadScope: LeadScope = 'all') {
     ? await legacyLeadQuery
     : enhancedQuery
 
-  const { data: doctors } = await supabase
-    .from('doctors')
-    .select('id, full_name, specialization, is_active, available_for_booking')
-    .eq('is_active', true)
-    .order('sort_order')
-    .order('full_name')
+  const { data: doctors } =
+    leadScope === 'organization'
+      ? { data: [] as Array<{
+          id: string
+          full_name: string
+          specialization: string
+          is_active: boolean
+          available_for_booking: boolean
+        }> }
+      : await supabase
+          .from('doctors')
+          .select('id, full_name, specialization, is_active, available_for_booking')
+          .eq('is_active', true)
+          .order('sort_order')
+          .order('full_name')
 
   return {
-    leads: (leads ?? []) as AdminLead[],
+    leads: ((leads ?? []) as unknown) as AdminLead[],
     doctors:
       (doctors ?? []) as Array<{
         id: string

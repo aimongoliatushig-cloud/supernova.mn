@@ -13,6 +13,7 @@ import type {
   ServicePackage,
   SocialLink,
   SymptomCategory,
+  UnifiedCalendarAppointment,
   WorkingHours,
   Role,
 } from '@/lib/admin/types'
@@ -25,6 +26,21 @@ async function getAdminClient() {
 async function getRoleAwareClient(roles: Role[]) {
   await requireRole(roles)
   return createClient()
+}
+
+function getUlaanbaatarDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+
+  const year = parts.find((part) => part.type === 'year')?.value ?? '1970'
+  const month = parts.find((part) => part.type === 'month')?.value ?? '01'
+  const day = parts.find((part) => part.type === 'day')?.value ?? '01'
+
+  return `${year}-${month}-${day}`
 }
 
 export async function getAdminOverviewData() {
@@ -204,6 +220,7 @@ export async function getDiagnosisAdminData() {
 
 async function getCrmBoardData(roles: Role[]) {
   const supabase = await getRoleAwareClient(roles)
+  const today = getUlaanbaatarDateKey()
 
   const baseSelect = `
     *,
@@ -256,6 +273,43 @@ async function getCrmBoardData(roles: Role[]) {
     .order('sort_order')
     .order('full_name')
 
+  const { data: appointments } = await supabase
+    .from('appointments')
+    .select(
+      `
+        id,
+        appointment_date,
+        appointment_time,
+        status,
+        notes,
+        preparation_notice,
+        leads(full_name, phone),
+        doctors(full_name, specialization),
+        services(name)
+      `
+    )
+    .gte('appointment_date', today)
+    .order('appointment_date')
+    .order('appointment_time')
+    .limit(250)
+
+  const normalizedAppointments = ((appointments ?? []) as Array<
+    UnifiedCalendarAppointment & {
+      leads?: UnifiedCalendarAppointment['leads'] | UnifiedCalendarAppointment['leads'][]
+      doctors?: UnifiedCalendarAppointment['doctors'] | UnifiedCalendarAppointment['doctors'][]
+      services?: UnifiedCalendarAppointment['services'] | UnifiedCalendarAppointment['services'][]
+    }
+  >).map((appointment) => ({
+    ...appointment,
+    leads: Array.isArray(appointment.leads) ? appointment.leads[0] ?? null : appointment.leads,
+    doctors: Array.isArray(appointment.doctors)
+      ? appointment.doctors[0] ?? null
+      : appointment.doctors,
+    services: Array.isArray(appointment.services)
+      ? appointment.services[0] ?? null
+      : appointment.services,
+  }))
+
   return {
     leads: (leads ?? []) as AdminLead[],
     doctors:
@@ -266,6 +320,7 @@ async function getCrmBoardData(roles: Role[]) {
         is_active: boolean
         available_for_booking: boolean
       }>,
+    appointments: normalizedAppointments,
   }
 }
 

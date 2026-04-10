@@ -4,6 +4,7 @@ export type AdminActionResult<T = void> =
 
 export type Role = 'patient' | 'office_assistant' | 'doctor' | 'super_admin'
 export type RiskLevel = 'low' | 'medium' | 'high'
+export type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
 export type LeadStatus =
   | 'new'
   | 'contacted'
@@ -327,6 +328,26 @@ export interface AppointmentSummary {
   status: string
   doctors?: { full_name: string | null } | null
   services?: { name: string | null } | null
+}
+
+export interface UnifiedCalendarAppointment {
+  id: string
+  appointment_date: string
+  appointment_time: string
+  status: AppointmentStatus
+  notes?: string | null
+  preparation_notice?: string | null
+  leads?: {
+    full_name: string | null
+    phone: string | null
+  } | null
+  doctors?: {
+    full_name: string | null
+    specialization?: string | null
+  } | null
+  services?: {
+    name: string | null
+  } | null
 }
 
 export interface ConsultationSummary {

@@ -17,6 +17,7 @@ import {
 import Footer from '@/components/layout/Footer'
 import Navbar from '@/components/layout/Navbar'
 import DoctorsSection from '@/components/sections/DoctorsSection'
+import ServiceDetailsSection from '@/components/sections/ServiceDetailsSection'
 import { getLandingPageData } from '@/lib/public/data'
 
 const fallbackHours = [
@@ -417,6 +418,8 @@ export default async function HomePage() {
                 <ArrowRight size={16} />
               </Link>
             </div>
+
+            <ServiceDetailsSection phone={phone} />
 
             {featuredCategories.length > 0 ? (
               <div className="mt-8 flex flex-wrap gap-2">

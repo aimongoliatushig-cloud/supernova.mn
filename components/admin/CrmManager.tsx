@@ -27,6 +27,7 @@ import {
   AdminSectionCard,
   AdminTextArea,
 } from '@/components/admin/AdminPrimitives'
+import UnifiedCalendarBoard from '@/components/admin/UnifiedCalendarBoard'
 import { useServerAction } from '@/components/admin/useServerAction'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -36,6 +37,7 @@ import type {
   LeadStatus,
   RiskLevel,
   Role,
+  UnifiedCalendarAppointment,
 } from '@/lib/admin/types'
 
 const riskLabels: Record<RiskLevel, string> = {
@@ -93,10 +95,12 @@ const callbackLabels: Record<string, string> = {
 
 export default function CrmManager({
   initialLeads,
+  appointments,
   doctors,
   viewerRole = 'super_admin',
 }: {
   initialLeads: AdminLead[]
+  appointments: UnifiedCalendarAppointment[]
   doctors: Array<{ id: string; full_name: string; specialization: string }>
   viewerRole?: Extract<Role, 'office_assistant' | 'super_admin'>
 }) {
@@ -240,6 +244,8 @@ export default function CrmManager({
           </div>
         ))}
       </section>
+
+      <UnifiedCalendarBoard appointments={appointments} />
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr]">
         <AdminSectionCard

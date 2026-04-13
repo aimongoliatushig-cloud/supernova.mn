@@ -28,9 +28,89 @@ const NOTE_WRITER_ROLES: StaffViewerRole[] = [
 const CONSULTATION_ASSIGNER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 const CONSULTATION_FOLLOW_UP_ROLES: StaffViewerRole[] = ['operator', 'super_admin']
 const APPOINTMENT_MANAGER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
+type StaffSupabase =
+  | Awaited<ReturnType<typeof createClient>>
+  | ReturnType<typeof createServiceRoleClient>
 
 function ok<T = void>(data?: T, message?: string): AdminActionResult<T> {
   return { ok: true, data, message }
+}
+
+export async function createAppointmentFromCalendarForStaff(input: {
+  full_name: string
+  phone: string
+  service_id: string
+  doctor_id: string
+  appointment_date: string
+  appointment_time: string
+}): Promise<AdminActionResult<{ appointmentId: string; leadId: string }>> {
+  if (!input.full_name.trim() || !input.phone.trim()) {
+    return fail('Нэр болон утасны дугаар заавал оруулна.')
+  }
+
+  const normalizedPhone = input.phone.replace(/\s+/g, '')
+  if (normalizedPhone.length < 8) {
+    return fail('Утасны дугаараа зөв оруулна уу.')
+  }
+
+  if (!input.service_id || !input.doctor_id) {
+    return fail('Үйлчилгээ болон эмчээ заавал сонгоно.')
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.appointment_date)) {
+    return fail('Өдрийн формат буруу байна.')
+  }
+
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(input.appointment_time)) {
+    return fail('Цагийн формат буруу байна.')
+  }
+
+  const { supabase } = await getStaffSupabase()
+  const normalizedTime = normalizeAppointmentTime(input.appointment_time)
+  const conflictResult = await findDoctorTimeConflict(supabase, {
+    doctor_id: input.doctor_id,
+    appointment_date: input.appointment_date,
+    appointment_time: normalizedTime,
+  })
+
+  if (conflictResult.error) {
+    return fail(conflictResult.error)
+  }
+
+  if (conflictResult.hasConflict) {
+    return fail('Сонгосон эмч энэ өдөр, энэ цагт аль хэдийн захиалгатай байна. Өөр цаг сонгоно уу.')
+  }
+
+  const leadResult = await findOrCreateCalendarLead(supabase, {
+    full_name: input.full_name,
+    phone: input.phone,
+  })
+
+  if (leadResult.error || !leadResult.leadId) {
+    return fail(leadResult.error ?? 'Lead үүсгэж чадсангүй.')
+  }
+
+  const appointmentResult = await createAppointmentForStaff({
+    lead_id: leadResult.leadId,
+    service_id: input.service_id,
+    doctor_id: input.doctor_id,
+    appointment_date: input.appointment_date,
+    appointment_time: input.appointment_time,
+  })
+
+  if (!appointmentResult.ok || !appointmentResult.data?.appointmentId) {
+    return fail(
+      appointmentResult.ok ? 'Цагийн захиалга бүртгэж чадсангүй.' : appointmentResult.error
+    )
+  }
+
+  return ok(
+    {
+      appointmentId: appointmentResult.data.appointmentId,
+      leadId: leadResult.leadId,
+    },
+    'Цагийн захиалга бүртгэгдлээ.'
+  )
 }
 
 function fail<T = void>(error: string): AdminActionResult<T> {
@@ -78,6 +158,11 @@ function isAppointmentStatus(value: string): value is AppointmentStatus {
   return ['pending', 'confirmed', 'cancelled', 'completed'].includes(value)
 }
 
+function normalizeAppointmentTime(value: string) {
+  const [hours = '00', minutes = '00', seconds = '00'] = value.split(':')
+  return `${hours}:${minutes}:${seconds}`
+}
+
 function getUlaanbaatarDateKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Ulaanbaatar',
@@ -94,7 +179,7 @@ function getUlaanbaatarDateKey(date = new Date()) {
 }
 
 async function assertLeadScopeAccess(
-  supabase: Awaited<ReturnType<typeof createClient>> | ReturnType<typeof createServiceRoleClient>,
+  supabase: StaffSupabase,
   viewer: { role: Role },
   lead_id: string
 ) {
@@ -117,6 +202,90 @@ async function assertLeadScopeAccess(
   }
 
   return null
+}
+
+async function findDoctorTimeConflict(
+  supabase: StaffSupabase,
+  input: {
+    doctor_id: string
+    appointment_date: string
+    appointment_time: string
+    exclude_appointment_id?: string
+  }
+) {
+  let query = supabase
+    .from('appointments')
+    .select('id')
+    .eq('doctor_id', input.doctor_id)
+    .eq('appointment_date', input.appointment_date)
+    .eq('appointment_time', input.appointment_time)
+    .neq('status', 'cancelled')
+
+  if (input.exclude_appointment_id) {
+    query = query.neq('id', input.exclude_appointment_id)
+  }
+
+  const { data, error } = await query.limit(1)
+
+  if (error) {
+    return { error: error.message, hasConflict: false }
+  }
+
+  return { error: null, hasConflict: (data?.length ?? 0) > 0 }
+}
+
+async function findOrCreateCalendarLead(
+  supabase: StaffSupabase,
+  input: { full_name: string; phone: string }
+) {
+  const fullName = input.full_name.trim()
+  const phone = input.phone.trim()
+
+  const { data: existingLeads, error: lookupError } = await supabase
+    .from('leads')
+    .select('id')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (lookupError) {
+    return { error: lookupError.message, leadId: null as string | null }
+  }
+
+  const existingLead = existingLeads?.[0]
+
+  if (existingLead) {
+    const { error: updateError } = await supabase
+      .from('leads')
+      .update({
+        full_name: fullName,
+        source: 'appointment_booking',
+      })
+      .eq('id', existingLead.id)
+
+    if (updateError) {
+      return { error: updateError.message, leadId: null as string | null }
+    }
+
+    return { error: null, leadId: existingLead.id }
+  }
+
+  const { data: lead, error: insertError } = await supabase
+    .from('leads')
+    .insert({
+      full_name: fullName,
+      phone,
+      source: 'appointment_booking',
+      status: 'new',
+    })
+    .select('id')
+    .single()
+
+  if (insertError || !lead) {
+    return { error: insertError?.message ?? 'Lead үүсгэж чадсангүй.', leadId: null as string | null }
+  }
+
+  return { error: null, leadId: lead.id }
 }
 
 export async function updateLeadStatusForStaff(
@@ -319,11 +488,41 @@ export async function updateAppointmentForStaff(input: {
     return fail('Appointment-г зөвхөн оффисын ажилтан эсвэл супер админ өөрчилнө.')
   }
 
+  const normalizedTime = normalizeAppointmentTime(input.appointment_time)
+  const { data: appointment, error: appointmentError } = await supabase
+    .from('appointments')
+    .select('id, doctor_id')
+    .eq('id', input.appointment_id)
+    .maybeSingle()
+
+  if (appointmentError || !appointment) {
+    return fail(appointmentError?.message ?? 'Appointment олдсонгүй.')
+  }
+
+  if (appointment.doctor_id && input.status !== 'cancelled') {
+    const conflictResult = await findDoctorTimeConflict(supabase, {
+      doctor_id: appointment.doctor_id,
+      appointment_date: input.appointment_date,
+      appointment_time: normalizedTime,
+      exclude_appointment_id: input.appointment_id,
+    })
+
+    if (conflictResult.error) {
+      return fail(conflictResult.error)
+    }
+
+    if (conflictResult.hasConflict) {
+      return fail(
+        'Сонгосон эмч энэ өдөр, энэ цагт аль хэдийн захиалгатай байна. Өөр цаг сонгоно уу.'
+      )
+    }
+  }
+
   const { error } = await supabase
     .from('appointments')
     .update({
       appointment_date: input.appointment_date,
-      appointment_time: input.appointment_time,
+      appointment_time: normalizedTime,
       status: input.status,
     })
     .eq('id', input.appointment_id)
@@ -365,6 +564,8 @@ export async function createAppointmentForStaff(input: {
   if (!hasViewerRole(viewer.role, APPOINTMENT_MANAGER_ROLES)) {
     return fail('Appointment-г зөвхөн оффисын ажилтан эсвэл супер админ үүсгэнэ.')
   }
+
+  const normalizedTime = normalizeAppointmentTime(input.appointment_time)
 
   const accessError = await assertLeadScopeAccess(supabase, viewer, input.lead_id)
   if (accessError) {
@@ -408,6 +609,20 @@ export async function createAppointmentForStaff(input: {
     return fail('Сонгосон эмч энэ үйлчилгээтэй холбогдоогүй байна.')
   }
 
+  const conflictResult = await findDoctorTimeConflict(supabase, {
+    doctor_id: input.doctor_id,
+    appointment_date: input.appointment_date,
+    appointment_time: normalizedTime,
+  })
+
+  if (conflictResult.error) {
+    return fail(conflictResult.error)
+  }
+
+  if (conflictResult.hasConflict) {
+    return fail('Сонгосон эмч энэ өдөр, энэ цагт аль хэдийн захиалгатай байна. Өөр цаг сонгоно уу.')
+  }
+
   const { data: appointment, error: insertError } = await supabase
     .from('appointments')
     .insert({
@@ -415,7 +630,7 @@ export async function createAppointmentForStaff(input: {
       doctor_id: input.doctor_id,
       service_id: input.service_id,
       appointment_date: input.appointment_date,
-      appointment_time: input.appointment_time,
+      appointment_time: normalizedTime,
       status: 'pending',
       preparation_notice: service.preparation_notice,
     })

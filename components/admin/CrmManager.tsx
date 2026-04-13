@@ -100,6 +100,8 @@ const callbackLabels: Record<string, string> = {
   evening: 'Орой',
 }
 
+const LEADS_PER_PAGE = 10
+
 type OrganizationRequestDetails = {
   organizationName?: string
   industry?: string
@@ -373,6 +375,7 @@ export default function CrmManager({
   const [search, setSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState<'all' | RiskLevel>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | LeadStatus>('all')
+  const [currentPage, setCurrentPage] = useState(1)
   const [noteText, setNoteText] = useState('')
   const [appointmentServiceId, setAppointmentServiceId] = useState('')
   const [appointmentDoctorId, setAppointmentDoctorId] = useState('')
@@ -420,15 +423,44 @@ export default function CrmManager({
     })
   }, [leads, riskFilter, search, statusFilter])
 
-  useEffect(() => {
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PER_PAGE))
+  const paginatedLeads = useMemo(() => {
+    const startIndex = (currentPage - 1) * LEADS_PER_PAGE
+
+    return filteredLeads.slice(startIndex, startIndex + LEADS_PER_PAGE)
+  }, [currentPage, filteredLeads])
+  const visibleLeadRange = useMemo(() => {
     if (filteredLeads.length === 0) {
+      return { start: 0, end: 0 }
+    }
+
+    const start = (currentPage - 1) * LEADS_PER_PAGE + 1
+
+    return {
+      start,
+      end: Math.min(start + LEADS_PER_PAGE - 1, filteredLeads.length),
+    }
+  }, [currentPage, filteredLeads.length])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, riskFilter, statusFilter])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
+
+  useEffect(() => {
+    if (paginatedLeads.length === 0) {
       return
     }
 
-    if (!selectedLeadId || !filteredLeads.some((lead) => lead.id === selectedLeadId)) {
-      setSelectedLeadId(filteredLeads[0].id)
+    if (!selectedLeadId || !paginatedLeads.some((lead) => lead.id === selectedLeadId)) {
+      setSelectedLeadId(paginatedLeads[0].id)
     }
-  }, [filteredLeads, selectedLeadId])
+  }, [paginatedLeads, selectedLeadId])
 
   useEffect(() => {
     setNoteText('')
@@ -439,12 +471,12 @@ export default function CrmManager({
   }, [selectedLeadId])
 
   const selectedLead = useMemo(() => {
-    if (filteredLeads.length === 0) {
+    if (paginatedLeads.length === 0) {
       return null
     }
 
-    return filteredLeads.find((lead) => lead.id === selectedLeadId) ?? filteredLeads[0]
-  }, [filteredLeads, selectedLeadId])
+    return paginatedLeads.find((lead) => lead.id === selectedLeadId) ?? paginatedLeads[0]
+  }, [paginatedLeads, selectedLeadId])
   const selectedOrganizationDetails =
     selectedLead && isOrganizationLead(selectedLead)
       ? parseOrganizationRequestDetails(getPrimaryConsultation(selectedLead)?.question)
@@ -693,8 +725,14 @@ export default function CrmManager({
       {error ? <AdminMessage tone="error">{error}</AdminMessage> : null}
       {success ? <AdminMessage tone="success">{success}</AdminMessage> : null}
 
-      {appointments.length > 0 && calendarDays.length > 0 ? (
-        <UnifiedCalendarBoard appointments={appointments} days={calendarDays} />
+      {calendarDays.length > 0 ? (
+        <UnifiedCalendarBoard
+          appointments={appointments}
+          days={calendarDays}
+          doctors={doctors}
+          services={services}
+          canCreateAppointments={canCreateAppointments}
+        />
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -733,7 +771,7 @@ export default function CrmManager({
           description={listDescription}
           action={
             <div className="rounded-full border border-[#D6E6FA] bg-[#F7FAFF] px-3 py-2 text-xs font-semibold text-[#1E63B5]">
-              {filteredLeads.length} / {leads.length} lead
+              {visibleLeadRange.start}-{visibleLeadRange.end} / {filteredLeads.length} lead
             </div>
           }
         >
@@ -773,7 +811,34 @@ export default function CrmManager({
               />
             ) : (
               <div className="space-y-3">
-                {filteredLeads.map((lead) => {
+                <div className="flex flex-col gap-3 rounded-2xl border border-[#EAF1F8] bg-[#F7FAFF] px-4 py-3 text-sm text-[#4B5563] sm:flex-row sm:items-center sm:justify-between">
+                  <p>
+                    Page {currentPage} of {totalPages}. Showing {visibleLeadRange.start}-{visibleLeadRange.end} of{' '}
+                    {filteredLeads.length} filtered leads.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    >
+                      Previous 10
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    >
+                      Next 10
+                    </Button>
+                  </div>
+                </div>
+
+                {paginatedLeads.map((lead) => {
                   const appointment = lead.appointments?.[0]
                   const consultation = getPrimaryConsultation(lead)
                   const workflow = getLeadWorkflow(lead, viewerRole)

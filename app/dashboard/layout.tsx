@@ -9,7 +9,7 @@ export default async function DashboardLayout({
   const viewer = await requireDashboardViewer()
 
   return (
-    <div className="flex min-h-screen bg-[#F7FAFF]">
+    <div className="flex min-h-screen flex-col bg-[#F7FAFF] lg:flex-row">
       <DashboardSidebar
         role={viewer.role}
         user={{ full_name: viewer.full_name, email: viewer.email }}

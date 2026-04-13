@@ -4,10 +4,19 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { encodeChatbotSettings, parseChatbotSettings } from '@/lib/chatbot/settings'
 import { revalidatePath } from 'next/cache'
+import type { ChatConversation } from '@/components/dashboard/ChatConversationsBoard'
 
 const SETTINGS_ID = '00000000-0000-0000-0000-000000000001'
 const DEFAULT_SYSTEM_PROMPT =
   'Та бол СУПЕРНОВА эмнэлгийн хиймэл оюун ухаант туслах юм. Таны зорилго бол өвчтөнүүдэд эелдэг бөгөөд мэргэжлийн түвшинд монгол хэлээр зөвлөгөө өгч, эмнэлгийн үйлчилгээний талаар мэдээлэл өгөх.'
+
+function unwrapRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null
+  }
+
+  return value ?? null
+}
 
 export async function getChatbotSettings() {
   const supabase = createServiceRoleClient()
@@ -42,7 +51,7 @@ export async function getChatbotSettings() {
   }
 }
 
-export async function updateChatbotSettings(formData: FormData) {
+export async function updateChatbotSettings(formData: FormData): Promise<void> {
   const supabase = await createClient()
 
   const isActive = formData.get('isActive') === 'on'
@@ -68,10 +77,9 @@ export async function updateChatbotSettings(formData: FormData) {
   }
 
   revalidatePath('/dashboard/admin/chatbot')
-  return { success: true }
 }
 
-export async function getChatConversations() {
+export async function getChatConversations(): Promise<ChatConversation[]> {
   const supabase = await createClient()
 
   const { data, error } = await supabase
@@ -100,5 +108,12 @@ export async function getChatConversations() {
     return []
   }
 
-  return data
+  return (data ?? []).map((conversation) => ({
+    id: conversation.id,
+    session_id: conversation.session_id,
+    status: conversation.status,
+    created_at: conversation.created_at,
+    leads: unwrapRelation(conversation.leads),
+    chat_messages: Array.isArray(conversation.chat_messages) ? conversation.chat_messages : [],
+  }))
 }

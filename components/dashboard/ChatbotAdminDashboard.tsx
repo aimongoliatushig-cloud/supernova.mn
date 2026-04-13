@@ -22,7 +22,7 @@ type ChatbotSettings = {
 type ChatbotAdminDashboardProps = {
   conversations: ChatConversation[]
   settings: ChatbotSettings
-  updateSettingsAction: (formData: FormData) => Promise<{ success: boolean }>
+  updateSettingsAction: (formData: FormData) => Promise<void>
 }
 
 function StatCard({

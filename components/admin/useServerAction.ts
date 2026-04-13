@@ -4,7 +4,7 @@ import { useCallback, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { AdminActionResult } from '@/lib/admin/types'
 
-type ActionFactory = () => Promise<AdminActionResult>
+type ActionFactory = () => Promise<AdminActionResult<unknown>>
 
 export function useServerAction() {
   const router = useRouter()

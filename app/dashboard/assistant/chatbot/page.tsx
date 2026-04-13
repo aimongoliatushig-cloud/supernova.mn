@@ -1,5 +1,5 @@
 import { getChatConversations } from '@/app/actions/chatbot-admin'
-import ChatConversationsBoard, { type ChatConversation } from '@/components/dashboard/ChatConversationsBoard'
+import ChatConversationsBoard from '@/components/dashboard/ChatConversationsBoard'
 import { BotMessageSquare } from 'lucide-react'
 
 export const metadata = {
@@ -21,7 +21,7 @@ export default async function AssistantChatbotPage() {
         </div>
       </div>
 
-      <ChatConversationsBoard initialData={conversations as ChatConversation[]} />
+      <ChatConversationsBoard initialData={conversations} />
     </div>
   )
 }

@@ -28,6 +28,7 @@ export default async function AppointmentPage({
     <AppointmentFlow
       doctors={data.doctors}
       services={data.services}
+      bookedAppointments={data.bookedAppointments}
       privacyText={
         data.entries.privacy_notice ||
         'Таны мэдээлэл аюулгүй хадгалагдаж, зөвхөн эмнэлгийн үйлчилгээний зорилгоор ашиглагдана.'

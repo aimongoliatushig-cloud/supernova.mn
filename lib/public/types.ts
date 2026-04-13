@@ -150,9 +150,17 @@ export interface PublicDiagnosisData extends PublicCmsContent {
   categories: PublicDiagnosisCategory[]
 }
 
+export interface PublicAppointmentSlot {
+  doctor_id: string | null
+  appointment_date: string
+  appointment_time: string
+  duration_minutes: number
+}
+
 export interface PublicBookingData extends PublicCmsContent {
   doctors: PublicDoctor[]
   services: PublicService[]
+  bookedAppointments: PublicAppointmentSlot[]
 }
 
 export interface PublicResultData extends PublicCmsContent {

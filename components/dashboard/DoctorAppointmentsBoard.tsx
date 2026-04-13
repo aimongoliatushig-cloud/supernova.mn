@@ -1,5 +1,10 @@
-import { CalendarDays, Clock3, Phone, Stethoscope, UserRound } from 'lucide-react'
+'use client'
+
+import { useState } from 'react'
+import { CalendarDays, Clock3, Phone, Stethoscope, UserRound, X, Save } from 'lucide-react'
 import Badge from '@/components/ui/Badge'
+import Button from '@/components/ui/Button'
+import { updateAppointmentForDoctor } from '@/app/dashboard/doctor/actions'
 
 type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
 
@@ -47,12 +52,12 @@ function toDateKey(value: Date) {
   return `${year}-${month}-${day}`
 }
 
-function buildNextSevenDays() {
+function buildNextDays(count: number) {
   const dates: string[] = []
   const cursor = new Date()
   cursor.setHours(0, 0, 0, 0)
 
-  for (let index = 0; index < 7; index += 1) {
+  for (let index = 0; index < count; index += 1) {
     const value = new Date(cursor)
     value.setDate(cursor.getDate() + index)
     dates.push(toDateKey(value))
@@ -66,7 +71,45 @@ export default function DoctorAppointmentsBoard({
 }: {
   appointments: DoctorAppointment[]
 }) {
-  const days = buildNextSevenDays()
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
+  const [editingAppointment, setEditingAppointment] = useState<DoctorAppointment | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [editTime, setEditTime] = useState('')
+  const [editStatus, setEditStatus] = useState<AppointmentStatus>('pending')
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function handleEditClick(appointment: DoctorAppointment) {
+    setEditingAppointment(appointment)
+    setEditDate(appointment.appointment_date)
+    setEditTime(appointment.appointment_time)
+    setEditStatus(appointment.status)
+    setError(null)
+  }
+
+  function handleCloseModal() {
+    setEditingAppointment(null)
+  }
+
+  async function handleSave() {
+    if (!editingAppointment) return
+    setIsSaving(true)
+    setError(null)
+    const result = await updateAppointmentForDoctor({
+      appointment_id: editingAppointment.id,
+      appointment_date: editDate,
+      appointment_time: editTime,
+      status: editStatus,
+    })
+    setIsSaving(false)
+    if (result.ok) {
+      setEditingAppointment(null)
+    } else {
+      setError(result.error ?? 'Алдаа гарлаа.')
+    }
+  }
+
+  const days = buildNextDays(viewMode === 'week' ? 7 : 30)
   const upcomingAppointments = appointments.filter((appointment) =>
     days.includes(appointment.appointment_date)
   )
@@ -85,35 +128,59 @@ export default function DoctorAppointmentsBoard({
         <div className="max-w-2xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-[#EAF3FF] px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
             <CalendarDays size={14} />
-            Appointment Calendar
+            Цагийн хуваарь
           </p>
           <h2 className="mt-4 text-2xl font-black tracking-tight text-[#10233B]">
-            My next 7 days
+            {viewMode === 'week' ? 'Миний ирэх 7 хоног' : 'Миний ирэх 30 хоног'}
           </h2>
           <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-            Upcoming bookings assigned to this doctor are grouped by day so the schedule is visible
-            without leaving the dashboard.
+            Энэ эмчид хуваарилагдсан цагуудыг өдрөөр бүлэглэсэн тул самбараас гаралгүйгээр хуваариа харах боломжтой.
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-[#E5EDF7] bg-[#FBFDFF] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A98A8]">
-              7 days
-            </p>
-            <p className="mt-2 text-2xl font-black text-[#10233B]">{totalUpcoming}</p>
+        <div className="flex flex-col items-end gap-4">
+          <div className="inline-flex rounded-xl bg-[#F3F4F6] p-1">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                viewMode === 'week'
+                  ? 'bg-white text-[#10233B] shadow-sm'
+                  : 'text-[#6B7280] hover:text-[#374151]'
+              }`}
+            >
+              7 хоног
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              className={`rounded-lg px-4 py-2 text-sm font-bold transition-all ${
+                viewMode === 'month'
+                  ? 'bg-white text-[#10233B] shadow-sm'
+                  : 'text-[#6B7280] hover:text-[#374151]'
+              }`}
+            >
+              30 хоног
+            </button>
           </div>
-          <div className="rounded-2xl border border-[#DFF3E7] bg-[#F6FCF8] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6D8E7B]">
-              Confirmed
-            </p>
-            <p className="mt-2 text-2xl font-black text-[#16A34A]">{confirmedCount}</p>
-          </div>
-          <div className="rounded-2xl border border-[#FCE9B2] bg-[#FFFBEA] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8D7A45]">
-              Pending
-            </p>
-            <p className="mt-2 text-2xl font-black text-[#D97706]">{pendingCount}</p>
+
+          <div className="grid gap-3 sm:grid-cols-3 w-full">
+            <div className="rounded-2xl border border-[#E5EDF7] bg-[#FBFDFF] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A98A8]">
+                {viewMode === 'week' ? '7 хоног' : '30 хоног'}
+              </p>
+              <p className="mt-2 text-2xl font-black text-[#10233B]">{totalUpcoming}</p>
+            </div>
+            <div className="rounded-2xl border border-[#DFF3E7] bg-[#F6FCF8] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6D8E7B]">
+                Баталгаажсан
+              </p>
+              <p className="mt-2 text-2xl font-black text-[#16A34A]">{confirmedCount}</p>
+            </div>
+            <div className="rounded-2xl border border-[#FCE9B2] bg-[#FFFBEA] px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8D7A45]">
+                Хүлээгдэж буй
+              </p>
+              <p className="mt-2 text-2xl font-black text-[#D97706]">{pendingCount}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -143,7 +210,10 @@ export default function DoctorAppointmentsBoard({
                   dayAppointments.map((appointment) => (
                     <article
                       key={appointment.id}
-                      className="rounded-2xl border border-[#E7EEF8] bg-white p-3 shadow-sm"
+                      onClick={() => handleEditClick(appointment)}
+                      role="button"
+                      tabIndex={0}
+                      className="cursor-pointer rounded-2xl border border-[#E7EEF8] bg-white p-3 shadow-sm transition hover:border-[#1E63B5] focus:border-[#1E63B5] focus:outline-none focus:ring-2 focus:ring-[#D6E6FA]"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="inline-flex items-center gap-1.5 rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
@@ -183,6 +253,92 @@ export default function DoctorAppointmentsBoard({
           )
         })}
       </div>
+
+      {editingAppointment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#E5E7EB] pb-4">
+              <div>
+                <h3 className="text-lg font-bold text-[#1F2937]">Цаг засах</h3>
+                <p className="mt-1 flex items-center gap-2 text-sm text-[#6B7280]">
+                  <UserRound size={14} />
+                  {editingAppointment.leads?.full_name ?? 'Нэргүй өвчтөн'}
+                </p>
+              </div>
+              <button
+                onClick={handleCloseModal}
+                className="rounded-xl p-2 text-[#9CA3AF] transition hover:bg-[#F3F4F6] hover:text-[#4B5563]"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-4">
+              {error && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
+              
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#4B5563]">Өдөр</label>
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="w-full rounded-xl border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-[#4B5563]">Цаг</label>
+                  <input
+                    type="time"
+                    value={editTime}
+                    onChange={(e) => setEditTime(e.target.value)}
+                    className="w-full rounded-xl border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-[#4B5563]">Төлөв</label>
+                <select
+                  value={editStatus}
+                  onChange={(e) => setEditStatus(e.target.value as AppointmentStatus)}
+                  className="w-full rounded-xl border border-[#D1D5DB] px-3 py-2.5 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                >
+                  {(Object.keys(appointmentLabels) as AppointmentStatus[]).map((status) => (
+                    <option key={status} value={status}>
+                      {appointmentLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mt-6 flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseModal}
+                  className="w-full"
+                  disabled={isSaving}
+                >
+                  Цуцлах
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  className="w-full"
+                  disabled={isSaving}
+                  loading={isSaving}
+                >
+                  <Save size={16} />
+                  Хадгалах
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

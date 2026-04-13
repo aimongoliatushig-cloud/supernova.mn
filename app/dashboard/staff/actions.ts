@@ -7,6 +7,10 @@ import type {
   AppointmentStatus,
   LeadStatus,
 } from '@/lib/admin/types'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 import { createClient } from '@/lib/supabase/server'
 
 function ok(message?: string): AdminActionResult {
@@ -22,7 +26,7 @@ async function getStaffSupabase() {
 
   return {
     viewer,
-    supabase: await createClient(),
+    supabase: hasServiceRoleConfig() ? createServiceRoleClient() : await createClient(),
   }
 }
 
@@ -204,4 +208,44 @@ export async function updateAppointmentForStaff(input: {
 
   revalidateCrmPaths()
   return ok('Appointment updated.')
+}
+
+export async function createAppointmentForStaff(input: {
+  lead_id: string
+  appointment_date: string
+  appointment_time: string
+  status: AppointmentStatus
+  service_id?: string
+  doctor_id?: string
+}): Promise<AdminActionResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.appointment_date)) {
+    return fail('Appointment date format is invalid.')
+  }
+
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(input.appointment_time)) {
+    return fail('Appointment time format is invalid.')
+  }
+
+  if (!isAppointmentStatus(input.status)) {
+    return fail('Appointment status is invalid.')
+  }
+
+  const { supabase } = await getStaffSupabase()
+  const { error } = await supabase
+    .from('appointments')
+    .insert({
+      lead_id: input.lead_id,
+      appointment_date: input.appointment_date,
+      appointment_time: input.appointment_time,
+      status: input.status,
+      service_id: input.service_id || null,
+      doctor_id: input.doctor_id || null,
+    })
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateCrmPaths()
+  return ok('Шинэ цаг үүсгэлээ.')
 }

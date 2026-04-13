@@ -6,6 +6,7 @@ import { Calendar, Download, MessageSquare, Phone, Save, ShieldAlert, UserRoundP
 import {
   addLeadNoteForStaff,
   assignConsultationDoctor,
+  createAppointmentForStaff,
   toggleLeadBlacklistForStaff,
   updateAppointmentForStaff,
   updateConsultationStatusForStaff,
@@ -35,18 +36,18 @@ import type {
   UnifiedCalendarAppointment,
 } from '@/lib/admin/types'
 
-const riskLabels: Record<RiskLevel, string> = { low: 'Low', medium: 'Medium', high: 'High' }
+const riskLabels: Record<RiskLevel, string> = { low: 'Бага', medium: 'Дунд', high: 'Өндөр' }
 const riskColors: Record<RiskLevel, 'green' | 'yellow' | 'red'> = {
   low: 'green',
   medium: 'yellow',
   high: 'red',
 }
 const leadLabels: Record<LeadStatus, string> = {
-  new: 'New',
-  contacted: 'Contacted',
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  blacklisted: 'Blacklisted',
+  new: 'Шинэ',
+  contacted: 'Холбогдсон',
+  pending: 'Хүлээгдэж буй',
+  confirmed: 'Баталгаажсан',
+  blacklisted: 'Блоклуулсан',
 }
 const leadColors: Record<LeadStatus, 'blue' | 'yellow' | 'gray' | 'green' | 'red'> = {
   new: 'blue',
@@ -56,10 +57,10 @@ const leadColors: Record<LeadStatus, 'blue' | 'yellow' | 'gray' | 'green' | 'red
   blacklisted: 'red',
 }
 const appointmentLabels: Record<AppointmentStatus, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  cancelled: 'Cancelled',
-  completed: 'Completed',
+  pending: 'Хүлээгдэж буй',
+  confirmed: 'Баталгаажсан',
+  cancelled: 'Цуцлагдсан',
+  completed: 'Дууссан',
 }
 const appointmentColors: Record<AppointmentStatus, 'yellow' | 'green' | 'red' | 'blue'> = {
   pending: 'yellow',
@@ -68,11 +69,11 @@ const appointmentColors: Record<AppointmentStatus, 'yellow' | 'green' | 'red' | 
   completed: 'blue',
 }
 const consultationLabels: Record<ConsultationWorkflowStatus, string> = {
-  new: 'New',
-  assigned: 'Assigned',
-  answered: 'Answered',
-  called: 'Called',
-  closed: 'Closed',
+  new: 'Шинэ',
+  assigned: 'Хуваарилагдсан',
+  answered: 'Хариулсан',
+  called: 'Холбогдсон',
+  closed: 'Хаагдсан',
 }
 const consultationColors: Record<ConsultationWorkflowStatus, 'blue' | 'yellow' | 'green' | 'gray'> = {
   new: 'blue',
@@ -82,9 +83,9 @@ const consultationColors: Record<ConsultationWorkflowStatus, 'blue' | 'yellow' |
   closed: 'gray',
 }
 const callbackLabels: Record<string, string> = {
-  morning: 'Morning',
-  afternoon: 'Afternoon',
-  evening: 'Evening',
+  morning: 'Өглөө',
+  afternoon: 'Өдөр',
+  evening: 'Орой',
 }
 
 type AppointmentDraft = {
@@ -112,15 +113,17 @@ export default function CrmManager({
   appointments,
   calendarDays,
   doctors,
+  services,
   viewerRole = 'super_admin',
 }: {
   initialLeads: AdminLead[]
   appointments: UnifiedCalendarAppointment[]
   calendarDays: string[]
   doctors: Array<{ id: string; full_name: string; specialization: string }>
+  services: Array<{ id: string; name: string }>
   viewerRole?: Extract<Role, 'office_assistant' | 'super_admin'>
 }) {
-  const { pending, error, success, runAction } = useServerAction()
+  const { pending, error, success, setError, setSuccess, runAction } = useServerAction()
   const [leads, setLeads] = useState(initialLeads)
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(initialLeads[0]?.id ?? null)
   const [search, setSearch] = useState('')
@@ -134,13 +137,24 @@ export default function CrmManager({
   useEffect(() => {
     setLeads(initialLeads)
     setAppointmentDrafts(buildAppointmentDrafts(initialLeads))
-  }, [initialLeads])
+    setError(null)
+    setSuccess(null)
+  }, [initialLeads, setError, setSuccess])
 
   useEffect(() => {
     if (!selectedLeadId || !initialLeads.some((lead) => lead.id === selectedLeadId)) {
       setSelectedLeadId(initialLeads[0]?.id ?? null)
     }
+    setNewApptDraft(null)
   }, [initialLeads, selectedLeadId])
+
+  const [newApptDraft, setNewApptDraft] = useState<{
+    appointment_date: string
+    appointment_time: string
+    status: AppointmentStatus
+    service_id: string
+    doctor_id: string
+  } | null>(null)
 
   const filteredLeads = useMemo(() => {
     const query = search.trim().toLowerCase()
@@ -202,14 +216,14 @@ export default function CrmManager({
   const headerCopy =
     viewerRole === 'office_assistant'
       ? {
-          eyebrow: 'Assistant CRM',
-          title: 'Office CRM control',
-          description: 'Manage leads, consultations, appointments, and notes in one place.',
+          eyebrow: 'Туслахын CRM',
+          title: 'Оффисын CRM удирдлага',
+          description: 'Лид, зөвлөгөө, цаг авалт болон тэмдэглэлийг нэг дороос удирдах.',
         }
       : {
           eyebrow: 'CRM',
-          title: 'Lead and follow-up board',
-          description: 'Review public leads and control appointment and consultation workflow.',
+          title: 'Лид болон хяналтын самбар',
+          description: 'Хуудсаас ирсэн лидүүдийг шалгаж, цаг авалт, зөвлөгөөний урсгалыг удирдах.',
         }
 
   return (
@@ -225,7 +239,7 @@ export default function CrmManager({
             className="inline-flex items-center gap-2 rounded-xl border border-[#B8D5FB] bg-white px-4 py-3 text-sm font-semibold text-[#1E63B5]"
           >
             <Download size={14} />
-            Export Excel
+            Excel татах
           </button>
         }
       />
@@ -235,10 +249,10 @@ export default function CrmManager({
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: 'Total leads', value: stats.total, tone: 'text-[#1E63B5]' },
-          { label: 'High risk', value: stats.highRisk, tone: 'text-[#F23645]' },
-          { label: 'Waiting consultations', value: stats.waitingConsultations, tone: 'text-[#D97706]' },
-          { label: 'Leads with appointments', value: stats.appointments, tone: 'text-[#16A34A]' },
+          { label: 'Нийт лид', value: stats.total, tone: 'text-[#1E63B5]' },
+          { label: 'Өндөр эрсдэлтэй', value: stats.highRisk, tone: 'text-[#F23645]' },
+          { label: 'Зөвлөгөө хүлээж буй', value: stats.waitingConsultations, tone: 'text-[#D97706]' },
+          { label: 'Цаг авсан лид', value: stats.appointments, tone: 'text-[#16A34A]' },
         ].map((item) => (
           <div key={item.label} className="rounded-3xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9CA3AF]">{item.label}</p>
@@ -250,24 +264,24 @@ export default function CrmManager({
       <UnifiedCalendarBoard appointments={appointments} days={calendarDays} />
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.95fr]">
-        <AdminSectionCard title="CRM lead list" description="Filter by search, risk, and lead state.">
+        <AdminSectionCard title="CRM лидийн жагсаалт" description="Хайлт, эрсдэл болон лидийн төлөвөөр шүүх.">
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-3">
-              <AdminInput placeholder="Search name, phone, email" value={search} onChange={(event) => setSearch(event.target.value)} />
+              <AdminInput placeholder="Нэр, утас, имэйлээр хайх" value={search} onChange={(event) => setSearch(event.target.value)} />
               <select value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as 'all' | RiskLevel)} className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]">
-                <option value="all">All risks</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
+                <option value="all">Бүх эрсдэл</option>
+                <option value="low">Бага</option>
+                <option value="medium">Дунд</option>
+                <option value="high">Өндөр</option>
               </select>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | LeadStatus)} className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]">
-                <option value="all">All lead states</option>
+                <option value="all">Бүх төлөв</option>
                 {(Object.keys(leadLabels) as LeadStatus[]).map((status) => <option key={status} value={status}>{leadLabels[status]}</option>)}
               </select>
             </div>
 
             {filteredLeads.length === 0 ? (
-              <AdminEmptyState title="No leads found" description="Try clearing filters or wait for new leads to sync." />
+              <AdminEmptyState title="Лид олдсонгүй" description="Шүүлтүүрээ цэвэрлэх эсвэл шинэ лид орж иртэл хүлээнэ үү." />
             ) : (
               <div className="space-y-3">
                 {filteredLeads.map((lead) => {
@@ -310,9 +324,9 @@ export default function CrmManager({
           </div>
         </AdminSectionCard>
 
-        <AdminSectionCard title="Lead detail" description="Appointment control, consultation routing, blacklist, and notes.">
+        <AdminSectionCard title="Лидийн дэлгэрэнгүй" description="Цаг авалт, зөвлөгөө хуваарилалт, блок болон тэмдэглэл.">
           {!selectedLead ? (
-            <AdminEmptyState title="Choose a lead" description="Select a lead from the list to manage it." />
+            <AdminEmptyState title="Лид сонгоно уу" description="Жагсаалтаас лид сонгож удирдана уу." />
           ) : (
             <div className="space-y-5">
               <div className="space-y-2">
@@ -323,45 +337,43 @@ export default function CrmManager({
                   <span>{formatDateTimeInUlaanbaatar(selectedLead.created_at)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {selectedLead.risk_level ? <Badge color={riskColors[selectedLead.risk_level]}>Risk: {riskLabels[selectedLead.risk_level]}</Badge> : null}
-                  <Badge color={leadColors[selectedLead.status]}>State: {leadLabels[selectedLead.status]}</Badge>
+                  {selectedLead.risk_level ? <Badge color={riskColors[selectedLead.risk_level]}>Эрсдэл: {riskLabels[selectedLead.risk_level]}</Badge> : null}
+                  <Badge color={leadColors[selectedLead.status]}>Төлөв: {leadLabels[selectedLead.status]}</Badge>
                 </div>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-3xl border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     <Calendar size={14} />
-                    Appointment
+                    Цаг авалт
                   </div>
                   {selectedLead.appointments?.length ? (
                     <div className="mt-3 space-y-3">
                       {selectedLead.appointments.map((appointment) => {
-                        const draft =
-                          appointmentDrafts[appointment.id] ?? {
-                            appointment_date: appointment.appointment_date,
-                            appointment_time: appointment.appointment_time.slice(0, 5),
-                            status: appointment.status,
-                          }
+                        const draft = appointmentDrafts[appointment.id]
+                        if (!draft) return null
 
                         return (
                           <div key={appointment.id} className="rounded-2xl bg-white p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="font-semibold text-[#1F2937]">
-                                {appointment.services?.name ?? 'Service not selected'}
+                                {appointment.services?.name ?? 'Үйлчилгээ сонгоогүй'}
                               </p>
                               <Badge color={appointmentColors[draft.status]}>
                                 {appointmentLabels[draft.status]}
                               </Badge>
                             </div>
                             <p className="mt-1 text-sm text-[#6B7280]">
-                              Doctor: {appointment.doctors?.full_name ?? 'Unassigned'}
+                              Эмч: {appointment.doctors?.full_name ?? 'Хуваарилагдаагүй'}
                             </p>
                             <div className="mt-4 grid gap-3 sm:grid-cols-3">
                               <input
                                 type="date"
                                 value={draft.appointment_date}
                                 onChange={(event) =>
-                                  updateDraft(appointment.id, { appointment_date: event.target.value })
+                                  updateDraft(appointment.id, {
+                                    appointment_date: event.target.value,
+                                  })
                                 }
                                 className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
                               />
@@ -369,7 +381,9 @@ export default function CrmManager({
                                 type="time"
                                 value={draft.appointment_time}
                                 onChange={(event) =>
-                                  updateDraft(appointment.id, { appointment_time: event.target.value })
+                                  updateDraft(appointment.id, {
+                                    appointment_time: event.target.value,
+                                  })
                                 }
                                 className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
                               />
@@ -402,12 +416,12 @@ export default function CrmManager({
                                         appointment_time: draft.appointment_time,
                                         status: draft.status,
                                       }),
-                                    { successMessage: 'Appointment updated.' }
+                                    { successMessage: 'Цагийн хуваарь шинэчлэгдлээ.' }
                                   )
                                 }
                               >
                                 <Save size={16} />
-                                Save appointment
+                                Цаг хадгалах
                               </Button>
                             </div>
                           </div>
@@ -415,14 +429,139 @@ export default function CrmManager({
                       })}
                     </div>
                   ) : (
-                    <p className="mt-3 text-sm text-[#9CA3AF]">No appointments for this lead.</p>
+                    <p className="mt-3 text-sm text-[#9CA3AF]">Энэ лидэд цаг алга.</p>
+                  )}
+
+                  {!newApptDraft ? (
+                    <div className="mt-4 border-t border-[#F3F4F6] pt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setNewApptDraft({
+                            appointment_date: '',
+                            appointment_time: '',
+                            status: 'pending',
+                            service_id: '',
+                            doctor_id: '',
+                          })
+                        }
+                      >
+                        <Calendar size={14} />
+                        Шинэ цаг авах
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-2xl border border-[#D6E6FA] bg-[#F7FAFF] p-4">
+                      <p className="mb-3 text-sm font-semibold text-[#1F2937]">Шинэ цаг бүртгэх</p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <select
+                          value={newApptDraft.service_id}
+                          onChange={(e) =>
+                            setNewApptDraft({ ...newApptDraft, service_id: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                        >
+                          <option value="">Үйлчилгээ сонгох</option>
+                          {services?.map((service) => (
+                            <option key={service.id} value={service.id}>
+                              {service.name}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={newApptDraft.doctor_id}
+                          onChange={(e) =>
+                            setNewApptDraft({ ...newApptDraft, doctor_id: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                        >
+                          <option value="">Эмч хуваарилах</option>
+                          {doctors.map((doctor) => (
+                            <option key={doctor.id} value={doctor.id}>
+                              {doctor.full_name} - {doctor.specialization}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        <input
+                          type="date"
+                          value={newApptDraft.appointment_date}
+                          onChange={(e) =>
+                            setNewApptDraft({ ...newApptDraft, appointment_date: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                        />
+                        <input
+                          type="time"
+                          value={newApptDraft.appointment_time}
+                          onChange={(e) =>
+                            setNewApptDraft({ ...newApptDraft, appointment_time: e.target.value })
+                          }
+                          className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                        />
+                        <select
+                          value={newApptDraft.status}
+                          onChange={(e) =>
+                            setNewApptDraft({
+                              ...newApptDraft,
+                              status: e.target.value as AppointmentStatus,
+                            })
+                          }
+                          className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
+                        >
+                          {(Object.keys(appointmentLabels) as AppointmentStatus[]).map((status) => (
+                            <option key={status} value={status}>
+                              {appointmentLabels[status]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="mt-4 flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setNewApptDraft(null)}
+                          disabled={pending}
+                        >
+                          Цуцлах
+                        </Button>
+                        <Button
+                          size="sm"
+                          loading={pending}
+                          onClick={() =>
+                            runAction(
+                              async () => {
+                                const result = await createAppointmentForStaff({
+                                  lead_id: selectedLead.id,
+                                  appointment_date: newApptDraft.appointment_date,
+                                  appointment_time: newApptDraft.appointment_time,
+                                  status: newApptDraft.status,
+                                  service_id: newApptDraft.service_id,
+                                  doctor_id: newApptDraft.doctor_id,
+                                })
+                                if (result.ok) {
+                                  setNewApptDraft(null)
+                                }
+                                return result
+                              },
+                              { successMessage: 'Шинэ цаг амжилттай үүслээ.' }
+                            )
+                          }
+                        >
+                          <Save size={14} />
+                          Хадгалах
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
 
                 <div className="rounded-3xl border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
                     <MessageSquare size={14} />
-                    Consultation
+                    Зөвлөгөө
                   </div>
                   {selectedLead.consultation_requests?.length ? (
                     <div className="mt-3 space-y-3">
@@ -437,7 +576,7 @@ export default function CrmManager({
                             ) : null}
                           </div>
                           <p className="mt-2 text-sm text-[#6B7280]">
-                            Callback:{' '}
+                            Эргэн залгах:{' '}
                             {callbackLabels[consultation.preferred_callback_time] ??
                               consultation.preferred_callback_time}
                           </p>
@@ -462,7 +601,7 @@ export default function CrmManager({
                                 }
                                 className="w-full rounded-xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm text-[#1F2937] outline-none focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
                               >
-                                <option value="">No doctor assigned</option>
+                                <option value="">Эмч хуваарилаагүй</option>
                                 {doctors.map((doctor) => (
                                   <option key={doctor.id} value={doctor.id}>
                                     {doctor.full_name} - {doctor.specialization}
@@ -471,7 +610,7 @@ export default function CrmManager({
                               </select>
                               <div className="inline-flex items-center gap-2 rounded-xl bg-[#F7FAFF] px-4 py-3 text-sm font-semibold text-[#1E63B5]">
                                 <UserRoundPlus size={15} />
-                                Assign doctor
+                                Эмч хуваарилах
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -500,7 +639,7 @@ export default function CrmManager({
                             {consultation.doctor_responses?.length ? (
                               <div className="space-y-2 rounded-2xl border border-[#CDEDD8] bg-[#F5FCF8] p-3">
                                 <p className="text-xs font-semibold uppercase tracking-wide text-[#15803D]">
-                                  Doctor responses
+                                  Эмчийн хариу
                                 </p>
                                 {consultation.doctor_responses.map((response) => (
                                   <div key={response.id} className="rounded-2xl bg-white p-3">
@@ -519,13 +658,13 @@ export default function CrmManager({
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-3 text-sm text-[#9CA3AF]">No consultation requests for this lead.</p>
+                    <p className="mt-3 text-sm text-[#9CA3AF]">Энэ лидэд зөвлөгөөний хүсэлт алга.</p>
                   )}
                 </div>
               </div>
 
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-[#1F2937]">Update lead state</p>
+                <p className="text-sm font-semibold text-[#1F2937]">Лидийн төлөв шинэчлэх</p>
                 <div className="flex flex-wrap gap-2">
                   {(Object.keys(leadLabels) as LeadStatus[]).map((status) => (
                     <button
@@ -553,9 +692,9 @@ export default function CrmManager({
               <div className="rounded-3xl border border-[#FDE3C3] bg-[#FFFBF4] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-[#92400E]">Blacklist</p>
+                    <p className="text-sm font-semibold text-[#92400E]">Блок жагсаалт</p>
                     <p className="mt-1 text-sm text-[#B45309]">
-                      Use blacklist for spam, duplicates, or leads that should stop receiving follow-up.
+                      Спам, давхардсан эсвэл дахин холбогдох шаардлагагүй лидийг блок хийхэд ашиглана.
                     </p>
                   </div>
                   <button
@@ -580,15 +719,15 @@ export default function CrmManager({
                     ].join(' ')}
                   >
                     <ShieldAlert size={14} />
-                    {selectedLead.is_blacklisted ? 'Remove from blacklist' : 'Add to blacklist'}
+                    {selectedLead.is_blacklisted ? 'Блокоос гаргах' : 'Блок хийх'}
                   </button>
                 </div>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-semibold text-[#1F2937]">CRM notes</p>
-                  <span className="text-xs text-[#9CA3AF]">{selectedLead.crm_notes?.length ?? 0} notes</span>
+                  <p className="text-sm font-semibold text-[#1F2937]">CRM тэмдэглэл</p>
+                  <span className="text-xs text-[#9CA3AF]">{selectedLead.crm_notes?.length ?? 0} тэмдэглэл</span>
                 </div>
                 <div className="max-h-64 space-y-3 overflow-y-auto rounded-3xl border border-[#E5E7EB] bg-[#FBFDFF] p-4">
                   {selectedLead.crm_notes?.length ? (
@@ -601,15 +740,15 @@ export default function CrmManager({
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-[#9CA3AF]">No CRM notes yet.</p>
+                    <p className="text-sm text-[#9CA3AF]">CRM тэмдэглэл одоогоор алга.</p>
                   )}
                 </div>
-                <AdminField label="New CRM note">
+                <AdminField label="Шинэ CRM тэмдэглэл">
                   <AdminTextArea
                     rows={4}
                     value={noteText}
                     onChange={(event) => setNoteText(event.target.value)}
-                    placeholder="Call result, follow-up reminder, or internal note..."
+                    placeholder="Дуудлагын үр дүн, эргэж холбогдох сануулга эсвэл дотоод тэмдэглэл..."
                   />
                 </AdminField>
                 <Button
@@ -630,7 +769,7 @@ export default function CrmManager({
                   }
                 >
                   <Save size={16} />
-                  Save note
+                  Тэмдэглэл хадгалах
                 </Button>
               </div>
             </div>

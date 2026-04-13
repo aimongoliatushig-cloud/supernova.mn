@@ -2,7 +2,7 @@ import CrmManager from '@/components/admin/CrmManager'
 import { getCrmStaffData } from '@/lib/admin/data'
 
 export default async function AssistantDashboardPage() {
-  const { leads, doctors, appointments, calendarDays } = await getCrmStaffData()
+  const { leads, doctors, appointments, calendarDays, services } = await getCrmStaffData()
 
   return (
     <CrmManager
@@ -10,6 +10,7 @@ export default async function AssistantDashboardPage() {
       appointments={appointments}
       calendarDays={calendarDays}
       doctors={doctors}
+      services={services}
       viewerRole="office_assistant"
     />
   )

@@ -7,7 +7,7 @@ export default async function DashboardPage() {
   const destinations: Record<string, string> = {
     office_assistant: '/dashboard/assistant',
     doctor: '/dashboard/doctor',
-    super_admin: '/dashboard/admin',
+    super_admin: '/dashboard/admin/crm',
   }
 
   redirect(destinations[viewer.role] ?? '/')

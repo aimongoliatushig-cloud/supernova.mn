@@ -252,6 +252,7 @@ async function getCrmBoardData(roles: Role[]) {
     { data: notes },
     { data: doctors },
     { data: appointments },
+    { data: services },
   ] = await Promise.all([
     leadIds.length > 0
       ? supabase
@@ -300,6 +301,12 @@ async function getCrmBoardData(roles: Role[]) {
       .order('appointment_date')
       .order('appointment_time')
       .limit(250),
+    supabase
+      .from('services')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name'),
   ])
 
   const enhancedConsultations = leadIds.length
@@ -312,15 +319,22 @@ async function getCrmBoardData(roles: Role[]) {
         .order('created_at', { ascending: false })
     : { data: [], error: null }
 
-  const { data: consultations } = enhancedConsultations.error
+  const fallbackConsultations = enhancedConsultations.error
     ? await supabase
         .from('consultation_requests')
         .select('id, lead_id, preferred_callback_time, question, status')
         .in('lead_id', leadIds)
         .order('created_at', { ascending: false })
-    : enhancedConsultations
+    : null
 
-  const consultationRows = (consultations ?? []) as Array<
+  const consultations =
+    enhancedConsultations.error && fallbackConsultations?.error
+      ? []
+      : enhancedConsultations.error
+        ? (fallbackConsultations?.data ?? [])
+        : (enhancedConsultations.data ?? [])
+
+  const consultationRows = consultations as Array<
     {
       id: string
       lead_id: string
@@ -468,6 +482,7 @@ async function getCrmBoardData(roles: Role[]) {
       }>,
     appointments: normalizedAppointments,
     calendarDays,
+    services: (services ?? []) as Array<{ id: string; name: string }>,
   }
 }
 

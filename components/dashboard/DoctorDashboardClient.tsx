@@ -10,7 +10,8 @@ import type {
 } from '@/components/dashboard/doctor-dashboard-types'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
-import { createClient } from '@/lib/supabase/client'
+import { formatDateTimeInUlaanbaatar } from '@/lib/admin/date-format'
+import { submitDoctorResponse } from '@/app/dashboard/doctor/actions'
 
 const timeLabels = {
   morning: 'Morning',
@@ -27,11 +28,11 @@ const statusColors = {
 } as const
 
 const statusLabels = {
-  new: 'New',
-  assigned: 'Assigned',
-  answered: 'Answered',
-  called: 'Called',
-  closed: 'Closed',
+  new: 'Шинэ',
+  assigned: 'Хуваарилагдсан',
+  answered: 'Хариулсан',
+  called: 'Холбогдсон',
+  closed: 'Хаагдсан',
 } as const
 
 const riskLabels = {
@@ -84,28 +85,11 @@ export default function DoctorDashboardClient({
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
     const responseText = response.trim()
+    const result = await submitDoctorResponse(selected.id, doctorId, responseText)
 
-    const { error: insertError } = await supabase.from('doctor_responses').insert({
-      consultation_id: selected.id,
-      doctor_id: doctorId,
-      response_text: responseText,
-    })
-
-    if (insertError) {
-      setError(insertError.message)
-      setLoading(false)
-      return
-    }
-
-    const { error: updateError } = await supabase
-      .from('consultation_requests')
-      .update({ status: 'answered' })
-      .eq('id', selected.id)
-
-    if (updateError) {
-      setError(updateError.message)
+    if (!result.ok) {
+      setError(result.error ?? 'Unknown error.')
       setLoading(false)
       return
     }
@@ -146,28 +130,27 @@ export default function DoctorDashboardClient({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#1E63B5]">
-              Doctor CRM
+              Эмчийн CRM
             </p>
             <div>
-              <h1 className="text-2xl font-black text-[#10233B]">Doctor consultation dashboard</h1>
+              <h1 className="text-2xl font-black text-[#10233B]">Эмчийн зөвлөгөөний самбар</h1>
               <p className="mt-2 text-sm leading-7 text-[#5B6877]">
-                {doctorLabel} can review assigned consultation requests and their own earlier
-                responses here.
+                {doctorLabel} энд өөрт хуваарилагдсан зөвлөгөөний хүсэлт болон өмнө өгсөн хариунуудаа хянах боломжтой.
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <div className="rounded-2xl border border-[#D6E6FA] bg-[#F7FAFF] px-4 py-3">
-              <p className="text-xs font-semibold text-[#6B7280]">Visible requests</p>
+              <p className="text-xs font-semibold text-[#6B7280]">Ил харагдах</p>
               <p className="mt-1 text-2xl font-black text-[#1E63B5]">{stats.total}</p>
             </div>
             <div className="rounded-2xl border border-[#FAD7DC] bg-[#FFF7F8] px-4 py-3">
-              <p className="text-xs font-semibold text-[#6B7280]">New questions</p>
+              <p className="text-xs font-semibold text-[#6B7280]">Шинэ асуулт</p>
               <p className="mt-1 text-2xl font-black text-[#F23645]">{stats.new}</p>
             </div>
             <div className="rounded-2xl border border-[#CDEDD8] bg-[#F5FCF8] px-4 py-3">
-              <p className="text-xs font-semibold text-[#6B7280]">Answered by me</p>
+              <p className="text-xs font-semibold text-[#6B7280]">Миний хариулсан</p>
               <p className="mt-1 text-2xl font-black text-[#16A34A]">{stats.mine}</p>
             </div>
           </div>
@@ -211,7 +194,7 @@ export default function DoctorDashboardClient({
                           : 'bg-[#F7FAFF] text-[#6B7280] hover:bg-[#EAF3FF]',
                       ].join(' ')}
                     >
-                      {status === 'all' ? 'All' : statusLabels[status]}
+                      {status === 'all' ? 'Бүгд' : statusLabels[status]}
                     </button>
                   ))}
                 </div>
@@ -223,9 +206,9 @@ export default function DoctorDashboardClient({
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#EAF3FF] text-[#1E63B5]">
                     <Stethoscope size={22} />
                   </div>
-                  <h3 className="mt-4 text-lg font-bold text-[#1F2937]">No requests</h3>
+                  <h3 className="mt-4 text-lg font-bold text-[#1F2937]">Хүсэлт олдсонгүй</h3>
                   <p className="mt-2 text-sm text-[#6B7280]">
-                    There are no consultation requests matching the current filter.
+                    Одоогийн шүүлтүүрт тохирох зөвлөгөөний хүсэлт алга байна.
                   </p>
                 </div>
               ) : (
@@ -253,7 +236,7 @@ export default function DoctorDashboardClient({
                           <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-base font-bold text-[#1F2937]">
-                                {consultation.leads?.full_name ?? 'Unnamed lead'}
+                                {consultation.leads?.full_name ?? 'Нэргүй'}
                             </p>
                               <Badge color={statusColors[consultation.status]}>
                                 {statusLabels[consultation.status]}
@@ -270,7 +253,7 @@ export default function DoctorDashboardClient({
                                 <Clock size={12} />
                                 {timeLabels[consultation.preferred_callback_time]}
                               </span>
-                              <span>{new Date(consultation.created_at).toLocaleString('mn-MN')}</span>
+                              <span>{formatDateTimeInUlaanbaatar(consultation.created_at)}</span>
                               <span>{consultation.leads?.phone}</span>
                             </div>
 
@@ -279,12 +262,12 @@ export default function DoctorDashboardClient({
                                 {consultation.question}
                               </p>
                           ) : (
-                              <p className="text-sm text-[#9CA3AF]">No question was entered.</p>
+                              <p className="text-sm text-[#9CA3AF]">Асуулт оруулаагүй байна.</p>
                             )}
                           </div>
 
                           <div className="text-xs font-semibold text-[#6B7280]">
-                            {respondedByMe ? 'Already answered by me' : 'Needs review'}
+                            {respondedByMe ? 'Миний хариулсан' : 'Хянах шаардлагатай'}
                           </div>
                         </div>
                       </button>
@@ -300,7 +283,7 @@ export default function DoctorDashboardClient({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-xl font-black text-[#10233B]">
-                        {selected.leads?.full_name ?? 'Unnamed lead'}
+                        {selected.leads?.full_name ?? 'Нэргүй'}
                       </h2>
                       <p className="mt-1 text-sm text-[#6B7280]">{selected.leads?.phone}</p>
                     </div>
@@ -309,13 +292,13 @@ export default function DoctorDashboardClient({
 
                   <div className="mt-5 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-[#F7FAFF] p-3">
-                      <p className="text-xs font-semibold text-[#6B7280]">Preferred callback time</p>
+                      <p className="text-xs font-semibold text-[#6B7280]">Холбогдохыг хүссэн цаг</p>
                       <p className="mt-1 text-sm font-bold text-[#1F2937]">
                         {timeLabels[selected.preferred_callback_time]}
                       </p>
                     </div>
                     <div className="rounded-2xl bg-[#F7FAFF] p-3">
-                      <p className="text-xs font-semibold text-[#6B7280]">Risk level</p>
+                      <p className="text-xs font-semibold text-[#6B7280]">Эрсдэлийн түвшин</p>
                       <p className="mt-1 text-sm font-bold text-[#1F2937]">
                         {selected.leads?.risk_level
                           ? riskLabels[selected.leads.risk_level]
@@ -327,17 +310,17 @@ export default function DoctorDashboardClient({
                   <div className="mt-5">
                     <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
                       <MessageSquare size={12} />
-                      Patient question
+                      Өвчтөний асуулт
                     </div>
                     <div className="rounded-2xl bg-[#F7FAFF] p-4 text-sm leading-7 text-[#1F2937]">
-                      {selected.question || 'No question was entered for this consultation request.'}
+                      {selected.question || 'Энэ зөвлөгөөний хүсэлтэд асуулт оруулаагүй байна.'}
                     </div>
                   </div>
 
                   {(selected.doctor_responses ?? []).length > 0 ? (
                     <div className="mt-5 space-y-3">
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
-                        Previous doctor responses
+                        Өмнөх эмчийн хариунууд
                       </p>
                       {selected.doctor_responses?.map((doctorResponse, index) => (
                         <div
@@ -346,13 +329,13 @@ export default function DoctorDashboardClient({
                         >
                           <div className="flex items-center gap-2 text-xs font-semibold text-[#15803D]">
                             <CheckCircle2 size={12} />
-                            {doctorResponse.doctor_id === doctorId ? 'My response' : 'Another doctor'}
+                            {doctorResponse.doctor_id === doctorId ? 'Миний хариу' : 'Өөр эмч'}
                           </div>
                           <p className="mt-2 text-sm leading-7 text-[#166534]">
                             {doctorResponse.response_text}
                           </p>
                           <p className="mt-2 text-xs text-[#4B5563]">
-                            {new Date(doctorResponse.created_at).toLocaleString('mn-MN')}
+                            {formatDateTimeInUlaanbaatar(doctorResponse.created_at)}
                           </p>
                         </div>
                       ))}
@@ -362,13 +345,13 @@ export default function DoctorDashboardClient({
                   {selected.status === 'new' || selected.status === 'assigned' ? (
                     <div className="mt-5">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#6B7280]">
-                        Doctor response
+                        Эмчийн хариу
                       </p>
                       <textarea
                         value={response}
                         onChange={(event) => setResponse(event.target.value)}
                         rows={6}
-                        placeholder="Write your clinical response or next-step recommendation..."
+                        placeholder="Өөрийн клиник хариу эсвэл дараагийн алхмын зөвлөмжөө бичнэ үү..."
                         className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm text-[#1F2937] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1E63B5] focus:ring-2 focus:ring-[#D6E6FA]"
                       />
                       <div className="mt-3">
@@ -379,7 +362,7 @@ export default function DoctorDashboardClient({
                           onClick={submitResponse}
                         >
                           <Send size={14} />
-                          Send response
+                          Хариу илгээх
                         </Button>
                       </div>
                     </div>
@@ -387,9 +370,9 @@ export default function DoctorDashboardClient({
                 </div>
               ) : (
                 <div className="rounded-3xl border border-dashed border-[#D1D5DB] bg-white px-6 py-12 text-center">
-                  <h3 className="text-lg font-bold text-[#1F2937]">Select a consultation</h3>
+                  <h3 className="text-lg font-bold text-[#1F2937]">Зөвлөгөө сонгох</h3>
                   <p className="mt-2 text-sm text-[#6B7280]">
-                    Choose a request from the list to review details and send a response.
+                    Жагсаалтаас хүсэлт сонгон дэлгэрэнгүйтэй танилцаж, хариу илгээнэ үү.
                   </p>
                 </div>
               )}

@@ -290,7 +290,10 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
   const supabase = await getPublicSupabase()
   const cms = await getCmsContent()
 
-  const [{ data: doctors }, { data: services }] = await Promise.all([
+  const today = new Date().toISOString().split('T')[0]
+  const protectedSupabase = await getProtectedPublicClient()
+
+  const [{ data: doctors }, { data: services }, { data: appointments }] = await Promise.all([
     supabase
       .from('doctors')
       .select(
@@ -308,13 +311,25 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
       .eq('is_active', true)
       .eq('show_on_booking', true)
       .order('sort_order')
+      .order('sort_order')
       .order('name'),
+    protectedSupabase
+      .from('appointments')
+      .select('doctor_id, appointment_date, appointment_time, services(duration_minutes)')
+      .gte('appointment_date', today)
+      .in('status', ['pending', 'confirmed'])
   ])
 
   return {
     ...cms,
     doctors: (doctors ?? []) as PublicDoctor[],
     services: (services ?? []).map((service) => normalizeService(service)),
+    bookedAppointments: (appointments ?? []).map((appt: any) => ({
+      doctor_id: appt.doctor_id,
+      appointment_date: appt.appointment_date,
+      appointment_time: appt.appointment_time,
+      duration_minutes: appt.services?.duration_minutes ?? 30, // default to 30 min if unknown
+    })),
   }
 }
 

@@ -19,6 +19,21 @@ type AssistantRunStatus =
   | 'cancelled'
   | 'expired'
 
+function shouldFallbackFromAssistant(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const message = error.message.toLowerCase()
+
+  return (
+    message.includes('openai assistants api 401') ||
+    message.includes('insufficient permissions') ||
+    message.includes('missing scopes') ||
+    message.includes('api.threads.write')
+  )
+}
+
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -224,20 +239,31 @@ export async function POST(req: Request) {
     }
 
     if (parsedSettings.assistantId) {
-      const assistantText = await getAssistantResponse({
-        apiKey: settings.openai_api_key,
-        assistantId: parsedSettings.assistantId,
-        additionalInstructions: parsedSettings.systemPrompt,
-        messages: normalizedMessages,
-      })
+      try {
+        const assistantText = await getAssistantResponse({
+          apiKey: settings.openai_api_key,
+          assistantId: parsedSettings.assistantId,
+          additionalInstructions: parsedSettings.systemPrompt,
+          messages: normalizedMessages,
+        })
 
-      await persistMessage('assistant', assistantText)
+        await persistMessage('assistant', assistantText)
 
-      return new Response(assistantText, {
-        headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-        },
-      })
+        return new Response(assistantText, {
+          headers: {
+            'Content-Type': 'text/plain; charset=utf-8',
+          },
+        })
+      } catch (assistantError) {
+        if (!shouldFallbackFromAssistant(assistantError)) {
+          throw assistantError
+        }
+
+        console.warn(
+          'Assistant API unavailable for current key; falling back to direct model response.',
+          assistantError,
+        )
+      }
     }
 
     const openai = createOpenAI({

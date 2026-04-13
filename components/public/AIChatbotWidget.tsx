@@ -78,9 +78,9 @@ export default function AIChatbotWidget() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       if (guestInfo) guestInfoSentRef.current = true
 
-      const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let assistantText = ''
+      const reader = res.body?.getReader()
 
       if (reader) {
         while (true) {
@@ -90,12 +90,20 @@ export default function AIChatbotWidget() {
           assistantText += decoder.decode(value, { stream: true })
           setStreamingContent(assistantText)
         }
+      } else {
+        assistantText = await res.text()
+      }
+
+      assistantText = `${assistantText}${decoder.decode()}`.trim()
+
+      if (!assistantText) {
+        throw new Error('Empty assistant response')
       }
 
       const assistantMsg: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: assistantText || '...',
+        content: assistantText,
       }
       setMessages((prev) => [...prev, assistantMsg])
       setStreamingContent('')

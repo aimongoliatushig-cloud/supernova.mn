@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Noto_Sans } from 'next/font/google'
+import AIChatbotWidget from '@/components/public/AIChatbotWidget'
 import './globals.css'
 
 const notoSans = Noto_Sans({
@@ -34,6 +35,7 @@ export default function RootLayout({
     >
       <body className="flex min-h-full flex-col overflow-x-hidden bg-white text-[#1F2937]">
         {children}
+        <AIChatbotWidget />
       </body>
     </html>
   )

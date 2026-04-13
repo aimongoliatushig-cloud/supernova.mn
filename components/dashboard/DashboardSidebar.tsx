@@ -13,6 +13,7 @@ import {
   Stethoscope,
   UserCog,
   Users,
+  BotMessageSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -27,6 +28,7 @@ const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNo
   office_assistant: [
     { href: '/dashboard/assistant', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
     { href: '/dashboard/assistant', label: 'Лидүүд ба CRM', icon: <Users size={18} /> },
+    { href: '/dashboard/assistant/chatbot', label: 'Чатбот', icon: <BotMessageSquare size={18} /> },
   ],
   operator: [
     { href: '/dashboard/operator', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
@@ -49,6 +51,7 @@ const navByRole: Record<Role, { href: string; label: string; icon: React.ReactNo
     { href: '/dashboard/admin/promotions', label: 'Урамшуулал', icon: <Gift size={18} /> },
     { href: '/dashboard/admin/diagnosis', label: 'Оношилгоо', icon: <Brain size={18} /> },
     { href: '/dashboard/admin/crm', label: 'CRM', icon: <Users size={18} /> },
+    { href: '/dashboard/admin/chatbot', label: 'Чатбот', icon: <BotMessageSquare size={18} /> },
   ],
 }
 

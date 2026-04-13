@@ -5,10 +5,12 @@
 -- 2. schema-v2.sql
 -- 3. schema-v3.sql
 -- 4. schema-v4.sql
--- 5. seed.sql
--- 6. seed-v2.sql
--- 7. seed-v3.sql
--- 8. seed-v4.sql
+-- 5. schema-v5.sql
+-- 6. seed.sql
+-- 7. seed-v2.sql
+-- 8. seed-v3.sql
+-- 9. seed-v4.sql
+-- 10. seed-v5.sql
 
 -- ===== BEGIN schema.sql =====
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -1328,28 +1330,8 @@ $$;
 
 DROP POLICY IF EXISTS "staff_update_leads" ON leads;
 CREATE POLICY "staff_update_leads" ON leads FOR UPDATE
-  USING (
-    current_user_role() = 'super_admin'
-    OR (
-      current_user_role() = 'organization_consultant'
-      AND source = 'organization_consultation_request'
-    )
-    OR (
-      current_user_role() = 'office_assistant'
-      AND (source IS NULL OR source <> 'organization_consultation_request')
-    )
-  )
-  WITH CHECK (
-    current_user_role() = 'super_admin'
-    OR (
-      current_user_role() = 'organization_consultant'
-      AND source = 'organization_consultation_request'
-    )
-    OR (
-      current_user_role() = 'office_assistant'
-      AND (source IS NULL OR source <> 'organization_consultation_request')
-    )
-  );
+  USING (current_user_role() IN ('office_assistant', 'super_admin'))
+  WITH CHECK (current_user_role() IN ('office_assistant', 'super_admin'));
 
 DROP POLICY IF EXISTS "staff_manage_appointments" ON appointments;
 CREATE POLICY "staff_manage_appointments" ON appointments FOR ALL
@@ -1418,6 +1400,53 @@ CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR 
 
 DROP POLICY IF EXISTS "doctor_insert_responses" ON doctor_responses;
 -- ===== END schema-v4.sql =====
+
+-- ===== BEGIN schema-v5.sql =====
+CREATE TABLE IF NOT EXISTS chatbot_settings (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  is_active      BOOLEAN NOT NULL DEFAULT FALSE,
+  avatar_url     TEXT,
+  openai_api_key TEXT,
+  system_prompt  TEXT,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS chat_conversations (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  lead_id        UUID REFERENCES leads(id) ON DELETE SET NULL,
+  session_id     TEXT NOT NULL,
+  status         TEXT NOT NULL DEFAULT 'active',
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id UUID NOT NULL REFERENCES chat_conversations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL,
+  content         TEXT NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- RLS Policies
+ALTER TABLE chatbot_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+-- public can read active settings to know if chatbot is enabled
+CREATE POLICY "public_read_chatbot" ON chatbot_settings FOR SELECT USING (TRUE);
+CREATE POLICY "admin_all_chatbot" ON chatbot_settings FOR ALL USING (current_user_role() = 'super_admin');
+
+-- public can insert and read their own conversations by session / anon
+CREATE POLICY "public_insert_conv" ON chat_conversations FOR INSERT WITH CHECK (TRUE);
+-- public shouldn't generally read all convs. They don't need to read after they refresh unless we store session_id.
+-- Let's allow anon to select their own if they have session_id? No, anon can't easily verify. Just staff.
+CREATE POLICY "staff_read_conv" ON chat_conversations FOR SELECT USING (current_user_role() IN ('office_assistant', 'super_admin', 'operator', 'doctor'));
+CREATE POLICY "staff_update_conv" ON chat_conversations FOR UPDATE USING (current_user_role() IN ('office_assistant', 'super_admin'));
+
+CREATE POLICY "public_insert_messages" ON chat_messages FOR INSERT WITH CHECK (TRUE);
+CREATE POLICY "staff_read_messages" ON chat_messages FOR SELECT USING (current_user_role() IN ('office_assistant', 'super_admin', 'operator', 'doctor'));
+-- ===== END schema-v5.sql =====
 
 -- ===== BEGIN seed.sql =====
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -2461,3 +2490,15 @@ END $$;
 
 DROP FUNCTION IF EXISTS public.seed_question_with_options(TEXT, TEXT, INTEGER, NUMERIC, TEXT[], NUMERIC[]);
 -- ===== END seed-v4.sql =====
+
+-- ===== BEGIN seed-v5.sql =====
+INSERT INTO chatbot_settings (id, is_active, avatar_url, openai_api_key, system_prompt)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  FALSE,
+  '',
+  '',
+  'Та бол СУПЕРНОВА эмнэлгийн хиймэл оюун ухаант туслах юм. Таны зорилго бол өвчтнүүдэд эелдэг бөгөөд мэргэжлийн түвшинд монгол хэлээр зөвлөгөө өгч, эмнэлгийн үйлчилгээний талаар мэдээлэл өгөх. Та өөрөө цаг захиалах боломжгүй, харин цаг захиалах хуудсыг (цахим хуудасны баруун дээд буланд) ашиглахыг зөвлөнө.'
+)
+ON CONFLICT (id) DO NOTHING;
+-- ===== END seed-v5.sql =====

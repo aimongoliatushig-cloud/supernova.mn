@@ -111,11 +111,18 @@ export default function ServicesManager({
 
   useEffect(() => {
     setServices(initialServices)
-    const selected =
-      initialServices.find((service) => service.id === selectedServiceId) ?? initialServices[0]
+  }, [initialServices])
+
+  useEffect(() => {
+    if (!selectedServiceId) {
+      return
+    }
+
+    const selected = services.find((service) => service.id === selectedServiceId) ?? services[0]
+
     setSelectedServiceId(selected?.id ?? null)
     setServiceForm(toServiceInput(selected ?? null))
-  }, [initialServices, selectedServiceId])
+  }, [selectedServiceId, services])
 
   const categoryLookup = useMemo(
     () => Object.fromEntries(categories.map((category) => [category.id, category])),

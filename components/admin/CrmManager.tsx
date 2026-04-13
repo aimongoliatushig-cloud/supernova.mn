@@ -13,6 +13,7 @@ import {
   UserRoundPlus,
 } from 'lucide-react'
 import {
+  createAppointmentForStaff,
   addLeadNoteForStaff,
   assignConsultationDoctor,
   toggleLeadBlacklistForStaff,
@@ -195,6 +196,21 @@ function parseOrganizationRequestDetails(
   return Object.keys(details).length > 0 ? details : null
 }
 
+function getTodayDateKey() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date())
+
+  const year = parts.find((part) => part.type === 'year')?.value ?? '1970'
+  const month = parts.find((part) => part.type === 'month')?.value ?? '01'
+  const day = parts.find((part) => part.type === 'day')?.value ?? '01'
+
+  return `${year}-${month}-${day}`
+}
+
 function getLeadWorkflow(
   lead: AdminLead,
   viewerRole: ViewerRole
@@ -261,6 +277,15 @@ function getLeadWorkflow(
         }
   }
 
+  if ((lead.appointments?.length ?? 0) > 0) {
+    return {
+      label: 'Appointment баталгаажуулах',
+      description:
+        'Цаг захиалгатай lead тул appointment-ийн мэдээллийг нягталж, note дээр follow-up үлдээнэ.',
+      tone: 'blue',
+    }
+  }
+
   if (consultation?.status === 'new') {
     return viewerRole === 'operator'
       ? {
@@ -320,15 +345,6 @@ function getLeadWorkflow(
     }
   }
 
-  if ((lead.appointments?.length ?? 0) > 0) {
-    return {
-      label: 'Appointment баталгаажуулах',
-      description:
-        'Цаг захиалгатай lead тул appointment-ийн мэдээллийг нягталж, note дээр follow-up үлдээнэ.',
-      tone: 'blue',
-    }
-  }
-
   return {
     label: 'Анхны follow-up',
     description: 'Lead-тэй анх холбогдож хэрэгцээг тодруулан дараагийн алхмыг CRM дээр тэмдэглэнэ.',
@@ -341,6 +357,7 @@ export default function CrmManager({
   doctors,
   appointments = [],
   calendarDays = [],
+  services = [],
   viewerRole = 'super_admin',
 }: {
   initialLeads: AdminLead[]
@@ -357,6 +374,10 @@ export default function CrmManager({
   const [riskFilter, setRiskFilter] = useState<'all' | RiskLevel>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | LeadStatus>('all')
   const [noteText, setNoteText] = useState('')
+  const [appointmentServiceId, setAppointmentServiceId] = useState('')
+  const [appointmentDoctorId, setAppointmentDoctorId] = useState('')
+  const [appointmentDate, setAppointmentDate] = useState(getTodayDateKey())
+  const [appointmentTime, setAppointmentTime] = useState('')
 
   useEffect(() => {
     setLeads(initialLeads)
@@ -411,6 +432,10 @@ export default function CrmManager({
 
   useEffect(() => {
     setNoteText('')
+    setAppointmentServiceId('')
+    setAppointmentDoctorId('')
+    setAppointmentDate(getTodayDateKey())
+    setAppointmentTime('')
   }, [selectedLeadId])
 
   const selectedLead = useMemo(() => {
@@ -513,6 +538,8 @@ export default function CrmManager({
           }
 
   const canAssignConsultations =
+    viewerRole === 'office_assistant' || viewerRole === 'super_admin'
+  const canCreateAppointments =
     viewerRole === 'office_assistant' || viewerRole === 'super_admin'
   const canManageLeadStatus =
     viewerRole === 'office_assistant' ||
@@ -643,6 +670,11 @@ export default function CrmManager({
     viewerRole === 'organization_consultant'
       ? 'Сонгосон байгууллагын зөвлөгөөний хүсэлт, холбоо барих мэдээлэл болон CRM note-уудыг нэг дороос удирдана.'
       : 'Сонгосон lead-ийн consultation, appointment, note болон follow-up урсгалыг нэг дор удирдана.'
+  const showAppointmentScheduler =
+    selectedLead !== null &&
+    canCreateAppointments &&
+    !isOrganizationLead(selectedLead) &&
+    (selectedLead.appointments?.length ?? 0) === 0
 
   return (
     <div className="space-y-6 p-4 md:p-6 xl:p-8">
@@ -997,7 +1029,103 @@ export default function CrmManager({
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-3 text-sm text-[#9CA3AF]">Appointment бүртгэл байхгүй.</p>
+                    <div className="mt-3 space-y-4">
+                      <p className="text-sm text-[#9CA3AF]">Appointment бүртгэл байхгүй.</p>
+
+                      {showAppointmentScheduler ? (
+                        <div className="rounded-2xl border border-[#D6E6FA] bg-white p-4">
+                          <p className="text-sm font-semibold text-[#1F2937]">
+                            Энэ lead-д appointment товлох
+                          </p>
+                          <p className="mt-1 text-xs leading-6 text-[#6B7280]">
+                            Phone consultation эсвэл digital health check lead-ийг оффисоос
+                            шууд эмч, үйлчилгээ, өдөр, цагаар appointment болгон бүртгэнэ.
+                          </p>
+
+                          <div className="mt-4 grid gap-3">
+                            <AdminField label="Үйлчилгээ">
+                              <AdminSelect
+                                value={appointmentServiceId}
+                                disabled={pending}
+                                onChange={(event) => setAppointmentServiceId(event.target.value)}
+                              >
+                                <option value="">Үйлчилгээ сонгоно уу</option>
+                                {services.map((service) => (
+                                  <option key={service.id} value={service.id}>
+                                    {service.name}
+                                  </option>
+                                ))}
+                              </AdminSelect>
+                            </AdminField>
+
+                            <AdminField label="Эмч">
+                              <AdminSelect
+                                value={appointmentDoctorId}
+                                disabled={pending}
+                                onChange={(event) => setAppointmentDoctorId(event.target.value)}
+                              >
+                                <option value="">Эмч сонгоно уу</option>
+                                {doctors.map((doctor) => (
+                                  <option key={doctor.id} value={doctor.id}>
+                                    {doctor.full_name} · {doctor.specialization}
+                                  </option>
+                                ))}
+                              </AdminSelect>
+                            </AdminField>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <AdminField label="Өдөр">
+                                <AdminInput
+                                  type="date"
+                                  value={appointmentDate}
+                                  min={getTodayDateKey()}
+                                  disabled={pending}
+                                  onChange={(event) => setAppointmentDate(event.target.value)}
+                                />
+                              </AdminField>
+                              <AdminField label="Цаг">
+                                <AdminInput
+                                  type="time"
+                                  value={appointmentTime}
+                                  disabled={pending}
+                                  onChange={(event) => setAppointmentTime(event.target.value)}
+                                />
+                              </AdminField>
+                            </div>
+
+                            <Button
+                              type="button"
+                              loading={pending}
+                              disabled={
+                                !appointmentServiceId ||
+                                !appointmentDoctorId ||
+                                !appointmentDate ||
+                                !appointmentTime
+                              }
+                              onClick={() =>
+                                runAction(
+                                  () =>
+                                    createAppointmentForStaff({
+                                      lead_id: selectedLead.id,
+                                      service_id: appointmentServiceId,
+                                      doctor_id: appointmentDoctorId,
+                                      appointment_date: appointmentDate,
+                                      appointment_time: appointmentTime,
+                                      consultation_id: selectedLead.consultation_requests?.[0]?.id ?? null,
+                                    }),
+                                  {
+                                    successMessage: 'Appointment бүртгэгдлээ.',
+                                  }
+                                )
+                              }
+                            >
+                              <Calendar size={14} />
+                              Appointment товлох
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   )}
                 </div>
 

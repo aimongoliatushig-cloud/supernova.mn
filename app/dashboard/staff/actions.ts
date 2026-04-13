@@ -29,11 +29,11 @@ const CONSULTATION_ASSIGNER_ROLES: StaffViewerRole[] = ['office_assistant', 'sup
 const CONSULTATION_FOLLOW_UP_ROLES: StaffViewerRole[] = ['operator', 'super_admin']
 const APPOINTMENT_MANAGER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 
-function ok(message?: string): AdminActionResult {
-  return { ok: true, message }
+function ok<T = void>(data?: T, message?: string): AdminActionResult<T> {
+  return { ok: true, data, message }
 }
 
-function fail(error: string): AdminActionResult {
+function fail<T = void>(error: string): AdminActionResult<T> {
   return { ok: false, error }
 }
 
@@ -76,6 +76,21 @@ function isMissingWorkflowFunction(errorMessage: string, functionName: string) {
 
 function isAppointmentStatus(value: string): value is AppointmentStatus {
   return ['pending', 'confirmed', 'cancelled', 'completed'].includes(value)
+}
+
+function getUlaanbaatarDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ulaanbaatar',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+
+  const year = parts.find((part) => part.type === 'year')?.value ?? '1970'
+  const month = parts.find((part) => part.type === 'month')?.value ?? '01'
+  const day = parts.find((part) => part.type === 'day')?.value ?? '01'
+
+  return `${year}-${month}-${day}`
 }
 
 async function assertLeadScopeAccess(
@@ -131,7 +146,7 @@ export async function updateLeadStatusForStaff(
   }
 
   revalidateCrmPaths()
-  return ok('Lead-ийн төлөв шинэчлэгдлээ.')
+  return ok(undefined, 'Lead-ийн төлөв шинэчлэгдлээ.')
 }
 
 export async function toggleLeadBlacklistForStaff(
@@ -178,7 +193,7 @@ export async function toggleLeadBlacklistForStaff(
   }
 
   revalidateCrmPaths()
-  return ok(is_blacklisted ? 'Lead blacklist боллоо.' : 'Lead blacklist-ээс гарлаа.')
+  return ok(undefined, is_blacklisted ? 'Lead blacklist боллоо.' : 'Lead blacklist-ээс гарлаа.')
 }
 
 export async function addLeadNoteForStaff(
@@ -216,7 +231,7 @@ export async function addLeadNoteForStaff(
   await supabase.from('leads').update({ notes: mergedNotes }).eq('id', lead_id)
 
   revalidateCrmPaths()
-  return ok('CRM тэмдэглэл хадгалагдлаа.')
+  return ok(undefined, 'CRM тэмдэглэл хадгалагдлаа.')
 }
 
 export async function assignConsultationDoctor(
@@ -246,6 +261,7 @@ export async function assignConsultationDoctor(
 
   revalidateCrmPaths()
   return ok(
+    undefined,
     doctor_id ? 'Consultation эмчид оноогдлоо.' : 'Consultation оноолт цуцлагдлаа.'
   )
 }
@@ -276,7 +292,7 @@ export async function updateConsultationStatusForStaff(
   }
 
   revalidateCrmPaths()
-  return ok('Consultation төлөв шинэчлэгдлээ.')
+  return ok(undefined, 'Consultation төлөв шинэчлэгдлээ.')
 }
 
 export async function updateAppointmentForStaff(input: {
@@ -317,5 +333,111 @@ export async function updateAppointmentForStaff(input: {
   }
 
   revalidateCrmPaths()
-  return ok('Appointment шинэчлэгдлээ.')
+  return ok(undefined, 'Appointment шинэчлэгдлээ.')
+}
+
+export async function createAppointmentForStaff(input: {
+  lead_id: string
+  service_id: string
+  doctor_id: string
+  appointment_date: string
+  appointment_time: string
+  consultation_id?: string | null
+}): Promise<AdminActionResult<{ appointmentId: string }>> {
+  if (!input.lead_id || !input.service_id || !input.doctor_id) {
+    return fail('Lead, үйлчилгээ, эмчийн мэдээлэл дутуу байна.')
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.appointment_date)) {
+    return fail('Огнооны формат буруу байна.')
+  }
+
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(input.appointment_time)) {
+    return fail('Цагийн формат буруу байна.')
+  }
+
+  if (input.appointment_date < getUlaanbaatarDateKey()) {
+    return fail('Өнгөрсөн өдөрт appointment үүсгэх боломжгүй.')
+  }
+
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, APPOINTMENT_MANAGER_ROLES)) {
+    return fail('Appointment-г зөвхөн оффисын ажилтан эсвэл супер админ үүсгэнэ.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, input.lead_id)
+  if (accessError) {
+    return fail(accessError)
+  }
+
+  const [{ data: service }, { data: doctor }, { data: doctorServices, error: relationError }] =
+    await Promise.all([
+      supabase
+        .from('services')
+        .select('id, preparation_notice, is_active, show_on_booking')
+        .eq('id', input.service_id)
+        .maybeSingle(),
+      supabase
+        .from('doctors')
+        .select('id, is_active, available_for_booking')
+        .eq('id', input.doctor_id)
+        .maybeSingle(),
+      supabase
+        .from('doctor_services')
+        .select('service_id')
+        .eq('doctor_id', input.doctor_id),
+    ])
+
+  if (!service || !service.is_active || !service.show_on_booking) {
+    return fail('Сонгосон үйлчилгээ appointment-д идэвхгүй байна.')
+  }
+
+  if (!doctor || !doctor.is_active || !doctor.available_for_booking) {
+    return fail('Сонгосон эмч одоогоор appointment авах боломжгүй байна.')
+  }
+
+  if (relationError) {
+    return fail(relationError.message)
+  }
+
+  if (
+    (doctorServices?.length ?? 0) > 0 &&
+    !doctorServices.some((relation) => relation.service_id === input.service_id)
+  ) {
+    return fail('Сонгосон эмч энэ үйлчилгээтэй холбогдоогүй байна.')
+  }
+
+  const { data: appointment, error: insertError } = await supabase
+    .from('appointments')
+    .insert({
+      lead_id: input.lead_id,
+      doctor_id: input.doctor_id,
+      service_id: input.service_id,
+      appointment_date: input.appointment_date,
+      appointment_time: input.appointment_time,
+      status: 'pending',
+      preparation_notice: service.preparation_notice,
+    })
+    .select('id')
+    .single()
+
+  if (insertError || !appointment) {
+    return fail(insertError?.message ?? 'Appointment үүсгэж чадсангүй.')
+  }
+
+  await supabase
+    .from('leads')
+    .update({ status: 'pending' })
+    .eq('id', input.lead_id)
+
+  if (input.consultation_id) {
+    await supabase
+      .from('consultation_requests')
+      .update({ status: 'closed' })
+      .eq('id', input.consultation_id)
+  }
+
+  revalidateCrmPaths()
+  return ok({ appointmentId: appointment.id }, 'Appointment үүсгэгдлээ.')
 }

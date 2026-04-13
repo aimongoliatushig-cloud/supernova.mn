@@ -432,6 +432,8 @@ async function getCrmBoardData(roles: Role[], leadScope: LeadScope = 'all') {
       : await supabase
           .from('services')
           .select('id, name')
+          .eq('is_active', true)
+          .eq('show_on_booking', true)
           .order('sort_order')
           .order('name')
 

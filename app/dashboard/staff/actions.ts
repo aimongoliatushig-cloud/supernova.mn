@@ -1,9 +1,13 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/admin/auth'
-import type { AdminActionResult, LeadStatus } from '@/lib/admin/types'
+import type {
+  AdminActionResult,
+  AppointmentStatus,
+  LeadStatus,
+} from '@/lib/admin/types'
+import { createClient } from '@/lib/supabase/server'
 
 function ok(message?: string): AdminActionResult {
   return { ok: true, message }
@@ -15,6 +19,7 @@ function fail(error: string): AdminActionResult {
 
 async function getStaffSupabase() {
   const viewer = await requireRole(['office_assistant', 'super_admin'])
+
   return {
     viewer,
     supabase: await createClient(),
@@ -25,6 +30,10 @@ function revalidateCrmPaths() {
   for (const path of ['/dashboard/admin/crm', '/dashboard/assistant', '/dashboard/doctor']) {
     revalidatePath(path)
   }
+}
+
+function isAppointmentStatus(value: string): value is AppointmentStatus {
+  return ['pending', 'confirmed', 'cancelled', 'completed'].includes(value)
 }
 
 export async function updateLeadStatusForStaff(
@@ -44,7 +53,7 @@ export async function updateLeadStatusForStaff(
   }
 
   revalidateCrmPaths()
-  return ok('Lead-ийн төлөв шинэчлэгдлээ.')
+  return ok('Lead status updated.')
 }
 
 export async function toggleLeadBlacklistForStaff(
@@ -82,7 +91,7 @@ export async function toggleLeadBlacklistForStaff(
   }
 
   revalidateCrmPaths()
-  return ok(is_blacklisted ? 'Lead blacklist боллоо.' : 'Lead blacklist-ээс гарлаа.')
+  return ok(is_blacklisted ? 'Lead added to blacklist.' : 'Lead removed from blacklist.')
 }
 
 export async function addLeadNoteForStaff(
@@ -90,7 +99,7 @@ export async function addLeadNoteForStaff(
   note_text: string
 ): Promise<AdminActionResult> {
   if (!note_text.trim()) {
-    return fail('Тэмдэглэл хоосон байж болохгүй.')
+    return fail('Note cannot be empty.')
   }
 
   const { viewer, supabase } = await getStaffSupabase()
@@ -111,7 +120,7 @@ export async function addLeadNoteForStaff(
   await supabase.from('leads').update({ notes: mergedNotes }).eq('id', lead_id)
 
   revalidateCrmPaths()
-  return ok('CRM тэмдэглэл хадгалагдлаа.')
+  return ok('CRM note saved.')
 }
 
 export async function assignConsultationDoctor(
@@ -133,14 +142,14 @@ export async function assignConsultationDoctor(
 
   if (error) {
     if (error.message.includes('assigned_doctor_id')) {
-      return fail('Consultation assignment migration ажиллуулаагүй байна. Supabase SQL migration-аа apply хийнэ үү.')
+      return fail('Consultation assignment migration is missing. Apply the latest Supabase SQL.')
     }
 
     return fail(error.message)
   }
 
   revalidateCrmPaths()
-  return ok(doctor_id ? 'Consultation эмчид оноогдлоо.' : 'Consultation оноолт цуцлагдлаа.')
+  return ok(doctor_id ? 'Consultation assigned to doctor.' : 'Consultation assignment cleared.')
 }
 
 export async function updateConsultationStatusForStaff(
@@ -158,5 +167,41 @@ export async function updateConsultationStatusForStaff(
   }
 
   revalidateCrmPaths()
-  return ok('Consultation төлөв шинэчлэгдлээ.')
+  return ok('Consultation status updated.')
+}
+
+export async function updateAppointmentForStaff(input: {
+  appointment_id: string
+  appointment_date: string
+  appointment_time: string
+  status: AppointmentStatus
+}): Promise<AdminActionResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.appointment_date)) {
+    return fail('Appointment date format is invalid.')
+  }
+
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(input.appointment_time)) {
+    return fail('Appointment time format is invalid.')
+  }
+
+  if (!isAppointmentStatus(input.status)) {
+    return fail('Appointment status is invalid.')
+  }
+
+  const { supabase } = await getStaffSupabase()
+  const { error } = await supabase
+    .from('appointments')
+    .update({
+      appointment_date: input.appointment_date,
+      appointment_time: input.appointment_time,
+      status: input.status,
+    })
+    .eq('id', input.appointment_id)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateCrmPaths()
+  return ok('Appointment updated.')
 }

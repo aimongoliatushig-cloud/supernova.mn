@@ -1,32 +1,72 @@
 import { CalendarDays, Clock3, Phone, Stethoscope, UserRound } from 'lucide-react'
-import { formatCalendarDayLabel } from '@/lib/admin/date-format'
-import type { UnifiedCalendarAppointment } from '@/lib/admin/types'
 import Badge from '@/components/ui/Badge'
 
-const appointmentLabels: Record<UnifiedCalendarAppointment['status'], string> = {
+type AppointmentStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+
+export interface DoctorAppointment {
+  id: string
+  appointment_date: string
+  appointment_time: string
+  status: AppointmentStatus
+  leads?: {
+    full_name: string | null
+    phone: string | null
+  } | null
+  services?: {
+    name: string | null
+  } | null
+}
+
+const appointmentLabels: Record<AppointmentStatus, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',
   completed: 'Completed',
 }
 
-const appointmentColors: Record<
-  UnifiedCalendarAppointment['status'],
-  'yellow' | 'green' | 'red' | 'blue'
-> = {
+const appointmentColors: Record<AppointmentStatus, 'yellow' | 'green' | 'red' | 'blue'> = {
   pending: 'yellow',
   confirmed: 'green',
   cancelled: 'red',
   completed: 'blue',
 }
 
-export default function UnifiedCalendarBoard({
+function formatDayLabel(date: string) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+  }).format(new Date(`${date}T00:00:00`))
+}
+
+function toDateKey(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function buildNextSevenDays() {
+  const dates: string[] = []
+  const cursor = new Date()
+  cursor.setHours(0, 0, 0, 0)
+
+  for (let index = 0; index < 7; index += 1) {
+    const value = new Date(cursor)
+    value.setDate(cursor.getDate() + index)
+    dates.push(toDateKey(value))
+  }
+
+  return dates
+}
+
+export default function DoctorAppointmentsBoard({
   appointments,
-  days,
 }: {
-  appointments: UnifiedCalendarAppointment[]
-  days: string[]
+  appointments: DoctorAppointment[]
 }) {
+  const days = buildNextSevenDays()
   const upcomingAppointments = appointments.filter((appointment) =>
     days.includes(appointment.appointment_date)
   )
@@ -45,27 +85,34 @@ export default function UnifiedCalendarBoard({
         <div className="max-w-2xl">
           <p className="inline-flex items-center gap-2 rounded-full bg-[#EAF3FF] px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
             <CalendarDays size={14} />
-            Unified calendar
+            Appointment Calendar
           </p>
           <h2 className="mt-4 text-2xl font-black tracking-tight text-[#10233B]">
-            Seven-day appointment board for reception and CRM
+            My next 7 days
           </h2>
           <p className="mt-3 text-sm leading-7 text-[#5B6877]">
-            Review upcoming bookings by day and time without relying on browser locale during hydration.
+            Upcoming bookings assigned to this doctor are grouped by day so the schedule is visible
+            without leaving the dashboard.
           </p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-[#E5EDF7] bg-[#FBFDFF] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A98A8]">7 days</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8A98A8]">
+              7 days
+            </p>
             <p className="mt-2 text-2xl font-black text-[#10233B]">{totalUpcoming}</p>
           </div>
           <div className="rounded-2xl border border-[#DFF3E7] bg-[#F6FCF8] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6D8E7B]">Confirmed</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6D8E7B]">
+              Confirmed
+            </p>
             <p className="mt-2 text-2xl font-black text-[#16A34A]">{confirmedCount}</p>
           </div>
           <div className="rounded-2xl border border-[#FCE9B2] bg-[#FFFBEA] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8D7A45]">Pending</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8D7A45]">
+              Pending
+            </p>
             <p className="mt-2 text-2xl font-black text-[#D97706]">{pendingCount}</p>
           </div>
         </div>
@@ -78,13 +125,16 @@ export default function UnifiedCalendarBoard({
           )
 
           return (
-            <div key={day} className="rounded-[1.5rem] border border-[#E5EDF7] bg-[#FBFDFF] p-4">
+            <div
+              key={day}
+              className="rounded-[1.5rem] border border-[#E5EDF7] bg-[#FBFDFF] p-4"
+            >
               <div className="border-b border-[#E6EEF8] pb-3">
-                <p className="text-sm font-black text-[#10233B]">{formatCalendarDayLabel(day)}</p>
+                <p className="text-sm font-black text-[#10233B]">{formatDayLabel(day)}</p>
                 <p className="mt-1 text-xs text-[#7C8A99]">
                   {dayAppointments.length > 0
-                    ? `${dayAppointments.length} appointment${dayAppointments.length === 1 ? '' : 's'}`
-                    : 'No appointments'}
+                    ? `${dayAppointments.length} booking${dayAppointments.length === 1 ? '' : 's'}`
+                    : 'No bookings'}
                 </p>
               </div>
 
@@ -108,14 +158,11 @@ export default function UnifiedCalendarBoard({
                       <div className="mt-3 space-y-2">
                         <p className="flex items-start gap-2 text-sm font-bold leading-6 text-[#10233B]">
                           <UserRound size={14} className="mt-1 shrink-0 text-[#7B8A99]" />
-                          <span>{appointment.leads?.full_name ?? 'Unnamed lead'}</span>
+                          <span>{appointment.leads?.full_name ?? 'Unnamed patient'}</span>
                         </p>
                         <p className="flex items-start gap-2 text-xs leading-6 text-[#5B6877]">
                           <Stethoscope size={13} className="mt-1 shrink-0 text-[#7B8A99]" />
-                          <span>
-                            {appointment.services?.name ?? 'Service not selected'}
-                            {appointment.doctors?.full_name ? ` · ${appointment.doctors.full_name}` : ''}
-                          </span>
+                          <span>{appointment.services?.name ?? 'Service not selected'}</span>
                         </p>
                         {appointment.leads?.phone ? (
                           <p className="flex items-center gap-2 text-xs text-[#5B6877]">
@@ -128,7 +175,7 @@ export default function UnifiedCalendarBoard({
                   ))
                 ) : (
                   <div className="rounded-2xl border border-dashed border-[#D7E3F3] bg-white px-3 py-5 text-center text-xs leading-6 text-[#8A98A8]">
-                    No booking on this day
+                    No appointments scheduled.
                   </div>
                 )}
               </div>

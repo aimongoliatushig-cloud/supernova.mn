@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireRole } from '@/lib/admin/auth'
+import { buildDateRange } from '@/lib/admin/date-format'
 import type {
   AdminLead,
   CmsEntry,
+  ConsultationWorkflowStatus,
   ContactSettings,
   DiagnosisAnswerOption,
   DiagnosisQuestion,
@@ -17,6 +19,10 @@ import type {
   WorkingHours,
   Role,
 } from '@/lib/admin/types'
+import {
+  createServiceRoleClient,
+  hasServiceRoleConfig,
+} from '@/lib/supabase/service-role'
 
 async function getAdminClient() {
   await requireRole(['super_admin'])
@@ -25,7 +31,7 @@ async function getAdminClient() {
 
 async function getRoleAwareClient(roles: Role[]) {
   await requireRole(roles)
-  return createClient()
+  return hasServiceRoleConfig() ? createServiceRoleClient() : createClient()
 }
 
 function getUlaanbaatarDateKey(date = new Date()) {
@@ -221,77 +227,217 @@ export async function getDiagnosisAdminData() {
 async function getCrmBoardData(roles: Role[]) {
   const supabase = await getRoleAwareClient(roles)
   const today = getUlaanbaatarDateKey()
+  const calendarDays = buildDateRange(today, 7)
 
-  const baseSelect = `
-    *,
-    assessments(id, risk_level, risk_score, created_at),
-    appointments(id, appointment_date, appointment_time, status, doctors(full_name), services(name)),
-    crm_notes(id, author_id, note_text, created_at)
-  `
+  const normalizeOne = <T,>(value: T | T[] | null | undefined): T | null => {
+    if (Array.isArray(value)) {
+      return value[0] ?? null
+    }
 
-  const enhancedConsultationSelect = `
-    consultation_requests(
-      id,
-      preferred_callback_time,
-      question,
-      status,
-      assigned_doctor_id,
-      assigned_at,
-      doctors(full_name, specialization),
-      doctor_responses(id, response_text, created_at)
-    )
-  `
+    return value ?? null
+  }
 
-  const legacyConsultationSelect = `
-    consultation_requests(
-      id,
-      preferred_callback_time,
-      question,
-      status,
-      doctor_responses(id, response_text, created_at)
-    )
-  `
-
-  const enhancedQuery = await supabase
+  const { data: leads } = await supabase
     .from('leads')
-    .select(`${baseSelect}, ${enhancedConsultationSelect}`)
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(250)
 
-  const { data: leads } = enhancedQuery.error
+  const leadRows = (leads ?? []) as AdminLead[]
+  const leadIds = leadRows.map((lead) => lead.id)
+
+  const [
+    { data: assessments },
+    { data: leadAppointments },
+    { data: notes },
+    { data: doctors },
+    { data: appointments },
+  ] = await Promise.all([
+    leadIds.length > 0
+      ? supabase
+          .from('assessments')
+          .select('id, lead_id, risk_level, risk_score, created_at')
+          .in('lead_id', leadIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    leadIds.length > 0
+      ? supabase
+          .from('appointments')
+          .select('id, lead_id, appointment_date, appointment_time, status, doctors(full_name), services(name)')
+          .in('lead_id', leadIds)
+          .order('appointment_date')
+          .order('appointment_time')
+      : Promise.resolve({ data: [] }),
+    leadIds.length > 0
+      ? supabase
+          .from('crm_notes')
+          .select('id, lead_id, author_id, note_text, created_at')
+          .in('lead_id', leadIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] }),
+    supabase
+      .from('doctors')
+      .select('id, full_name, specialization, is_active, available_for_booking')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('full_name'),
+    supabase
+      .from('appointments')
+      .select(
+        `
+          id,
+          appointment_date,
+          appointment_time,
+          status,
+          notes,
+          preparation_notice,
+          leads(full_name, phone),
+          doctors(full_name, specialization),
+          services(name)
+        `
+      )
+      .gte('appointment_date', today)
+      .order('appointment_date')
+      .order('appointment_time')
+      .limit(250),
+  ])
+
+  const enhancedConsultations = leadIds.length
     ? await supabase
-        .from('leads')
-        .select(`${baseSelect}, ${legacyConsultationSelect}`)
+        .from('consultation_requests')
+        .select(
+          'id, lead_id, preferred_callback_time, question, status, assigned_doctor_id, assigned_at, doctors(full_name, specialization)'
+        )
+        .in('lead_id', leadIds)
         .order('created_at', { ascending: false })
-        .limit(250)
-    : enhancedQuery
+    : { data: [], error: null }
 
-  const { data: doctors } = await supabase
-    .from('doctors')
-    .select('id, full_name, specialization, is_active, available_for_booking')
-    .eq('is_active', true)
-    .order('sort_order')
-    .order('full_name')
+  const { data: consultations } = enhancedConsultations.error
+    ? await supabase
+        .from('consultation_requests')
+        .select('id, lead_id, preferred_callback_time, question, status')
+        .in('lead_id', leadIds)
+        .order('created_at', { ascending: false })
+    : enhancedConsultations
 
-  const { data: appointments } = await supabase
-    .from('appointments')
-    .select(
-      `
-        id,
-        appointment_date,
-        appointment_time,
-        status,
-        notes,
-        preparation_notice,
-        leads(full_name, phone),
-        doctors(full_name, specialization),
-        services(name)
-      `
-    )
-    .gte('appointment_date', today)
-    .order('appointment_date')
-    .order('appointment_time')
-    .limit(250)
+  const consultationRows = (consultations ?? []) as Array<
+    {
+      id: string
+      lead_id: string
+      preferred_callback_time: string
+      question: string | null
+      status: ConsultationWorkflowStatus
+      assigned_doctor_id?: string | null
+      assigned_at?: string | null
+      doctors?: { full_name: string | null; specialization?: string | null } | Array<{
+        full_name: string | null
+        specialization?: string | null
+      }> | null
+    }
+  >
+
+  const consultationIds = consultationRows.map((consultation) => consultation.id)
+
+  const { data: responses } = consultationIds.length
+    ? await supabase
+        .from('doctor_responses')
+        .select('id, consultation_id, response_text, created_at')
+        .in('consultation_id', consultationIds)
+        .order('created_at', { ascending: false })
+    : { data: [] }
+
+  const assessmentsByLead = new Map<string, NonNullable<AdminLead['assessments']>>()
+  for (const assessment of (assessments ?? []) as Array<
+    NonNullable<AdminLead['assessments']>[number] & { lead_id: string }
+  >) {
+    const collection = assessmentsByLead.get(assessment.lead_id) ?? []
+    collection.push({
+      id: assessment.id,
+      risk_level: assessment.risk_level,
+      risk_score: assessment.risk_score,
+      created_at: assessment.created_at,
+    })
+    assessmentsByLead.set(assessment.lead_id, collection)
+  }
+
+  const leadAppointmentsByLead = new Map<string, NonNullable<AdminLead['appointments']>>()
+  for (const appointment of (leadAppointments ?? []) as Array<
+    NonNullable<AdminLead['appointments']>[number] & {
+      lead_id: string
+      doctors?: NonNullable<AdminLead['appointments']>[number]['doctors'] | Array<
+        NonNullable<AdminLead['appointments']>[number]['doctors']
+      >
+      services?: NonNullable<AdminLead['appointments']>[number]['services'] | Array<
+        NonNullable<AdminLead['appointments']>[number]['services']
+      >
+    }
+  >) {
+    const collection = leadAppointmentsByLead.get(appointment.lead_id) ?? []
+    collection.push({
+      id: appointment.id,
+      appointment_date: appointment.appointment_date,
+      appointment_time: appointment.appointment_time,
+      status: appointment.status,
+      doctors: normalizeOne(appointment.doctors),
+      services: normalizeOne(appointment.services),
+    })
+    leadAppointmentsByLead.set(appointment.lead_id, collection)
+  }
+
+  const responsesByConsultation = new Map<
+    string,
+    NonNullable<AdminLead['consultation_requests']>[number]['doctor_responses']
+  >()
+  for (const response of (responses ?? []) as Array<{
+    id: string
+    consultation_id: string
+    response_text: string
+    created_at: string
+  }>) {
+    const collection = responsesByConsultation.get(response.consultation_id) ?? []
+    collection.push({
+      id: response.id,
+      response_text: response.response_text,
+      created_at: response.created_at,
+    })
+    responsesByConsultation.set(response.consultation_id, collection)
+  }
+
+  const consultationsByLead = new Map<string, NonNullable<AdminLead['consultation_requests']>>()
+  for (const consultation of consultationRows) {
+    const collection = consultationsByLead.get(consultation.lead_id) ?? []
+    collection.push({
+      id: consultation.id,
+      preferred_callback_time: consultation.preferred_callback_time,
+      question: consultation.question,
+      status: consultation.status,
+      assigned_doctor_id: consultation.assigned_doctor_id ?? null,
+      assigned_at: consultation.assigned_at ?? null,
+      doctors: normalizeOne(consultation.doctors),
+      doctor_responses: responsesByConsultation.get(consultation.id) ?? [],
+    })
+    consultationsByLead.set(consultation.lead_id, collection)
+  }
+
+  const notesByLead = new Map<string, NonNullable<AdminLead['crm_notes']>>()
+  for (const note of (notes ?? []) as Array<NonNullable<AdminLead['crm_notes']>[number] & { lead_id: string }>) {
+    const collection = notesByLead.get(note.lead_id) ?? []
+    collection.push({
+      id: note.id,
+      author_id: note.author_id,
+      note_text: note.note_text,
+      created_at: note.created_at,
+    })
+    notesByLead.set(note.lead_id, collection)
+  }
+
+  const normalizedLeads = leadRows.map((lead) => ({
+    ...lead,
+    assessments: assessmentsByLead.get(lead.id) ?? [],
+    appointments: leadAppointmentsByLead.get(lead.id) ?? [],
+    consultation_requests: consultationsByLead.get(lead.id) ?? [],
+    crm_notes: notesByLead.get(lead.id) ?? [],
+  }))
 
   const normalizedAppointments = ((appointments ?? []) as Array<
     UnifiedCalendarAppointment & {
@@ -311,7 +457,7 @@ async function getCrmBoardData(roles: Role[]) {
   }))
 
   return {
-    leads: (leads ?? []) as AdminLead[],
+    leads: normalizedLeads,
     doctors:
       (doctors ?? []) as Array<{
         id: string
@@ -321,6 +467,7 @@ async function getCrmBoardData(roles: Role[]) {
         available_for_booking: boolean
       }>,
     appointments: normalizedAppointments,
+    calendarDays,
   }
 }
 

@@ -140,18 +140,18 @@ export default function AppointmentFlow({
     ? `/result?assessment=${encodeURIComponent(initialAssessmentId)}`
     : '/check'
 
-  const doctorsWithRelations = doctors.some(
-    (doctor) => (doctor.doctor_services?.length ?? 0) > 0
-  )
+  const doctorsWithRelations = doctors.some((doctor) => (doctor.doctor_services?.length ?? 0) > 0)
 
   const availableDoctors = useMemo(() => {
     if (!selectedServiceId || !doctorsWithRelations) {
       return doctors
     }
 
-    return doctors.filter((doctor) =>
-      doctor.doctor_services?.some((relation) => relation.service_id === selectedServiceId)
-    )
+    const matchedDoctors = doctors.filter((doctor) => {
+      return doctor.doctor_services?.some((relation) => relation.service_id === selectedServiceId)
+    })
+
+    return matchedDoctors.length > 0 ? matchedDoctors : []
   }, [doctors, doctorsWithRelations, selectedServiceId])
 
   const progressCount = [

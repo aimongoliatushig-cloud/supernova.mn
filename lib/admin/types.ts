@@ -325,7 +325,7 @@ export interface AppointmentSummary {
   id: string
   appointment_date: string
   appointment_time: string
-  status: string
+  status: AppointmentStatus
   doctors?: { full_name: string | null } | null
   services?: { name: string | null } | null
 }

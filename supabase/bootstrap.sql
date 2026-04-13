@@ -683,6 +683,8 @@ CREATE INDEX IF NOT EXISTS idx_consultation_requests_assigned_doctor_id
   ON consultation_requests(assigned_doctor_id);
 
 DROP POLICY IF EXISTS "staff_manage_consultations" ON consultation_requests;
+DROP POLICY IF EXISTS "doctor_read_assigned_consultations" ON consultation_requests;
+DROP POLICY IF EXISTS "doctor_update_assigned_consultations" ON consultation_requests;
 
 CREATE POLICY "staff_manage_consultations" ON consultation_requests FOR ALL
   USING (current_user_role() IN ('office_assistant', 'super_admin'))
@@ -691,17 +693,10 @@ CREATE POLICY "staff_manage_consultations" ON consultation_requests FOR ALL
 CREATE POLICY "doctor_read_assigned_consultations" ON consultation_requests FOR SELECT
   USING (
     current_user_role() = 'doctor'
-    AND (
-      assigned_doctor_id IN (
-        SELECT id FROM doctors WHERE profile_id = auth.uid()
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM doctor_responses dr
-        JOIN doctors d ON d.id = dr.doctor_id
-        WHERE dr.consultation_id = consultation_requests.id
-          AND d.profile_id = auth.uid()
-      )
+    AND assigned_doctor_id IN (
+      SELECT id
+      FROM doctors
+      WHERE profile_id = auth.uid()
     )
   );
 
@@ -709,21 +704,63 @@ CREATE POLICY "doctor_update_assigned_consultations" ON consultation_requests FO
   USING (
     current_user_role() = 'doctor'
     AND assigned_doctor_id IN (
-      SELECT id FROM doctors WHERE profile_id = auth.uid()
+      SELECT id
+      FROM doctors
+      WHERE profile_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    current_user_role() = 'doctor'
+    AND assigned_doctor_id IN (
+      SELECT id
+      FROM doctors
+      WHERE profile_id = auth.uid()
     )
   );
 
+DROP POLICY IF EXISTS "doctor_read_own_appointments" ON appointments;
+
+CREATE POLICY "doctor_read_own_appointments" ON appointments FOR SELECT
+  USING (
+    current_user_role() = 'doctor'
+    AND doctor_id IN (
+      SELECT id
+      FROM doctors
+      WHERE profile_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "staff_read_responses" ON doctor_responses;
+DROP POLICY IF EXISTS "doctor_read_assigned_responses" ON doctor_responses;
 DROP POLICY IF EXISTS "doctor_insert_responses" ON doctor_responses;
+
+CREATE POLICY "staff_read_responses" ON doctor_responses FOR SELECT
+  USING (current_user_role() IN ('office_assistant', 'super_admin'));
+
+CREATE POLICY "doctor_read_assigned_responses" ON doctor_responses FOR SELECT
+  USING (
+    current_user_role() = 'doctor'
+    AND EXISTS (
+      SELECT 1
+      FROM consultation_requests cr
+      WHERE cr.id = doctor_responses.consultation_id
+        AND cr.assigned_doctor_id IN (
+          SELECT id
+          FROM doctors
+          WHERE profile_id = auth.uid()
+        )
+    )
+  );
 
 CREATE POLICY "doctor_insert_responses" ON doctor_responses FOR INSERT
   WITH CHECK (
-    (
-      current_user_role() = 'super_admin'
-    )
+    current_user_role() = 'super_admin'
     OR (
       current_user_role() = 'doctor'
       AND doctor_id IN (
-        SELECT id FROM doctors WHERE profile_id = auth.uid()
+        SELECT id
+        FROM doctors
+        WHERE profile_id = auth.uid()
       )
       AND EXISTS (
         SELECT 1

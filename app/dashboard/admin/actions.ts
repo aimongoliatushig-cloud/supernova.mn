@@ -563,13 +563,13 @@ export async function saveServiceCategory(
   }
 
   const query = input.id
-    ? supabase.from('service_categories').update(payload).eq('id', input.id)
-    : supabase.from('service_categories').insert(payload)
+    ? supabase.from('service_categories').update(payload).eq('id', input.id).select('id').single()
+    : supabase.from('service_categories').insert(payload).select('id').single()
 
-  const { error } = await query
+  const { data, error } = await query
 
-  if (error) {
-    return fail(error.message)
+  if (error || !data) {
+    return fail(error?.message ?? 'ÐÐ½Ð³Ð¸Ð»Ð°Ð» Ñ…Ð°Ð´Ð³Ð°Ð»Ð°Ñ… Ò¯ÐµÐ´ Ð°Ð»Ð´Ð°Ð° Ð³Ð°Ñ€Ð»Ð°Ð°.')
   }
 
   revalidateAdminAndPublic()
@@ -624,7 +624,25 @@ export async function saveService(input: ServiceInput): Promise<AdminActionResul
 }
 
 export async function deleteService(id: string): Promise<AdminActionResult> {
-  const supabase = await getAdminSupabase()
+  await requireRole(['super_admin'])
+
+  const supabase = hasServiceRoleConfig()
+    ? createServiceRoleClient()
+    : await createClient()
+
+  const relationOperations = await Promise.all([
+    supabase.from('doctor_services').delete().eq('service_id', id),
+    supabase.from('package_services').delete().eq('service_id', id),
+    supabase.from('promotions').delete().eq('service_id', id),
+    supabase.from('appointments').update({ service_id: null }).eq('service_id', id),
+  ])
+
+  const relationError = relationOperations.find((result) => result.error)?.error
+
+  if (relationError) {
+    return fail(relationError.message)
+  }
+
   const { error } = await supabase.from('services').delete().eq('id', id)
 
   if (error) {
@@ -690,7 +708,23 @@ export async function savePackage(input: ServicePackageInput): Promise<AdminActi
 }
 
 export async function deletePackage(id: string): Promise<AdminActionResult> {
-  const supabase = await getAdminSupabase()
+  await requireRole(['super_admin'])
+
+  const supabase = hasServiceRoleConfig()
+    ? createServiceRoleClient()
+    : await createClient()
+
+  const relationOperations = await Promise.all([
+    supabase.from('package_services').delete().eq('package_id', id),
+    supabase.from('promotions').delete().eq('package_id', id),
+  ])
+
+  const relationError = relationOperations.find((result) => result.error)?.error
+
+  if (relationError) {
+    return fail(relationError.message)
+  }
+
   const { error } = await supabase.from('service_packages').delete().eq('id', id)
 
   if (error) {

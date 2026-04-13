@@ -1,29 +1,56 @@
--- Consultation assignment and stricter doctor CRM access
+-- Reset doctor CRM policies to remove recursive RLS and restore doctor appointment visibility
 
 DO $$
+DECLARE
+  policy_record RECORD;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_type t
-    JOIN pg_enum e ON e.enumtypid = t.oid
-    WHERE t.typname = 'consultation_status'
-      AND e.enumlabel = 'assigned'
-  ) THEN
-    ALTER TYPE consultation_status ADD VALUE 'assigned' AFTER 'new';
-  END IF;
+  FOR policy_record IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'consultation_requests'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON consultation_requests', policy_record.policyname);
+  END LOOP;
+
+  FOR policy_record IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'doctor_responses'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON doctor_responses', policy_record.policyname);
+  END LOOP;
+
+  FOR policy_record IN
+    SELECT policyname
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'appointments'
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON appointments', policy_record.policyname);
+  END LOOP;
 END $$;
 
-ALTER TABLE consultation_requests
-  ADD COLUMN IF NOT EXISTS assigned_doctor_id UUID REFERENCES doctors(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS assigned_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMPTZ;
+CREATE POLICY "anon_insert_appointments" ON appointments FOR INSERT
+  WITH CHECK (TRUE);
 
-CREATE INDEX IF NOT EXISTS idx_consultation_requests_assigned_doctor_id
-  ON consultation_requests(assigned_doctor_id);
+CREATE POLICY "staff_manage_appointments" ON appointments FOR ALL
+  USING (current_user_role() IN ('office_assistant', 'super_admin'))
+  WITH CHECK (current_user_role() IN ('office_assistant', 'super_admin'));
 
-DROP POLICY IF EXISTS "staff_manage_consultations" ON consultation_requests;
-DROP POLICY IF EXISTS "doctor_read_assigned_consultations" ON consultation_requests;
-DROP POLICY IF EXISTS "doctor_update_assigned_consultations" ON consultation_requests;
+CREATE POLICY "doctor_read_own_appointments" ON appointments FOR SELECT
+  USING (
+    current_user_role() = 'doctor'
+    AND doctor_id IN (
+      SELECT id
+      FROM doctors
+      WHERE profile_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "anon_insert_consultations" ON consultation_requests FOR INSERT
+  WITH CHECK (TRUE);
 
 CREATE POLICY "staff_manage_consultations" ON consultation_requests FOR ALL
   USING (current_user_role() IN ('office_assistant', 'super_admin'))
@@ -56,22 +83,6 @@ CREATE POLICY "doctor_update_assigned_consultations" ON consultation_requests FO
       WHERE profile_id = auth.uid()
     )
   );
-
-DROP POLICY IF EXISTS "doctor_read_own_appointments" ON appointments;
-
-CREATE POLICY "doctor_read_own_appointments" ON appointments FOR SELECT
-  USING (
-    current_user_role() = 'doctor'
-    AND doctor_id IN (
-      SELECT id
-      FROM doctors
-      WHERE profile_id = auth.uid()
-    )
-  );
-
-DROP POLICY IF EXISTS "staff_read_responses" ON doctor_responses;
-DROP POLICY IF EXISTS "doctor_read_assigned_responses" ON doctor_responses;
-DROP POLICY IF EXISTS "doctor_insert_responses" ON doctor_responses;
 
 CREATE POLICY "staff_read_responses" ON doctor_responses FOR SELECT
   USING (current_user_role() IN ('office_assistant', 'super_admin'));

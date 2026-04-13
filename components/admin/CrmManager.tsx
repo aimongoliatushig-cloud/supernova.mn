@@ -29,15 +29,21 @@ import {
   AdminSelect,
   AdminTextArea,
 } from '@/components/admin/AdminPrimitives'
+import UnifiedCalendarBoard from '@/components/admin/UnifiedCalendarBoard'
 import { useServerAction } from '@/components/admin/useServerAction'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
+import {
+  formatDateInUlaanbaatar,
+  formatDateTimeInUlaanbaatar,
+} from '@/lib/admin/date-format'
 import type {
   AdminLead,
   ConsultationWorkflowStatus,
   LeadStatus,
   RiskLevel,
   Role,
+  UnifiedCalendarAppointment,
 } from '@/lib/admin/types'
 
 const riskLabels: Record<RiskLevel, string> = {
@@ -333,10 +339,15 @@ function getLeadWorkflow(
 export default function CrmManager({
   initialLeads,
   doctors,
+  appointments = [],
+  calendarDays = [],
   viewerRole = 'super_admin',
 }: {
   initialLeads: AdminLead[]
   doctors: Array<{ id: string; full_name: string; specialization: string }>
+  appointments?: UnifiedCalendarAppointment[]
+  calendarDays?: string[]
+  services?: Array<{ id: string; name: string }>
   viewerRole?: ViewerRole
 }) {
   const { pending, error, success, runAction } = useServerAction()
@@ -462,7 +473,7 @@ export default function CrmManager({
         'Lead төлөв': leadLabels[lead.status],
         Appointment: lead.appointments?.[0]?.status ?? '',
         Consultation: lead.consultation_requests?.[0]?.status ?? '',
-        'Бүртгүүлсэн огноо': new Date(lead.created_at).toLocaleDateString('mn-MN'),
+        'Бүртгүүлсэн огноо': formatDateInUlaanbaatar(lead.created_at),
       }
     })
 
@@ -650,6 +661,10 @@ export default function CrmManager({
       {error ? <AdminMessage tone="error">{error}</AdminMessage> : null}
       {success ? <AdminMessage tone="success">{success}</AdminMessage> : null}
 
+      {appointments.length > 0 && calendarDays.length > 0 ? (
+        <UnifiedCalendarBoard appointments={appointments} days={calendarDays} />
+      ) : null}
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {resolvedStatItems.map((item) => (
           <div
@@ -765,7 +780,7 @@ export default function CrmManager({
                                 {lead.phone}
                               </span>
                               {lead.email ? <span>{lead.email}</span> : null}
-                              <span>{new Date(lead.created_at).toLocaleDateString('mn-MN')}</span>
+                              <span>{formatDateInUlaanbaatar(lead.created_at)}</span>
                             </div>
                             {organizationDetails ? (
                               <div className="flex flex-wrap gap-2 text-xs font-semibold text-[#35506C]">
@@ -875,7 +890,7 @@ export default function CrmManager({
                     {selectedLead.phone}
                   </span>
                   {selectedLead.email ? <span>{selectedLead.email}</span> : null}
-                  <span>{new Date(selectedLead.created_at).toLocaleString('mn-MN')}</span>
+                  <span>{formatDateTimeInUlaanbaatar(selectedLead.created_at)}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {selectedLead.risk_level ? (
@@ -899,7 +914,7 @@ export default function CrmManager({
                       ['Холбоо барих хүн', selectedOrganizationDetails.contactName],
                       ['Имэйл', selectedOrganizationDetails.email],
                       ['Утас', selectedOrganizationDetails.phone],
-                      ['Орж ирсэн огноо', new Date(selectedLead.created_at).toLocaleString('mn-MN')],
+                      ['Орж ирсэн огноо', formatDateTimeInUlaanbaatar(selectedLead.created_at)],
                     ]
                       .filter(([, value]) => Boolean(value))
                       .map(([label, value]) => (
@@ -1153,7 +1168,7 @@ export default function CrmManager({
                                         {response.response_text}
                                       </p>
                                       <p className="mt-2 text-xs text-[#6B7280]">
-                                        {new Date(response.created_at).toLocaleString('mn-MN')}
+                                        {formatDateTimeInUlaanbaatar(response.created_at)}
                                       </p>
                                     </div>
                                   ))}
@@ -1254,7 +1269,7 @@ export default function CrmManager({
                       <div key={note.id} className="rounded-2xl bg-white p-3 text-sm text-[#1F2937]">
                         <p className="leading-6">{note.note_text}</p>
                         <p className="mt-2 text-xs text-[#9CA3AF]">
-                          {new Date(note.created_at).toLocaleString('mn-MN')}
+                          {formatDateTimeInUlaanbaatar(note.created_at)}
                         </p>
                       </div>
                     ))

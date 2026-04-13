@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Plus, Save, Trash2 } from 'lucide-react'
-import { deleteService, deleteServiceCategory, saveService, saveServiceCategory } from '@/app/dashboard/admin/actions'
+import {
+  deleteService,
+  deleteServiceCategory,
+  saveService,
+  saveServiceCategory,
+} from '@/app/dashboard/admin/actions'
 import {
   AdminEmptyState,
   AdminField,
@@ -15,7 +20,12 @@ import {
   AdminToggle,
 } from '@/components/admin/AdminPrimitives'
 import { useServerAction } from '@/components/admin/useServerAction'
-import type { Service, ServiceCategory, ServiceCategoryInput, ServiceInput } from '@/lib/admin/types'
+import type {
+  Service,
+  ServiceCategory,
+  ServiceCategoryInput,
+  ServiceInput,
+} from '@/lib/admin/types'
 
 const blankCategory: ServiceCategoryInput = {
   name: '',
@@ -61,6 +71,20 @@ function toServiceInput(service?: Service | null): ServiceInput {
   }
 }
 
+function toCategoryInput(category?: ServiceCategory | null): ServiceCategoryInput {
+  if (!category) {
+    return blankCategory
+  }
+
+  return {
+    id: category.id,
+    name: category.name,
+    icon: category.icon ?? '🏥',
+    sort_order: category.sort_order,
+    is_active: category.is_active,
+  }
+}
+
 export default function ServicesManager({
   initialCategories,
   initialServices,
@@ -75,7 +99,9 @@ export default function ServicesManager({
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(
     initialServices[0]?.id ?? null
   )
-  const [serviceForm, setServiceForm] = useState<ServiceInput>(toServiceInput(initialServices[0] ?? null))
+  const [serviceForm, setServiceForm] = useState<ServiceInput>(
+    toServiceInput(initialServices[0] ?? null)
+  )
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
 
@@ -85,7 +111,8 @@ export default function ServicesManager({
 
   useEffect(() => {
     setServices(initialServices)
-    const selected = initialServices.find((service) => service.id === selectedServiceId) ?? initialServices[0]
+    const selected =
+      initialServices.find((service) => service.id === selectedServiceId) ?? initialServices[0]
     setSelectedServiceId(selected?.id ?? null)
     setServiceForm(toServiceInput(selected ?? null))
   }, [initialServices, selectedServiceId])
@@ -109,12 +136,16 @@ export default function ServicesManager({
     setServiceForm(toServiceInput(service ?? null))
   }
 
+  function openCategory(category?: ServiceCategory) {
+    setCategoryDraft(toCategoryInput(category ?? null))
+  }
+
   return (
     <div className="space-y-6 p-6 md:p-8">
       <AdminPageHeader
         eyebrow="Services"
-        title="Үйлчилгээ, ангилал, харагдацын тохиргоо"
-        description="Нүүр хуудас, result page болон booking flow-д ашиглагдах үйлчилгээний өгөгдөл, ангилал, үнэлгээний холбоосыг эндээс удирдана."
+        title="Services, Categories, and Visibility"
+        description="Manage service records, categories, and public visibility for landing, results, and booking flows."
       />
 
       {error ? <AdminMessage tone="error">{error}</AdminMessage> : null}
@@ -123,12 +154,12 @@ export default function ServicesManager({
       <div className="grid gap-6 2xl:grid-cols-[0.8fr_1.2fr]">
         <div className="space-y-6">
           <AdminSectionCard
-            title="Үйлчилгээний ангилал"
-            description="Service category нь landing, packages, result recommendation-ийг цэгцэлнэ."
+            title="Service Categories"
+            description="Categories are generic grouping only. Doctor assignment is managed from the Doctors page."
           >
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <AdminField label="Ангиллын нэр" required>
+                <AdminField label="Category name" required>
                   <AdminInput
                     value={categoryDraft.name}
                     onChange={(event) =>
@@ -147,7 +178,7 @@ export default function ServicesManager({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <AdminField label="Дараалал">
+                <AdminField label="Sort order">
                   <AdminInput
                     type="number"
                     value={categoryDraft.sort_order}
@@ -161,7 +192,7 @@ export default function ServicesManager({
                 </AdminField>
                 <div className="flex items-end">
                   <AdminToggle
-                    label="Идэвхтэй"
+                    label="Active"
                     active={categoryDraft.is_active}
                     onClick={() =>
                       setCategoryDraft((current) => ({
@@ -173,26 +204,38 @@ export default function ServicesManager({
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() =>
-                  runAction(
-                    async () => {
-                      const result = await saveServiceCategory(categoryDraft)
-                      if (result.ok) {
-                        setCategoryDraft(blankCategory)
-                      }
-                      return result
-                    },
-                    { successMessage: 'Ангилал хадгалагдлаа.' }
-                  )
-                }
-                className="inline-flex items-center gap-2 rounded-xl bg-[#1E63B5] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#154D8F]"
-              >
-                <Plus size={14} />
-                Ангилал нэмэх
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() =>
+                    runAction(
+                      async () => {
+                        const result = await saveServiceCategory(categoryDraft)
+                        if (result.ok) {
+                          setCategoryDraft(blankCategory)
+                        }
+                        return result
+                      },
+                      { successMessage: 'Category saved.' }
+                    )
+                  }
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#1E63B5] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#154D8F]"
+                >
+                  <Plus size={14} />
+                  Add category
+                </button>
+                {categoryDraft.id ? (
+                  <button
+                    type="button"
+                    onClick={() => openCategory()}
+                    className="inline-flex items-center gap-2 rounded-xl border border-[#D8E6F6] bg-[#F7FAFF] px-4 py-3 text-sm font-semibold text-[#1E63B5]"
+                  >
+                    <Plus size={14} />
+                    New category
+                  </button>
+                ) : null}
+              </div>
 
               <div className="space-y-3">
                 {categories.map((category) => (
@@ -205,12 +248,10 @@ export default function ServicesManager({
                         <p className="text-base font-bold text-[#1F2937]">
                           {category.icon ?? '🏥'} {category.name}
                         </p>
-                        <p className="text-sm text-[#6B7280]">
-                          Дараалал: {category.sort_order}
-                        </p>
+                        <p className="text-sm text-[#6B7280]">Sort order: {category.sort_order}</p>
                       </div>
                       <AdminToggle
-                        label="Идэвхтэй"
+                        label="Active"
                         active={category.is_active}
                         onClick={() =>
                           runAction(() =>
@@ -226,22 +267,32 @@ export default function ServicesManager({
                       />
                     </div>
 
+                    <div className="flex items-center justify-end">
+                      <button
+                        type="button"
+                        onClick={() => openCategory(category)}
+                        className="text-xs font-semibold text-[#1E63B5]"
+                      >
+                        Edit
+                      </button>
+                    </div>
+
                     <button
                       type="button"
                       disabled={pending}
                       onClick={() => {
-                        if (!window.confirm('Энэ ангиллыг устгах уу?')) {
+                        if (!window.confirm('Delete this category?')) {
                           return
                         }
 
                         runAction(() => deleteServiceCategory(category.id), {
-                          successMessage: 'Ангилал устгагдлаа.',
+                          successMessage: 'Category deleted.',
                         })
                       }}
                       className="inline-flex items-center gap-2 self-start rounded-xl border border-[#F7D5D9] bg-[#FFF1F2] px-4 py-2.5 text-sm font-semibold text-[#F23645]"
                     >
                       <Trash2 size={14} />
-                      Устгах
+                      Delete
                     </button>
                   </div>
                 ))}
@@ -250,8 +301,8 @@ export default function ServicesManager({
           </AdminSectionCard>
 
           <AdminSectionCard
-            title={selectedServiceId ? 'Үйлчилгээ засах' : 'Шинэ үйлчилгээ'}
-            description="Public site, booking flow болон result page-д ашиглагдах үндсэн үйлчилгээ."
+            title={selectedServiceId ? 'Edit Service' : 'New Service'}
+            description="Core service record used across the public site, booking flow, and result pages."
             action={
               <button
                 type="button"
@@ -259,12 +310,12 @@ export default function ServicesManager({
                 className="inline-flex items-center gap-2 rounded-xl bg-[#1E63B5] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#154D8F]"
               >
                 <Plus size={14} />
-                Шинэ үйлчилгээ
+                New service
               </button>
             }
           >
             <div className="space-y-4">
-              <AdminField label="Үйлчилгээний нэр" required>
+              <AdminField label="Service name" required>
                 <AdminInput
                   value={serviceForm.name}
                   onChange={(event) =>
@@ -274,7 +325,7 @@ export default function ServicesManager({
               </AdminField>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <AdminField label="Ангилал">
+                <AdminField label="Category">
                   <AdminSelect
                     value={serviceForm.category_id ?? ''}
                     onChange={(event) =>
@@ -284,7 +335,7 @@ export default function ServicesManager({
                       }))
                     }
                   >
-                    <option value="">Ангилал сонгох</option>
+                    <option value="">Choose category</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.icon ?? '🏥'} {category.name}
@@ -292,7 +343,7 @@ export default function ServicesManager({
                     ))}
                   </AdminSelect>
                 </AdminField>
-                <AdminField label="Дараалал">
+                <AdminField label="Sort order">
                   <AdminInput
                     type="number"
                     value={serviceForm.sort_order}
@@ -306,7 +357,7 @@ export default function ServicesManager({
                 </AdminField>
               </div>
 
-              <AdminField label="Тайлбар">
+              <AdminField label="Description">
                 <AdminTextArea
                   rows={4}
                   value={serviceForm.description}
@@ -320,7 +371,7 @@ export default function ServicesManager({
               </AdminField>
 
               <div className="grid gap-4 md:grid-cols-2">
-                <AdminField label="Үнэ">
+                <AdminField label="Price">
                   <AdminInput
                     type="number"
                     min={0}
@@ -333,7 +384,7 @@ export default function ServicesManager({
                     }
                   />
                 </AdminField>
-                <AdminField label="Үргэлжлэх хугацаа (мин)">
+                <AdminField label="Duration (minutes)">
                   <AdminInput
                     type="number"
                     min={1}
@@ -348,7 +399,7 @@ export default function ServicesManager({
                 </AdminField>
               </div>
 
-              <AdminField label="Бэлтгэл заавар">
+              <AdminField label="Preparation notice">
                 <AdminTextArea
                   rows={3}
                   value={serviceForm.preparation_notice}
@@ -362,10 +413,10 @@ export default function ServicesManager({
               </AdminField>
 
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-[#1F2937]">Харагдах байдал</p>
+                <p className="text-sm font-semibold text-[#1F2937]">Visibility</p>
                 <div className="flex flex-wrap gap-2">
                   <AdminToggle
-                    label="Идэвхтэй"
+                    label="Active"
                     active={serviceForm.is_active}
                     onClick={() =>
                       setServiceForm((current) => ({
@@ -375,7 +426,7 @@ export default function ServicesManager({
                     }
                   />
                   <AdminToggle
-                    label="Landing дээр"
+                    label="Show on landing"
                     active={serviceForm.show_on_landing}
                     onClick={() =>
                       setServiceForm((current) => ({
@@ -385,7 +436,7 @@ export default function ServicesManager({
                     }
                   />
                   <AdminToggle
-                    label="Result дээр"
+                    label="Show on result"
                     active={serviceForm.show_on_result}
                     onClick={() =>
                       setServiceForm((current) => ({
@@ -395,7 +446,7 @@ export default function ServicesManager({
                     }
                   />
                   <AdminToggle
-                    label="Booking дээр"
+                    label="Show on booking"
                     active={serviceForm.show_on_booking}
                     onClick={() =>
                       setServiceForm((current) => ({
@@ -424,14 +475,14 @@ export default function ServicesManager({
                   onClick={() =>
                     runAction(() => saveService(serviceForm), {
                       successMessage: selectedServiceId
-                        ? 'Үйлчилгээ шинэчлэгдлээ.'
-                        : 'Шинэ үйлчилгээ бүртгэгдлээ.',
+                        ? 'Service updated.'
+                        : 'Service created.',
                     })
                   }
                   className="inline-flex items-center gap-2 rounded-xl bg-[#1E63B5] px-4 py-3 text-sm font-semibold text-white"
                 >
                   <Save size={16} />
-                  Хадгалах
+                  Save
                 </button>
 
                 {selectedServiceId ? (
@@ -439,19 +490,18 @@ export default function ServicesManager({
                     type="button"
                     disabled={pending}
                     onClick={() => {
-                      if (!window.confirm('Энэ үйлчилгээг устгах уу?')) {
+                      if (!window.confirm('Delete this service?')) {
                         return
                       }
 
                       runAction(() => deleteService(selectedServiceId), {
-                        successMessage: 'Үйлчилгээ устгагдлаа.',
+                        successMessage: 'Service deleted.',
                       })
-                      openService()
                     }}
                     className="inline-flex items-center gap-2 rounded-xl border border-[#F7D5D9] bg-[#FFF1F2] px-4 py-3 text-sm font-semibold text-[#F23645]"
                   >
                     <Trash2 size={16} />
-                    Устгах
+                    Delete
                   </button>
                 ) : null}
               </div>
@@ -460,13 +510,13 @@ export default function ServicesManager({
         </div>
 
         <AdminSectionCard
-          title="Үйлчилгээний жагсаалт"
-          description="Ангиллаар шүүж, public/result/booking модульд харагдах төлөвүүдийг хянаж засна."
+          title="Service List"
+          description="Filter by category and adjust landing, result, and booking visibility."
         >
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-[1fr_0.55fr]">
               <AdminInput
-                placeholder="Үйлчилгээний нэрээр хайх"
+                placeholder="Search services"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -474,7 +524,7 @@ export default function ServicesManager({
                 value={categoryFilter}
                 onChange={(event) => setCategoryFilter(event.target.value)}
               >
-                <option value="all">Бүх ангилал</option>
+                <option value="all">All categories</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon ?? '🏥'} {category.name}
@@ -485,9 +535,9 @@ export default function ServicesManager({
 
             {filteredServices.length === 0 ? (
               <AdminEmptyState
-                title="Үйлчилгээ олдсонгүй"
-                description="Шүүлтүүрээ өөрчлөх эсвэл шинэ үйлчилгээ үүсгэнэ үү."
-                actionLabel="Шинэ үйлчилгээ"
+                title="No services found"
+                description="Adjust the filters or create a new service."
+                actionLabel="New service"
                 onAction={() => openService()}
               />
             ) : (
@@ -506,11 +556,11 @@ export default function ServicesManager({
                       <button type="button" onClick={() => openService(service)} className="text-left">
                         <p className="text-base font-bold text-[#1F2937]">{service.name}</p>
                         <p className="text-sm text-[#6B7280]">
-                          {categoryLookup[service.category_id ?? '']?.name ?? 'Ангилалгүй'} ·{' '}
-                          {service.duration_minutes} мин
+                          {categoryLookup[service.category_id ?? '']?.name ?? 'Uncategorized'} ·{' '}
+                          {service.duration_minutes} min
                         </p>
                         <p className="mt-1 text-sm font-semibold text-[#1E63B5]">
-                          {Number(service.price).toLocaleString('mn-MN')}₮
+                          {Number(service.price).toLocaleString('mn-MN')} MNT
                         </p>
                       </button>
 

@@ -7,7 +7,7 @@ import {
   createServiceRoleClient,
   hasServiceRoleConfig,
 } from '@/lib/supabase/service-role'
-import type { AdminActionResult, LeadStatus, Role } from '@/lib/admin/types'
+import type { AdminActionResult, AppointmentStatus, LeadStatus, Role } from '@/lib/admin/types'
 
 type StaffViewerRole = Extract<
   Role,
@@ -27,6 +27,7 @@ const NOTE_WRITER_ROLES: StaffViewerRole[] = [
 ]
 const CONSULTATION_ASSIGNER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 const CONSULTATION_FOLLOW_UP_ROLES: StaffViewerRole[] = ['operator', 'super_admin']
+const APPOINTMENT_MANAGER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 
 function ok(message?: string): AdminActionResult {
   return { ok: true, message }
@@ -45,10 +46,7 @@ async function getStaffSupabase() {
   ])
 
   const supabase =
-    (viewer.role === 'super_admin' || viewer.role === 'organization_consultant') &&
-    hasServiceRoleConfig()
-      ? createServiceRoleClient()
-      : await createClient()
+    hasServiceRoleConfig() ? createServiceRoleClient() : await createClient()
 
   return {
     viewer,
@@ -74,6 +72,10 @@ function revalidateCrmPaths() {
 
 function isMissingWorkflowFunction(errorMessage: string, functionName: string) {
   return errorMessage.includes(functionName) || errorMessage.includes('assigned_doctor_id')
+}
+
+function isAppointmentStatus(value: string): value is AppointmentStatus {
+  return ['pending', 'confirmed', 'cancelled', 'completed'].includes(value)
 }
 
 async function assertLeadScopeAccess(
@@ -275,4 +277,45 @@ export async function updateConsultationStatusForStaff(
 
   revalidateCrmPaths()
   return ok('Consultation төлөв шинэчлэгдлээ.')
+}
+
+export async function updateAppointmentForStaff(input: {
+  appointment_id: string
+  appointment_date: string
+  appointment_time: string
+  status: AppointmentStatus
+}): Promise<AdminActionResult> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.appointment_date)) {
+    return fail('Огнооны формат буруу байна.')
+  }
+
+  if (!/^\d{2}:\d{2}(:\d{2})?$/.test(input.appointment_time)) {
+    return fail('Цагийн формат буруу байна.')
+  }
+
+  if (!isAppointmentStatus(input.status)) {
+    return fail('Appointment төлөв буруу байна.')
+  }
+
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, APPOINTMENT_MANAGER_ROLES)) {
+    return fail('Appointment-г зөвхөн оффисын ажилтан эсвэл супер админ өөрчилнө.')
+  }
+
+  const { error } = await supabase
+    .from('appointments')
+    .update({
+      appointment_date: input.appointment_date,
+      appointment_time: input.appointment_time,
+      status: input.status,
+    })
+    .eq('id', input.appointment_id)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateCrmPaths()
+  return ok('Appointment шинэчлэгдлээ.')
 }

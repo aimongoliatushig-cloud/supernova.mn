@@ -4,7 +4,16 @@ import { getCrmStaffData } from '@/lib/admin/data'
 
 export default async function AssistantDashboardPage() {
   await requireRole(['office_assistant', 'super_admin'])
-  const { leads, doctors } = await getCrmStaffData()
+  const { leads, doctors, appointments, calendarDays, services } = await getCrmStaffData()
 
-  return <CrmManager initialLeads={leads} doctors={doctors} viewerRole="office_assistant" />
+  return (
+    <CrmManager
+      initialLeads={leads}
+      appointments={appointments}
+      calendarDays={calendarDays}
+      doctors={doctors}
+      services={services}
+      viewerRole="office_assistant"
+    />
+  )
 }

@@ -20,7 +20,7 @@ import {
   findBestCategoryMatch,
   getCategoryMatchScore,
 } from '@/lib/public/category-matching'
-import type { PublicDoctor, PublicService } from '@/lib/public/types'
+import type { PublicDoctor, PublicService, PublicAppointmentSlot } from '@/lib/public/types'
 
 interface AppointmentFlowProps {
   doctors: PublicDoctor[]
@@ -33,10 +33,11 @@ interface AppointmentFlowProps {
   initialPhone?: string
   initialEmail?: string
   initialSelectedCategories?: string[]
+  bookedAppointments?: PublicAppointmentSlot[]
 }
 
 const TIME_GROUPS = [
-  { label: 'Өглөө', slots: ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30'] },
+  { label: 'Өглөө', slots: ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30'] },
   { label: 'Үдээс хойш', slots: ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30'] },
 ] as const
 
@@ -57,6 +58,7 @@ export default function AppointmentFlow({
   initialPhone = '',
   initialEmail = '',
   initialSelectedCategories = [],
+  bookedAppointments = [],
 }: AppointmentFlowProps) {
   const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [selectedServiceId, setSelectedServiceId] = useState('')
@@ -138,19 +140,56 @@ export default function AppointmentFlow({
     ? `/result?assessment=${encodeURIComponent(initialAssessmentId)}`
     : '/check'
 
-  const doctorsWithRelations = doctors.some(
-    (doctor) => (doctor.doctor_services?.length ?? 0) > 0
-  )
+  const doctorsWithRelations = doctors.some((doctor) => (doctor.doctor_services?.length ?? 0) > 0)
 
   const availableDoctors = useMemo(() => {
     if (!selectedServiceId || !doctorsWithRelations) {
       return doctors
     }
 
-    return doctors.filter((doctor) =>
-      doctor.doctor_services?.some((relation) => relation.service_id === selectedServiceId)
-    )
+    const matchedDoctors = doctors.filter((doctor) => {
+      return doctor.doctor_services?.some((relation) => relation.service_id === selectedServiceId)
+    })
+
+    return matchedDoctors.length > 0 ? matchedDoctors : []
   }, [doctors, doctorsWithRelations, selectedServiceId])
+
+  const disabledSlots = useMemo(() => {
+    if (!selectedDoctorId || !selectedDate || bookedAppointments.length === 0) return []
+
+    const doctorAppointments = bookedAppointments.filter(
+      (appt) => appt.doctor_id === selectedDoctorId && appt.appointment_date === selectedDate
+    )
+
+    const disabled: string[] = []
+    
+    for (const group of TIME_GROUPS) {
+      for (const slot of group.slots) {
+        let isBlocked = false
+        for (const appt of doctorAppointments) {
+          const apptTime = appt.appointment_time.slice(0, 5) // "10:30"
+          
+          const baseDate = '2000-01-01T'
+          const apptStart = new Date(baseDate + apptTime + ':00').getTime()
+          const apptEnd = apptStart + (appt.duration_minutes * 60000)
+          
+          const slotStart = new Date(baseDate + slot + ':00').getTime()
+          const slotDuration = selectedService?.duration_minutes ?? 30
+          const slotEnd = slotStart + (slotDuration * 60000)
+          
+          if (slotStart < apptEnd && slotEnd > apptStart) {
+            isBlocked = true
+            break
+          }
+        }
+        
+        if (isBlocked) {
+          disabled.push(slot)
+        }
+      }
+    }
+    return disabled
+  }, [selectedDoctorId, selectedDate, bookedAppointments, selectedService])
 
   const progressCount = [
     Boolean(selectedServiceId),
@@ -305,6 +344,12 @@ export default function AppointmentFlow({
       setSelectedDoctorId('')
     }
   }, [filteredServices, selectedServiceId])
+
+  useEffect(() => {
+    if (selectedTime && disabledSlots.includes(selectedTime)) {
+      setSelectedTime('')
+    }
+  }, [disabledSlots, selectedTime])
 
   useEffect(() => {
     if (!selectedDoctorId && availableDoctors.length === 1) {
@@ -700,14 +745,16 @@ export default function AppointmentFlow({
                         <button
                           key={slot}
                           type="button"
-                          disabled={!selectedDate}
+                          disabled={!selectedDate || disabledSlots.includes(slot)}
                           onClick={() => setSelectedTime(slot)}
                           className={[
                             'rounded-2xl border-2 px-3 py-3 text-sm font-semibold transition',
                             selectedTime === slot
                               ? 'border-[#1E63B5] bg-[#EAF3FF] text-[#1E63B5]'
-                              : 'border-[#E5E7EB] bg-white text-[#1F2937]',
-                            !selectedDate ? 'cursor-not-allowed opacity-50' : 'hover:border-[#B8D5FB]',
+                              : disabledSlots.includes(slot)
+                                ? 'border-[#F3F4F6] bg-[#F9FAFB] text-[#D1D5DB] line-through'
+                                : 'border-[#E5E7EB] bg-white text-[#1F2937] hover:border-[#B8D5FB]',
+                            (!selectedDate || disabledSlots.includes(slot)) ? 'cursor-not-allowed opacity-50' : '',
                           ].join(' ')}
                         >
                           {slot}

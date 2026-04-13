@@ -9,7 +9,7 @@ export default async function AdminEntryPage() {
   }
 
   if (viewer.role === 'super_admin') {
-    redirect('/dashboard/admin')
+    redirect('/dashboard/admin/crm')
   }
 
   redirect('/dashboard')

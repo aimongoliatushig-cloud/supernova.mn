@@ -56,6 +56,27 @@ function fail(error: string): AdminActionResult {
   return { ok: false, error }
 }
 
+function formatBlogTableError(message: string, code?: string | null) {
+  if (
+    code === 'PGRST205' ||
+    message.includes("Could not find the table 'public.blog_categories'") ||
+    message.includes("Could not find the table 'public.blog_articles'")
+  ) {
+    return 'Supabase blog tables are not available through the REST schema cache yet. Run the blog migration in Supabase SQL Editor using `supabase/migrations/20260414170000_add_blog_tables.sql`, then refresh the schema cache and try again.'
+  }
+
+  if (
+    code === 'PGRST204' ||
+    message.includes("Could not find the 'publisher_id' column of 'blog_articles'") ||
+    message.includes("Could not find the 'publisher_name' column of 'blog_articles'") ||
+    message.includes("Could not find the 'view_count' column of 'blog_articles'")
+  ) {
+    return 'Блогийн статистикийн шинэ баганууд Supabase дээр хараахан нэмэгдээгүй байна. `supabase/migrations/20260415123000_add_blog_article_stats.sql` файлын SQL-ийг Supabase SQL Editor дээр ажиллуулаад хуудсаа дахин ачаална уу.'
+  }
+
+  return message
+}
+
 function trimToNull(value: string | null | undefined) {
   const normalized = value?.trim() ?? ''
   return normalized.length > 0 ? normalized : null
@@ -853,10 +874,10 @@ export async function saveBlogCategory(
   const { error } = await query
 
   if (error) {
-    return fail(error.message)
+    return fail(formatBlogTableError(error.message, error.code))
   }
 
-  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  revalidateAdminAndPublic(['/dashboard/admin/blog', '/dashboard/assistant/blog'])
   return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð°Ð½Ð³Ð¸Ð»Ð°Ð» Ñ…Ð°Ð´Ð³Ð°Ð»Ð°Ð³Ð´Ð»Ð°Ð°.')
 }
 
@@ -865,10 +886,10 @@ export async function deleteBlogCategory(id: string): Promise<AdminActionResult>
   const { error } = await supabase.from('blog_categories').delete().eq('id', id)
 
   if (error) {
-    return fail(error.message)
+    return fail(formatBlogTableError(error.message, error.code))
   }
 
-  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  revalidateAdminAndPublic(['/dashboard/admin/blog', '/dashboard/assistant/blog'])
   return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð°Ð½Ð³Ð¸Ð»Ð°Ð» ÑƒÑÑ‚Ð³Ð°Ð³Ð´Ð»Ð°Ð°.')
 }
 
@@ -895,7 +916,21 @@ export async function saveBlogArticle(
     return fail('ÐÐ¸Ð¹Ñ‚Ð»ÑÐ»Ð¸Ð¹Ð½ Ð¾Ð³Ð½Ð¾Ð¾ Ñ…Ò¯Ñ‡Ð¸Ð½Ñ‚ÑÐ¹ Ð±Ð°Ð¹Ñ… ÑˆÐ°Ð°Ñ€Ð´Ð»Ð°Ð³Ð°Ñ‚Ð°Ð¹.')
   }
 
-  const supabase = await getAdminSupabase()
+  const viewer = await requireRole(['super_admin'])
+  const supabase = await createClient()
+  const defaultPublisherName = viewer.full_name?.trim() || viewer.email
+  const existingArticle = input.id
+    ? await supabase
+        .from('blog_articles')
+        .select('publisher_id, publisher_name')
+        .eq('id', input.id)
+        .maybeSingle()
+    : { data: null, error: null }
+
+  if (existingArticle.error) {
+    return fail(formatBlogTableError(existingArticle.error.message, existingArticle.error.code))
+  }
+
   const payload = {
     category_id: trimToNull(input.category_id),
     title: input.title.trim(),
@@ -907,6 +942,8 @@ export async function saveBlogArticle(
     cta_link: ctaLink,
     is_published: input.is_published,
     published_at: publishedAt,
+    publisher_id: existingArticle.data?.publisher_id ?? viewer.id,
+    publisher_name: trimToNull(existingArticle.data?.publisher_name) ?? defaultPublisherName,
   }
 
   const query = input.id
@@ -916,10 +953,10 @@ export async function saveBlogArticle(
   const { error } = await query
 
   if (error) {
-    return fail(error.message)
+    return fail(formatBlogTableError(error.message, error.code))
   }
 
-  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  revalidateAdminAndPublic(['/dashboard/admin/blog', '/dashboard/assistant/blog'])
   return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð½Ð¸Ð¹Ñ‚Ð»ÑÐ» Ñ…Ð°Ð´Ð³Ð°Ð»Ð°Ð³Ð´Ð»Ð°Ð°.')
 }
 
@@ -928,10 +965,10 @@ export async function deleteBlogArticle(id: string): Promise<AdminActionResult> 
   const { error } = await supabase.from('blog_articles').delete().eq('id', id)
 
   if (error) {
-    return fail(error.message)
+    return fail(formatBlogTableError(error.message, error.code))
   }
 
-  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  revalidateAdminAndPublic(['/dashboard/admin/blog', '/dashboard/assistant/blog'])
   return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð½Ð¸Ð¹Ñ‚Ð»ÑÐ» ÑƒÑÑ‚Ð³Ð°Ð³Ð´Ð»Ð°Ð°.')
 }
 

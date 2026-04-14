@@ -220,7 +220,8 @@ export const checkDatabaseHealth = cache(async (): Promise<DatabaseHealth> => {
       try {
         const { count, error } = await client
           .from(table.name)
-          .select('*', { count: 'exact', head: true })
+          .select('*', { count: 'exact' })
+          .limit(1)
 
         if (error) {
           return {

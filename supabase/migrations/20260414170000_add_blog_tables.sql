@@ -67,6 +67,8 @@ BEGIN
   END IF;
 END $$;
 
+NOTIFY pgrst, 'reload schema';
+
 DO $$
 BEGIN
   IF NOT EXISTS (

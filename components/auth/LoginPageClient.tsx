@@ -9,6 +9,14 @@ import { createClient } from '@/lib/supabase/client'
 
 const FALLBACK_SUPER_ADMIN_EMAIL = 'admin@gmail.com'
 
+function getLoginErrorMessage(error: unknown) {
+  if (error instanceof Error && /fetch/i.test(error.message)) {
+    return 'Login request could not reach Supabase. Check browser shields, ad blockers, VPN, or firewall settings and try again.'
+  }
+
+  return 'Login failed. Please try again.'
+}
+
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -31,50 +39,54 @@ function LoginContent() {
     setLoading(true)
     setError('')
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (authError) {
-      setError('Нэвтрэх мэдээлэл буруу байна.')
+      if (authError) {
+        setError('Нэвтрэх мэдээлэл буруу байна.')
+        return
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setError('Хэрэглэгчийн мэдээлэл уншигдсангүй. Дахин оролдоно уу.')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      const role =
+        profile?.role ??
+        (user.email?.toLowerCase() === FALLBACK_SUPER_ADMIN_EMAIL ? 'super_admin' : 'patient')
+      const nextPath = searchParams.get('next')
+      const safeNextPath = nextPath?.startsWith('/dashboard') ? nextPath : null
+
+      const redirectMap: Record<string, string> = {
+        office_assistant: '/dashboard/assistant',
+        operator: '/dashboard/operator',
+        organization_consultant: '/dashboard/consultant',
+        doctor: '/dashboard/doctor',
+        super_admin: '/dashboard/admin',
+        patient: '/',
+      }
+
+      router.push(safeNextPath ?? redirectMap[role] ?? '/')
+    } catch (loginError) {
+      console.error('Supabase login failed', loginError)
+      setError(getLoginErrorMessage(loginError))
+    } finally {
       setLoading(false)
-      return
     }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      setError('Хэрэглэгчийн мэдээлэл уншигдсангүй. Дахин оролдоно уу.')
-      setLoading(false)
-      return
-    }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-
-    const role =
-      profile?.role ??
-      (user.email?.toLowerCase() === FALLBACK_SUPER_ADMIN_EMAIL ? 'super_admin' : 'patient')
-    const nextPath = searchParams.get('next')
-    const safeNextPath = nextPath?.startsWith('/dashboard') ? nextPath : null
-
-    const redirectMap: Record<string, string> = {
-      office_assistant: '/dashboard/assistant',
-      operator: '/dashboard/operator',
-      organization_consultant: '/dashboard/consultant',
-      doctor: '/dashboard/doctor',
-      super_admin: '/dashboard/admin',
-      patient: '/',
-    }
-
-    router.push(safeNextPath ?? redirectMap[role] ?? '/')
-    setLoading(false)
   }
 
   return (

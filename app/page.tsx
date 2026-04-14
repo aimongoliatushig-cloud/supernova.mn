@@ -15,6 +15,7 @@ import {
   Sparkles,
   Stethoscope,
 } from 'lucide-react'
+import ArticlesSlider from '@/components/articles-slider'
 import Footer from '@/components/layout/Footer'
 import Navbar from '@/components/layout/Navbar'
 import DoctorsSection from '@/components/sections/DoctorsSection'
@@ -24,6 +25,11 @@ import {
   DEFAULT_CONTACT_PHONE,
   sanitizeContactSettings,
 } from '@/lib/public/contact'
+import {
+  formatArticleCardDate as formatArticleDate,
+  formatArticleLongDate,
+  isExternalArticleUrl as isExternalUrl,
+} from '@/lib/public/articles'
 import { getLandingPageData } from '@/lib/public/data'
 
 const fallbackHours = [
@@ -53,26 +59,6 @@ function shorten(value: string | null | undefined, maxLength: number) {
   }
 
   return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value
-}
-
-function formatArticleDate(value: string | null | undefined) {
-  if (!value) {
-    return ''
-  }
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return ''
-  }
-
-  return new Intl.DateTimeFormat('mn-MN', {
-    month: 'short',
-    day: 'numeric',
-  }).format(date)
-}
-
-function isExternalUrl(value: string) {
-  return /^https?:\/\//i.test(value)
 }
 
 const publicPriceNote = 'Үнийн мэдээллийг зөвлөгөөн дээр өгнө.'
@@ -124,6 +110,10 @@ export default async function HomePage() {
   const latestArticles = data.articles.slice(0, 5)
   const featuredArticle = latestArticles[0] ?? null
   const secondaryArticles = latestArticles.slice(1)
+  const sliderArticles = data.articles.map((article) => ({
+    ...article,
+    displayDate: formatArticleLongDate(article.published_at),
+  }))
 
   const valueCards = [
     {
@@ -482,7 +472,7 @@ export default async function HomePage() {
                   </div>
                 </div>
 
-                <div className="rounded-[1.75rem] border border-[#D6E6FA] bg-white p-5 shadow-sm">
+                <div className="hidden rounded-[1.75rem] border border-[#D6E6FA] bg-white p-5 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
@@ -620,6 +610,8 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        <ArticlesSlider articles={sliderArticles} />
 
         <section id="about" className="scroll-mt-28 py-16 md:py-24">
           <div className="mx-auto max-w-6xl px-4">

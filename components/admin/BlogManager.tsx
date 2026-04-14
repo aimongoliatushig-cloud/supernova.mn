@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Save, Trash2, Upload } from 'lucide-react'
+import { Eye, FolderOpen, Plus, Save, Trash2, Upload, UserRound } from 'lucide-react'
 import {
   deleteBlogArticle,
   deleteBlogCategory,
@@ -16,6 +16,7 @@ import {
   AdminPageHeader,
   AdminSectionCard,
   AdminSelect,
+  AdminStatCard,
   AdminTextArea,
   AdminToggle,
 } from '@/components/admin/AdminPrimitives'
@@ -44,6 +45,40 @@ function toDateTimeLocal(value: string | null | undefined) {
 
   const localValue = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
   return localValue.toISOString().slice(0, 16)
+}
+
+function formatDateLabel(value: string | null | undefined) {
+  if (!value) {
+    return 'Огноо оруулаагүй'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Огноо тодорхойгүй'
+  }
+
+  const mongoliaDate = new Date(date.getTime() + 8 * 60 * 60 * 1000)
+  const monthLabels = [
+    'нэгдүгээр',
+    'хоёрдугаар',
+    'гуравдугаар',
+    'дөрөвдүгээр',
+    'тавдугаар',
+    'зургаадугаар',
+    'долоодугаар',
+    'наймдугаар',
+    'есдүгээр',
+    'аравдугаар',
+    'арваннэгдүгээр',
+    'арванхоёрдугаар',
+  ]
+
+  return `${mongoliaDate.getUTCFullYear()} оны ${monthLabels[mongoliaDate.getUTCMonth()]} сарын ${mongoliaDate.getUTCDate()}`
+}
+
+function formatViewCount(value: number) {
+  return value.toLocaleString('en-US')
 }
 
 const blankArticle: BlogArticleInput = {
@@ -103,6 +138,52 @@ function truncate(text: string | null | undefined, length: number) {
   }
 
   return text.length > length ? `${text.slice(0, length).trim()}...` : text
+}
+
+type CategoryStat = {
+  id: string | null
+  name: string
+  articleCount: number
+  totalViews: number
+}
+
+function buildCategoryStats(categories: BlogCategory[], articles: BlogArticle[]) {
+  const stats = new Map<string, CategoryStat>()
+
+  for (const category of categories) {
+    stats.set(category.id, {
+      id: category.id,
+      name: category.name,
+      articleCount: 0,
+      totalViews: 0,
+    })
+  }
+
+  const uncategorizedKey = 'uncategorized'
+
+  for (const article of articles) {
+    const key = article.category_id ?? uncategorizedKey
+    const current = stats.get(key) ?? {
+      id: article.category_id,
+      name: article.categories?.name ?? 'Ангилалгүй',
+      articleCount: 0,
+      totalViews: 0,
+    }
+
+    current.articleCount += 1
+    current.totalViews += article.view_count
+    stats.set(key, current)
+  }
+
+  return Array.from(stats.values())
+    .filter((item) => item.articleCount > 0)
+    .sort((left, right) => {
+      if (right.totalViews !== left.totalViews) {
+        return right.totalViews - left.totalViews
+      }
+
+      return right.articleCount - left.articleCount
+    })
 }
 
 export default function BlogManager({
@@ -186,10 +267,45 @@ export default function BlogManager({
         article.title.toLowerCase().includes(query) ||
         article.content.toLowerCase().includes(query) ||
         (article.excerpt ?? '').toLowerCase().includes(query) ||
-        (article.categories?.name ?? '').toLowerCase().includes(query)
+        (article.categories?.name ?? '').toLowerCase().includes(query) ||
+        (article.publisher_name ?? '').toLowerCase().includes(query)
       )
     })
   }, [articles, search])
+
+  const topArticles = useMemo(
+    () =>
+      [...articles]
+        .sort((left, right) => {
+          if (right.view_count !== left.view_count) {
+            return right.view_count - left.view_count
+          }
+
+          return (right.published_at ?? '').localeCompare(left.published_at ?? '')
+        })
+        .slice(0, 5),
+    [articles]
+  )
+
+  const categoryStats = useMemo(
+    () => buildCategoryStats(categories, articles),
+    [articles, categories]
+  )
+
+  const totalViews = useMemo(
+    () => articles.reduce((sum, article) => sum + article.view_count, 0),
+    [articles]
+  )
+
+  const publishedCount = useMemo(
+    () => articles.filter((article) => article.is_published).length,
+    [articles]
+  )
+
+  const selectedArticle = useMemo(
+    () => articles.find((article) => article.id === selectedArticleId) ?? null,
+    [articles, selectedArticleId]
+  )
 
   function openCategory(category?: BlogCategory | null) {
     setSelectedCategoryId(category?.id ?? null)
@@ -209,7 +325,7 @@ export default function BlogManager({
 
   async function handleUpload() {
     if (!selectedFile) {
-      articleAction.setError('Upload хийх зураг сонгоно уу.')
+      articleAction.setError('Оруулах зургаа эхлээд сонгоно уу.')
       return
     }
 
@@ -231,16 +347,16 @@ export default function BlogManager({
         | null
 
       if (!response.ok || !payload?.url) {
-        throw new Error(payload?.error ?? 'Зураг upload хийх үед алдаа гарлаа.')
+        throw new Error(payload?.error ?? 'Зураг оруулах үед алдаа гарлаа.')
       }
 
       setArticleForm((current) => ({ ...current, image_url: payload.url! }))
       setSelectedFile(null)
       setFileInputKey((current) => current + 1)
-      articleAction.setSuccess('Зураг амжилттай upload боллоо.')
+      articleAction.setSuccess('Зураг амжилттай орлоо.')
     } catch (error) {
       articleAction.setError(
-        error instanceof Error ? error.message : 'Зураг upload хийх үед алдаа гарлаа.'
+        error instanceof Error ? error.message : 'Зураг оруулах үед алдаа гарлаа.'
       )
     } finally {
       setUploadPending(false)
@@ -250,15 +366,112 @@ export default function BlogManager({
   return (
     <div className="space-y-6 p-6 md:p-8">
       <AdminPageHeader
-        eyebrow="Blog"
-        title="Блогийн ангилал ба нийтлэл"
-        description="Home page дээр харагдах сүүлийн 5 нийтлэл, зураг upload, CTA link болон ангиллын тохиргоог эндээс удирдана."
+        eyebrow="Блог"
+        title="Блогийн нийтлэл ба үзэлтийн хяналт"
+        description="Нийтлэл бүрийн нийтлэгч, нийт үзэлт, хамгийн их уншигдсан ангилал болон нүүр хуудсанд харагдах контентыг эндээс удирдана."
       />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <AdminStatCard label="Нийт нийтлэл" value={articles.length} />
+        <AdminStatCard label="Нийт үзэлт" value={formatViewCount(totalViews)} tone="green" />
+        <AdminStatCard label="Нийтэлсэн" value={publishedCount} tone="yellow" />
+        <AdminStatCard label="Ноорог" value={articles.length - publishedCount} tone="red" />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <AdminSectionCard
+          title="Тэргүүлэх нийтлэл"
+          description="Хамгийн их уншигдсан нийтлэл болон тэргүүлэх ангиллын товч статистик."
+        >
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-[#D8E6F6] bg-[#F7FAFF] p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
+                Хамгийн их уншигдсан нийтлэл
+              </p>
+              {topArticles[0] ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-lg font-black text-[#10233B]">{topArticles[0].title}</p>
+                  <div className="space-y-2 text-sm text-[#5B6877]">
+                    <div className="flex items-center gap-2">
+                      <Eye size={16} className="text-[#1E63B5]" />
+                      <span>{formatViewCount(topArticles[0].view_count)} үзэлт</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UserRound size={16} className="text-[#1E63B5]" />
+                      <span>{topArticles[0].publisher_name ?? 'Супернова баг'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FolderOpen size={16} className="text-[#1E63B5]" />
+                      <span>{topArticles[0].categories?.name ?? 'Ангилалгүй'}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-[#5B6877]">Одоогоор нийтлэл бүртгэгдээгүй байна.</p>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-[#D8E6F6] bg-white p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1E63B5]">
+                Хамгийн их үзэлттэй ангилал
+              </p>
+              {categoryStats[0] ? (
+                <div className="mt-3 space-y-3">
+                  <p className="text-lg font-black text-[#10233B]">{categoryStats[0].name}</p>
+                  <div className="space-y-2 text-sm text-[#5B6877]">
+                    <div className="flex items-center gap-2">
+                      <Eye size={16} className="text-[#1E63B5]" />
+                      <span>{formatViewCount(categoryStats[0].totalViews)} нийт үзэлт</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FolderOpen size={16} className="text-[#1E63B5]" />
+                      <span>{categoryStats[0].articleCount} нийтлэлтэй</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-[#5B6877]">Ангиллын статистик хараахан үүсээгүй байна.</p>
+              )}
+            </div>
+          </div>
+        </AdminSectionCard>
+
+        <AdminSectionCard
+          title="Ангиллын үзэлтийн жагсаалт"
+          description="Ангилал бүр нийт хэдэн нийтлэлтэй, хэдэн үзэлт авсныг харуулна."
+        >
+          {categoryStats.length === 0 ? (
+            <AdminEmptyState
+              title="Статистик хараахан үүсээгүй байна"
+              description="Нийтлэлүүд нэмэгдэж, уншигдаж эхлэхэд ангиллын үзэлт энд гарч ирнэ."
+            />
+          ) : (
+            <div className="space-y-3">
+              {categoryStats.map((stat) => (
+                <div
+                  key={stat.id ?? stat.name}
+                  className="rounded-2xl border border-[#E5E7EB] bg-white px-4 py-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-base font-bold text-[#1F2937]">{stat.name}</p>
+                      <p className="mt-1 text-sm text-[#6B7280]">{stat.articleCount} нийтлэл</p>
+                    </div>
+                    <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
+                      {formatViewCount(stat.totalViews)} үзэлт
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </AdminSectionCard>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <AdminSectionCard
           title={selectedCategoryId ? 'Ангилал засах' : 'Шинэ ангилал нэмэх'}
-          description="Нийтлэлүүдийг ангилж, admin жагсаалтыг эмхэлнэ."
+          description="Нийтлэлүүдийг ангилж, блогийн жагсаалтыг эмхэлнэ."
           action={
             <button
               type="button"
@@ -433,7 +646,7 @@ export default function BlogManager({
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.95fr]">
         <AdminSectionCard
           title={selectedArticleId ? 'Нийтлэл засах' : 'Шинэ нийтлэл нэмэх'}
-          description="Зураг, CTA link, ангилал болон home page дээр харагдах контентыг удирдана."
+          description="Нийтлэгчийн нэр, үзэлтийн тоо, зураг, ангилал болон нийтлэлийн товчны холбоосыг эндээс удирдана."
           action={
             <button
               type="button"
@@ -451,6 +664,35 @@ export default function BlogManager({
             ) : null}
             {articleAction.success ? (
               <AdminMessage tone="success">{articleAction.success}</AdminMessage>
+            ) : null}
+
+            {selectedArticleId ? (
+              <div className="grid gap-3 rounded-2xl border border-[#D8E6F6] bg-[#F7FAFF] p-4 md:grid-cols-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#1E63B5]">
+                    Нийтлэгч
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                    {selectedArticle?.publisher_name ?? 'Супернова баг'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#1E63B5]">
+                    Нийт үзэлт
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                    {formatViewCount(selectedArticle?.view_count ?? 0)} удаа
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#1E63B5]">
+                    Нийтэлсэн огноо
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-[#1F2937]">
+                    {formatDateLabel(selectedArticle?.published_at)}
+                  </p>
+                </div>
+              </div>
             ) : null}
 
             <AdminField label="Гарчиг" required>
@@ -514,7 +756,7 @@ export default function BlogManager({
 
             <div className="rounded-2xl border border-[#D8E6F6] bg-[#F7FAFF] p-4">
               <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-                <AdminField label="Зургийн URL" hint="Upload хийсэн зураг автоматаар энд орно.">
+                <AdminField label="Зургийн холбоос" hint="Оруулсан зураг автоматаар энд орно.">
                   <AdminInput
                     value={articleForm.image_url}
                     onChange={(event) =>
@@ -528,7 +770,7 @@ export default function BlogManager({
 
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-[#1F2937]">
-                    Зураг upload
+                    Зураг оруулах
                   </label>
                   <input
                     key={fileInputKey}
@@ -544,14 +786,14 @@ export default function BlogManager({
                     className="inline-flex items-center gap-2 rounded-xl border border-[#BCD4F4] bg-white px-4 py-3 text-sm font-semibold text-[#1E63B5] transition hover:bg-[#EAF3FF] disabled:opacity-60"
                   >
                     <Upload size={16} />
-                    {uploadPending ? 'Upload хийж байна...' : 'Зураг upload'}
+                    {uploadPending ? 'Зураг оруулж байна...' : 'Зураг оруулах'}
                   </button>
                 </div>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <AdminField label="CTA текст">
+              <AdminField label="Товчны текст">
                 <AdminInput
                   value={articleForm.cta_label}
                   onChange={(event) =>
@@ -563,7 +805,7 @@ export default function BlogManager({
                 />
               </AdminField>
 
-              <AdminField label="CTA link" hint="`/appointment` эсвэл `https://...`">
+              <AdminField label="Товчны холбоос" hint="`/appointment` эсвэл `https://...`">
                 <AdminInput
                   value={articleForm.cta_link}
                   onChange={(event) =>
@@ -593,7 +835,7 @@ export default function BlogManager({
               <div className="space-y-2">
                 <span className="block text-sm font-semibold text-[#1F2937]">Төлөв</span>
                 <AdminToggle
-                  label="Нийтлэгдсэн"
+                  label="Нийтэлсэн"
                   active={articleForm.is_published}
                   onClick={() =>
                     setArticleForm((current) => ({
@@ -648,11 +890,11 @@ export default function BlogManager({
 
         <AdminSectionCard
           title="Нийтлэлийн жагсаалт"
-          description="Home page дээр нийтлэгдсэн огноогоор хамгийн сүүлийн 5 нь автоматаар харагдана."
+          description="Нүүр хуудсан дээр нийтэлсэн огноогоор хамгийн сүүлийн нийтлэлүүд автоматаар харагдана."
         >
           <div className="space-y-4">
             <AdminInput
-              placeholder="Гарчиг, текст эсвэл ангиллаар хайх"
+              placeholder="Гарчиг, текст, ангилал эсвэл нийтлэгчээр хайх"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -660,7 +902,7 @@ export default function BlogManager({
             {filteredArticles.length === 0 ? (
               <AdminEmptyState
                 title="Нийтлэл алга"
-                description="Эхний блог нийтлэлээ үүсгээд home page дээр сүүлийн 5 мэдээг харуулаарай."
+                description="Эхний блог нийтлэлээ үүсгээд нүүр хуудсан дээр сүүлийн мэдээнүүдээ харуулаарай."
                 actionLabel="Шинэ нийтлэл"
                 onAction={() => openArticle(null)}
               />
@@ -696,7 +938,7 @@ export default function BlogManager({
                             : 'bg-[#F3F4F6] text-[#6B7280]',
                         ].join(' ')}
                       >
-                        {article.is_published ? 'Published' : 'Draft'}
+                        {article.is_published ? 'Нийтэлсэн' : 'Ноорог'}
                       </span>
                     </div>
 
@@ -705,9 +947,12 @@ export default function BlogManager({
                     </p>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-[#6B7280]">
+                      <span>{formatDateLabel(article.published_at)}</span>
+                      <span>Нийтлэгч: {article.publisher_name ?? 'Супернова баг'}</span>
+                      <span>{formatViewCount(article.view_count)} үзэлт</span>
                       <span>Slug: {article.slug}</span>
                       {article.image_url ? <span>Зурагтай</span> : <span>Зураггүй</span>}
-                      {article.cta_link ? <span>CTA-тэй</span> : <span>CTA-гүй</span>}
+                      {article.cta_link ? <span>Товчтой</span> : <span>Товчгүй</span>}
                     </div>
                   </button>
                 ))}

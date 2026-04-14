@@ -34,6 +34,7 @@ const navByRole: Record<Role, NavItem[]> = {
   office_assistant: [
     { href: '/dashboard/assistant', label: 'Хяналтын самбар', icon: <LayoutDashboard size={18} /> },
     { href: '/dashboard/assistant', label: 'Лидүүд ба CRM', icon: <Users size={18} /> },
+    { href: '/dashboard/assistant/blog', label: 'Блогийн статистик', icon: <FileText size={18} /> },
     { href: '/dashboard/assistant/chatbot', label: 'Чатбот', icon: <BotMessageSquare size={18} /> },
   ],
   operator: [

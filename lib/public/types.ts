@@ -105,6 +105,8 @@ export interface PublicBlogArticle {
   cta_label: string | null
   cta_link: string | null
   published_at: string | null
+  publisher_name: string | null
+  view_count: number
   categories?: PublicBlogCategory | null
 }
 

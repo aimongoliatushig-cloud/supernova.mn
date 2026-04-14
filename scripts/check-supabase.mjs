@@ -25,6 +25,8 @@ const requiredTables = [
   { name: 'service_packages', minimumSeedCount: 1 },
   { name: 'package_services', minimumSeedCount: 1 },
   { name: 'promotions', minimumSeedCount: 1 },
+  { name: 'blog_categories', minimumSeedCount: 0 },
+  { name: 'blog_articles', minimumSeedCount: 0 },
   { name: 'symptom_categories', minimumSeedCount: 5 },
   { name: 'questions', minimumSeedCount: 20 },
   { name: 'answer_options', minimumSeedCount: 40 },
@@ -57,7 +59,8 @@ const tableResults = []
 for (const table of requiredTables) {
   const { count, error } = await client
     .from(table.name)
-    .select('*', { count: 'exact', head: true })
+    .select('*', { count: 'exact' })
+    .limit(1)
 
   tableResults.push({
     table: table.name,

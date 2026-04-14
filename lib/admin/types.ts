@@ -295,6 +295,9 @@ export interface BlogArticle {
   cta_link: string | null
   is_published: boolean
   published_at: string | null
+  publisher_id: string | null
+  publisher_name: string | null
+  view_count: number
   created_at: string
   updated_at: string
   categories?: BlogArticleCategory | null

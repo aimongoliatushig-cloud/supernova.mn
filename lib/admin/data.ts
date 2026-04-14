@@ -86,15 +86,17 @@ export async function getAdminOverviewData() {
   }
 }
 
-export async function getBlogAdminData() {
-  const supabase = await getAdminClient()
+async function getBlogDashboardData(roles: Role[]) {
+  const supabase = await getRoleAwareClient(roles, {
+    serviceRoleFor: ['office_assistant', 'super_admin'],
+  })
 
   const [{ data: categories }, { data: articles }] = await Promise.all([
     supabase.from('blog_categories').select('*').order('sort_order').order('name'),
     supabase
       .from('blog_articles')
       .select(
-        'id, category_id, title, slug, excerpt, content, image_url, cta_label, cta_link, is_published, published_at, created_at, updated_at, categories:blog_categories(id, name, slug)'
+        'id, category_id, title, slug, excerpt, content, image_url, cta_label, cta_link, is_published, published_at, publisher_id, publisher_name, view_count, created_at, updated_at, categories:blog_categories(id, name, slug)'
       )
       .order('published_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false }),
@@ -107,6 +109,14 @@ export async function getBlogAdminData() {
       categories: unwrapRelation(article.categories),
     })) as BlogArticle[],
   }
+}
+
+export async function getBlogAdminData() {
+  return getBlogDashboardData(['super_admin'])
+}
+
+export async function getBlogStaffAnalyticsData() {
+  return getBlogDashboardData(['office_assistant', 'super_admin'])
 }
 
 export async function getCmsAdminData() {

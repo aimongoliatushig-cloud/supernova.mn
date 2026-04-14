@@ -2520,6 +2520,8 @@ CREATE TABLE IF NOT EXISTS blog_categories (
 CREATE TABLE IF NOT EXISTS blog_articles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id UUID REFERENCES blog_categories(id) ON DELETE SET NULL,
+  publisher_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  publisher_name TEXT,
   title TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   excerpt TEXT,
@@ -2528,6 +2530,7 @@ CREATE TABLE IF NOT EXISTS blog_articles (
   cta_label TEXT,
   cta_link TEXT,
   is_published BOOLEAN NOT NULL DEFAULT TRUE,
+  view_count INTEGER NOT NULL DEFAULT 0,
   published_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -2542,6 +2545,12 @@ CREATE INDEX IF NOT EXISTS blog_articles_published_at_idx
 CREATE INDEX IF NOT EXISTS blog_articles_category_id_idx
   ON blog_articles (category_id);
 
+CREATE INDEX IF NOT EXISTS blog_articles_publisher_id_idx
+  ON blog_articles (publisher_id);
+
+CREATE INDEX IF NOT EXISTS blog_articles_view_count_idx
+  ON blog_articles (view_count DESC);
+
 ALTER TABLE blog_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_articles ENABLE ROW LEVEL SECURITY;
 
@@ -2551,11 +2560,38 @@ CREATE POLICY "public_read_blog_categories" ON blog_categories FOR SELECT
 CREATE POLICY "public_read_blog_articles" ON blog_articles FOR SELECT
   USING (is_published = TRUE);
 
+CREATE POLICY "staff_read_blog_categories" ON blog_categories FOR SELECT
+  USING (current_user_role() IN ('office_assistant', 'super_admin'));
+
+CREATE POLICY "staff_read_blog_articles" ON blog_articles FOR SELECT
+  USING (current_user_role() IN ('office_assistant', 'super_admin'));
+
 CREATE POLICY "admin_manage_blog_categories" ON blog_categories FOR ALL
   USING (current_user_role() = 'super_admin');
 
 CREATE POLICY "admin_manage_blog_articles" ON blog_articles FOR ALL
   USING (current_user_role() = 'super_admin');
+
+CREATE OR REPLACE FUNCTION increment_blog_article_view(article_slug TEXT)
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  updated_count INTEGER;
+BEGIN
+  UPDATE blog_articles
+  SET view_count = view_count + 1
+  WHERE slug = article_slug
+    AND is_published = TRUE
+  RETURNING view_count INTO updated_count;
+
+  RETURN updated_count;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION increment_blog_article_view(TEXT) TO anon, authenticated;
 
 DO $$
 BEGIN
@@ -2576,3 +2612,5 @@ BEGIN
     EXECUTE FUNCTION set_updated_at();
   END IF;
 END $$;
+
+NOTIFY pgrst, 'reload schema';

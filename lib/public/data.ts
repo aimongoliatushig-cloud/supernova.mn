@@ -122,7 +122,7 @@ function normalizePackage(pkg: RawPackage): PublicServicePackage {
   }
 }
 
-async function getCmsContent(): Promise<PublicCmsContent> {
+export async function getPublicCmsContent(): Promise<PublicCmsContent> {
   const supabase = await getPublicSupabase()
 
   const [{ data: entries }, { data: contact }, { data: socials }, { data: workingHours }] =
@@ -155,7 +155,7 @@ async function getCmsContent(): Promise<PublicCmsContent> {
 
 export async function getLandingPageData(): Promise<PublicLandingData> {
   const supabase = await getPublicSupabase()
-  const cms = await getCmsContent()
+  const cms = await getPublicCmsContent()
 
   const [
     { data: doctors },
@@ -207,7 +207,7 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
     supabase
       .from('blog_articles')
       .select(
-        'id, title, slug, excerpt, content, image_url, cta_label, cta_link, published_at, categories:blog_categories(id, name, slug)'
+        'id, title, slug, excerpt, content, image_url, cta_label, cta_link, published_at, publisher_name, view_count, categories:blog_categories(id, name, slug)'
       )
       .eq('is_published', true)
       .order('published_at', { ascending: false, nullsFirst: false })
@@ -229,9 +229,33 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
   }
 }
 
+export async function getPublicBlogArticleBySlug(
+  slug: string
+): Promise<PublicBlogArticle | null> {
+  const supabase = await getPublicSupabase()
+
+  const { data } = await supabase
+    .from('blog_articles')
+    .select(
+      'id, title, slug, excerpt, content, image_url, cta_label, cta_link, published_at, publisher_name, view_count, categories:blog_categories(id, name, slug)'
+    )
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .maybeSingle()
+
+  if (!data) {
+    return null
+  }
+
+  return {
+    ...data,
+    categories: firstRelation(data.categories),
+  } as PublicBlogArticle
+}
+
 export async function getDiagnosisFlowData(): Promise<PublicDiagnosisData> {
   const supabase = await getPublicSupabase()
-  const cms = await getCmsContent()
+  const cms = await getPublicCmsContent()
 
   const { data: categories } = await supabase
     .from('symptom_categories')
@@ -313,7 +337,7 @@ export async function getDiagnosisFlowData(): Promise<PublicDiagnosisData> {
 
 export async function getBookingPageData(): Promise<PublicBookingData> {
   const supabase = await getPublicSupabase()
-  const cms = await getCmsContent()
+  const cms = await getPublicCmsContent()
 
   const today = new Date().toISOString().split('T')[0]
   const protectedSupabase = await getProtectedPublicClient()
@@ -365,7 +389,7 @@ export async function getResultPageData(assessmentId: string): Promise<PublicRes
 
   const supabase = await getPublicSupabase()
   const protectedSupabase = await getProtectedPublicClient()
-  const cms = await getCmsContent()
+  const cms = await getPublicCmsContent()
 
   const { data: assessment } = await protectedSupabase
     .from('assessments')

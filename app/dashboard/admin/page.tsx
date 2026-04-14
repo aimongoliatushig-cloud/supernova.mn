@@ -19,7 +19,7 @@ const modules = [
     href: '/dashboard/admin/doctors',
     title: 'Эмч нар',
     description:
-      'Профайл, мэргэшил, захиалгад харагдах эсэх болон үйлчилгээтэй хамаарлыг удирдана.',
+      'Профайл, мэргэжил, захиалгад харагдах эсэх болон үйлчилгээтэй хамаарлыг удирдана.',
   },
   {
     href: '/dashboard/admin/services',
@@ -31,13 +31,19 @@ const modules = [
     href: '/dashboard/admin/packages',
     title: 'Багцууд',
     description:
-      'Олон үйлчилгээг нэг багц болгон холбож, landing болон result урсгалын санал болгох блокуудыг удирдана.',
+      'Олон үйлчилгээг нэг багц болгон холбоод, landing болон result урсгалын саналын блокуудыг удирдана.',
   },
   {
     href: '/dashboard/admin/promotions',
     title: 'Урамшуулал',
     description:
-      'Үйлчилгээ эсвэл багцтай холбосон badge, хөнгөлөлт, үнэгүй бэлэг, хугацааг удирдана.',
+      'Үйлчилгээ эсвэл багцтай холбоосон badge, хөнгөлөлт, үнэгүй бэлэг, хугацааг удирдана.',
+  },
+  {
+    href: '/dashboard/admin/blog',
+    title: 'Блог ба мэдээ',
+    description:
+      'Нийтлэлийн ангилал, зурагтай article, CTA link болон home page-ийн сүүлийн 5 мэдээний блокийг удирдана.',
   },
   {
     href: '/dashboard/admin/diagnosis',
@@ -66,8 +72,8 @@ export default async function AdminOverviewPage() {
 
       {!health.schemaReady ? (
         <AdminMessage tone="error">
-          Remote database schema дутуу байна. Missing хүснэгтүүд: {health.missingTables.join(', ')}.
-          `/setup` хуудас дээр SQL ажиллуулах дарааллыг шалгана уу.
+          Remote database schema дутуу байна. Missing хүснэгтүүд: {health.missingTables.join(', ')}
+          . `/setup` хуудсан дээр SQL ажиллуулах дарааллыг шалгана уу.
         </AdminMessage>
       ) : null}
 
@@ -78,7 +84,7 @@ export default async function AdminOverviewPage() {
         </AdminMessage>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <AdminStatCard label="CMS талбар" value={stats.cms_entries} />
         <AdminStatCard label="Эмчийн бүртгэл" value={stats.doctors} tone="green" />
         <AdminStatCard
@@ -86,6 +92,7 @@ export default async function AdminOverviewPage() {
           value={stats.services + stats.packages}
           tone="yellow"
         />
+        <AdminStatCard label="Блогийн нийтлэл" value={stats.blog_articles} />
         <AdminStatCard label="CRM лид" value={stats.leads} tone="red" />
       </div>
 

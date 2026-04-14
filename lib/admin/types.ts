@@ -259,6 +259,61 @@ export interface PromotionInput {
   ends_at: string
 }
 
+export interface BlogCategory {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  sort_order: number
+  is_active: boolean
+}
+
+export interface BlogCategoryInput {
+  id?: string
+  name: string
+  slug: string
+  description: string
+  sort_order: number
+  is_active: boolean
+}
+
+export interface BlogArticleCategory {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface BlogArticle {
+  id: string
+  category_id: string | null
+  title: string
+  slug: string
+  excerpt: string | null
+  content: string
+  image_url: string | null
+  cta_label: string | null
+  cta_link: string | null
+  is_published: boolean
+  published_at: string | null
+  created_at: string
+  updated_at: string
+  categories?: BlogArticleCategory | null
+}
+
+export interface BlogArticleInput {
+  id?: string
+  category_id: string | null
+  title: string
+  slug: string
+  excerpt: string
+  content: string
+  image_url: string
+  cta_label: string
+  cta_link: string
+  is_published: boolean
+  published_at: string
+}
+
 export interface SymptomCategory {
   id: string
   name: string

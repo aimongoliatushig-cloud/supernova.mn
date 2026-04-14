@@ -80,7 +80,7 @@ export default function DoctorsSection({ doctors }: { doctors: PublicDoctor[] })
   const hasDoctors = doctors.length > 0
 
   return (
-    <section id="doctors" className="py-18 bg-white md:py-24">
+    <section id="doctors" className="scroll-mt-28 bg-white py-18 md:py-24">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mx-auto max-w-2xl text-center">
           <p className="inline-flex items-center gap-2 rounded-full border border-[#DCE9F8] bg-[#F6FAFF] px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-[#1E63B5]">

@@ -99,6 +99,16 @@ const REQUIRED_TABLES: TableDefinition[] = [
     minimumSeedCount: 1,
   },
   {
+    name: 'blog_categories',
+    label: 'Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð°Ð½Ð³Ð¸Ð»Ð°Ð»',
+    requiredForSeed: false,
+  },
+  {
+    name: 'blog_articles',
+    label: 'Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð½Ð¸Ð¹Ñ‚Ð»ÑÐ»',
+    requiredForSeed: false,
+  },
+  {
     name: 'symptom_categories',
     label: 'Шинж тэмдгийн ангилал',
     requiredForSeed: true,

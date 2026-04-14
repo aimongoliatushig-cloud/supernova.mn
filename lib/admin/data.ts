@@ -7,6 +7,8 @@ import {
 import { requireRole } from '@/lib/admin/auth'
 import type {
   AdminLead,
+  BlogArticle,
+  BlogCategory,
   CmsEntry,
   ContactSettings,
   DiagnosisAnswerOption,
@@ -58,6 +60,7 @@ export async function getAdminOverviewData() {
     { count: services },
     { count: packages },
     { count: promotions },
+    { count: blog_articles },
     { count: diagnosis_categories },
     { count: leads },
   ] = await Promise.all([
@@ -66,6 +69,7 @@ export async function getAdminOverviewData() {
     supabase.from('services').select('*', { count: 'exact', head: true }),
     supabase.from('service_packages').select('*', { count: 'exact', head: true }),
     supabase.from('promotions').select('*', { count: 'exact', head: true }),
+    supabase.from('blog_articles').select('*', { count: 'exact', head: true }),
     supabase.from('symptom_categories').select('*', { count: 'exact', head: true }),
     supabase.from('leads').select('*', { count: 'exact', head: true }),
   ])
@@ -76,8 +80,32 @@ export async function getAdminOverviewData() {
     services: services ?? 0,
     packages: packages ?? 0,
     promotions: promotions ?? 0,
+    blog_articles: blog_articles ?? 0,
     diagnosis_categories: diagnosis_categories ?? 0,
     leads: leads ?? 0,
+  }
+}
+
+export async function getBlogAdminData() {
+  const supabase = await getAdminClient()
+
+  const [{ data: categories }, { data: articles }] = await Promise.all([
+    supabase.from('blog_categories').select('*').order('sort_order').order('name'),
+    supabase
+      .from('blog_articles')
+      .select(
+        'id, category_id, title, slug, excerpt, content, image_url, cta_label, cta_link, is_published, published_at, created_at, updated_at, categories:blog_categories(id, name, slug)'
+      )
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false }),
+  ])
+
+  return {
+    categories: (categories ?? []) as BlogCategory[],
+    articles: (articles ?? []).map((article) => ({
+      ...article,
+      categories: unwrapRelation(article.categories),
+    })) as BlogArticle[],
   }
 }
 

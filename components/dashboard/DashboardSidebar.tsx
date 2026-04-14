@@ -53,6 +53,7 @@ const navByRole: Record<Role, NavItem[]> = {
     { href: '/dashboard/admin/services', label: 'Үйлчилгээ', icon: <Activity size={18} /> },
     { href: '/dashboard/admin/packages', label: 'Багцууд', icon: <Package size={18} /> },
     { href: '/dashboard/admin/promotions', label: 'Урамшуулал', icon: <Gift size={18} /> },
+    { href: '/dashboard/admin/blog', label: 'Блог', icon: <FileText size={18} /> },
     { href: '/dashboard/admin/diagnosis', label: 'Оношилгоо', icon: <Brain size={18} /> },
     { href: '/dashboard/admin/crm', label: 'CRM', icon: <Users size={18} /> },
     { href: '/dashboard/admin/chatbot', label: 'Чатбот', icon: <BotMessageSquare size={18} /> },

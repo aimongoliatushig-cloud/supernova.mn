@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   Activity,
@@ -54,6 +55,26 @@ function shorten(value: string | null | undefined, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength).trim()}...` : value
 }
 
+function formatArticleDate(value: string | null | undefined) {
+  if (!value) {
+    return ''
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  return new Intl.DateTimeFormat('mn-MN', {
+    month: 'short',
+    day: 'numeric',
+  }).format(date)
+}
+
+function isExternalUrl(value: string) {
+  return /^https?:\/\//i.test(value)
+}
+
 const publicPriceNote = 'Үнийн мэдээллийг зөвлөгөөн дээр өгнө.'
 
 export default async function HomePage() {
@@ -100,6 +121,9 @@ export default async function HomePage() {
   const email = safeContact?.email ?? DEFAULT_CONTACT_EMAIL
   const address = safeContact?.address ?? DEFAULT_CONTACT_ADDRESS
   const workingHours = data.workingHours.length > 0 ? data.workingHours : fallbackHours
+  const latestArticles = data.articles.slice(0, 5)
+  const featuredArticle = latestArticles[0] ?? null
+  const secondaryArticles = latestArticles.slice(1)
 
   const valueCards = [
     {
@@ -222,6 +246,141 @@ export default async function HomePage() {
                     </div>
                   ))}
                 </div>
+
+                <div className="hidden rounded-[1.75rem] border border-[#D6E6FA] bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
+                        Сүүлийн мэдээ
+                      </p>
+                      <h3 className="mt-2 text-xl font-black text-[#10233B]">
+                        Эмнэлгийн блог ба зөвлөмж
+                      </h3>
+                    </div>
+                    <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
+                      {latestArticles.length}/5
+                    </span>
+                  </div>
+
+                  {featuredArticle ? (
+                    <div className="mt-5 space-y-4">
+                      <article className="overflow-hidden rounded-[1.5rem] border border-[#E6EEF8] bg-[#FBFDFF]">
+                        <div className="relative aspect-[16/9] bg-[linear-gradient(135deg,#EAF3FF_0%,#D6E6FA_100%)]">
+                          <Image
+                            src={featuredArticle.image_url || '/logo.png'}
+                            alt={featuredArticle.title}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,35,59,0.06)_0%,rgba(16,35,59,0.72)_100%)]" />
+                          <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                            <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-100">
+                              {featuredArticle.categories?.name ? (
+                                <span>{featuredArticle.categories.name}</span>
+                              ) : null}
+                              {featuredArticle.published_at ? (
+                                <span>{formatArticleDate(featuredArticle.published_at)}</span>
+                              ) : null}
+                            </div>
+                            <h4 className="mt-2 text-lg font-black leading-tight md:text-xl">
+                              {featuredArticle.title}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="p-4">
+                          <p className="text-sm leading-6 text-[#5B6877]">
+                            {featuredArticle.excerpt || shorten(featuredArticle.content, 180)}
+                          </p>
+
+                          {featuredArticle.cta_label && featuredArticle.cta_link ? (
+                            isExternalUrl(featuredArticle.cta_link) ? (
+                              <a
+                                href={featuredArticle.cta_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#1E63B5] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
+                              >
+                                {featuredArticle.cta_label}
+                                <ArrowRight size={15} />
+                              </a>
+                            ) : (
+                              <Link
+                                href={featuredArticle.cta_link}
+                                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#1E63B5] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
+                              >
+                                {featuredArticle.cta_label}
+                                <ArrowRight size={15} />
+                              </Link>
+                            )
+                          ) : null}
+                        </div>
+                      </article>
+
+                      {secondaryArticles.length > 0 ? (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {secondaryArticles.map((article) => (
+                            <article
+                              key={article.id}
+                              className="rounded-[1.35rem] border border-[#E6EEF8] bg-white p-4"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7C8B99]">
+                                  {article.categories?.name ?? 'Блог'}
+                                </p>
+                                {article.published_at ? (
+                                  <span className="text-xs font-semibold text-[#1E63B5]">
+                                    {formatArticleDate(article.published_at)}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <h4 className="mt-2 text-base font-black leading-6 text-[#10233B]">
+                                {article.title}
+                              </h4>
+                              <p className="mt-2 text-sm leading-6 text-[#5B6877]">
+                                {article.excerpt || shorten(article.content, 96)}
+                              </p>
+
+                              {article.cta_label && article.cta_link ? (
+                                isExternalUrl(article.cta_link) ? (
+                                  <a
+                                    href={article.cta_link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E63B5]"
+                                  >
+                                    {article.cta_label}
+                                    <ArrowRight size={14} />
+                                  </a>
+                                ) : (
+                                  <Link
+                                    href={article.cta_link}
+                                    className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E63B5]"
+                                  >
+                                    {article.cta_label}
+                                    <ArrowRight size={14} />
+                                  </Link>
+                                )
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-[1.5rem] border border-dashed border-[#D6E6FA] bg-[#F7FAFF] p-5">
+                      <p className="text-sm font-bold text-[#10233B]">
+                        Нийтлэл одоогоор байхгүй байна
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-[#5B6877]">
+                        Супер админ blog хэсэгт ангилал болон article үүсгэхэд энэ хэсэг
+                        автоматаар дүүрнэ.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -277,7 +436,7 @@ export default async function HomePage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="hidden grid gap-4 md:grid-cols-2">
                   <div className="rounded-[1.75rem] bg-[#0F2947] p-5 text-white shadow-[0_20px_55px_rgba(15,41,71,0.18)]">
                     <p className="text-xs font-bold uppercase tracking-[0.22em] text-blue-200">
                       Холбоо барих
@@ -322,12 +481,147 @@ export default async function HomePage() {
                     )}
                   </div>
                 </div>
+
+                <div className="rounded-[1.75rem] border border-[#D6E6FA] bg-white p-5 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#1E63B5]">
+                        Сүүлийн мэдээ
+                      </p>
+                      <h3 className="mt-2 text-xl font-black text-[#10233B]">
+                        Эмнэлгийн блог ба зөвлөмж
+                      </h3>
+                    </div>
+                    <span className="rounded-full bg-[#EAF3FF] px-3 py-1 text-xs font-bold text-[#1E63B5]">
+                      {latestArticles.length}/5
+                    </span>
+                  </div>
+
+                  {featuredArticle ? (
+                    <div className="mt-5 space-y-4">
+                      <article className="overflow-hidden rounded-[1.5rem] border border-[#E6EEF8] bg-[#FBFDFF]">
+                        <div className="relative aspect-[16/9] bg-[linear-gradient(135deg,#EAF3FF_0%,#D6E6FA_100%)]">
+                          <Image
+                            src={featuredArticle.image_url || '/logo.png'}
+                            alt={featuredArticle.title}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(16,35,59,0.06)_0%,rgba(16,35,59,0.72)_100%)]" />
+                          <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                            <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-[0.18em] text-blue-100">
+                              {featuredArticle.categories?.name ? (
+                                <span>{featuredArticle.categories.name}</span>
+                              ) : null}
+                              {featuredArticle.published_at ? (
+                                <span>{formatArticleDate(featuredArticle.published_at)}</span>
+                              ) : null}
+                            </div>
+                            <h4 className="mt-2 text-lg font-black leading-tight md:text-xl">
+                              {featuredArticle.title}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="p-4">
+                          <p className="text-sm leading-6 text-[#5B6877]">
+                            {featuredArticle.excerpt || shorten(featuredArticle.content, 180)}
+                          </p>
+
+                          {featuredArticle.cta_label && featuredArticle.cta_link ? (
+                            isExternalUrl(featuredArticle.cta_link) ? (
+                              <a
+                                href={featuredArticle.cta_link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#1E63B5] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
+                              >
+                                {featuredArticle.cta_label}
+                                <ArrowRight size={15} />
+                              </a>
+                            ) : (
+                              <Link
+                                href={featuredArticle.cta_link}
+                                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#1E63B5] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#154D8F]"
+                              >
+                                {featuredArticle.cta_label}
+                                <ArrowRight size={15} />
+                              </Link>
+                            )
+                          ) : null}
+                        </div>
+                      </article>
+
+                      {secondaryArticles.length > 0 ? (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {secondaryArticles.map((article) => (
+                            <article
+                              key={article.id}
+                              className="rounded-[1.35rem] border border-[#E6EEF8] bg-white p-4"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#7C8B99]">
+                                  {article.categories?.name ?? 'Блог'}
+                                </p>
+                                {article.published_at ? (
+                                  <span className="text-xs font-semibold text-[#1E63B5]">
+                                    {formatArticleDate(article.published_at)}
+                                  </span>
+                                ) : null}
+                              </div>
+
+                              <h4 className="mt-2 text-base font-black leading-6 text-[#10233B]">
+                                {article.title}
+                              </h4>
+                              <p className="mt-2 text-sm leading-6 text-[#5B6877]">
+                                {article.excerpt || shorten(article.content, 96)}
+                              </p>
+
+                              {article.cta_label && article.cta_link ? (
+                                isExternalUrl(article.cta_link) ? (
+                                  <a
+                                    href={article.cta_link}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E63B5]"
+                                  >
+                                    {article.cta_label}
+                                    <ArrowRight size={14} />
+                                  </a>
+                                ) : (
+                                  <Link
+                                    href={article.cta_link}
+                                    className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#1E63B5]"
+                                  >
+                                    {article.cta_label}
+                                    <ArrowRight size={14} />
+                                  </Link>
+                                )
+                              ) : null}
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-[1.5rem] border border-dashed border-[#D6E6FA] bg-[#F7FAFF] p-5">
+                      <p className="text-sm font-bold text-[#10233B]">
+                        Нийтлэл одоогоор байхгүй байна
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-[#5B6877]">
+                        Супер админ blog хэсэгт ангилал болон article үүсгэхэд энэ хэсэг
+                        автоматаар дүүрнэ.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="about" className="py-16 md:py-24">
+        <section id="about" className="scroll-mt-28 py-16 md:py-24">
           <div className="mx-auto max-w-6xl px-4">
             <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
               <div>

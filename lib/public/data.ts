@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type {
   PublicAssessmentResult,
+  PublicBlogArticle,
   PublicBookingData,
   PublicCmsContent,
   PublicDiagnosisCategory,
@@ -162,6 +163,7 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
     { data: packages },
     { data: promotions },
     { data: serviceCategories },
+    { data: articles },
   ] = await Promise.all([
     supabase
       .from('doctors')
@@ -202,6 +204,15 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
       .eq('is_active', true)
       .order('sort_order')
       .order('name'),
+    supabase
+      .from('blog_articles')
+      .select(
+        'id, title, slug, excerpt, content, image_url, cta_label, cta_link, published_at, categories:blog_categories(id, name, slug)'
+      )
+      .eq('is_published', true)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(5),
   ])
 
   return {
@@ -211,6 +222,10 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
     packages: (packages ?? []).map((pkg) => normalizePackage(pkg)),
     promotions: (promotions ?? []) as PublicPromotion[],
     serviceCategories: (serviceCategories ?? []) as PublicServiceCategory[],
+    articles: (articles ?? []).map((article) => ({
+      ...article,
+      categories: firstRelation(article.categories),
+    })) as PublicBlogArticle[],
   }
 }
 

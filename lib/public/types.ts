@@ -89,6 +89,25 @@ export interface PublicPromotion {
   package_id: string | null
 }
 
+export interface PublicBlogCategory {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface PublicBlogArticle {
+  id: string
+  title: string
+  slug: string
+  excerpt: string | null
+  content: string
+  image_url: string | null
+  cta_label: string | null
+  cta_link: string | null
+  published_at: string | null
+  categories?: PublicBlogCategory | null
+}
+
 export interface PublicDiagnosisOption {
   id: string
   option_text: string
@@ -144,6 +163,7 @@ export interface PublicLandingData extends PublicCmsContent {
   packages: PublicServicePackage[]
   promotions: PublicPromotion[]
   serviceCategories: PublicServiceCategory[]
+  articles: PublicBlogArticle[]
 }
 
 export interface PublicDiagnosisData extends PublicCmsContent {

@@ -9,6 +9,8 @@ import {
 } from '@/lib/supabase/service-role'
 import type {
   AdminActionResult,
+  BlogArticleInput,
+  BlogCategoryInput,
   CmsEntryInput,
   ContactSettingsInput,
   CrmNoteInput,
@@ -33,6 +35,7 @@ const ADMIN_PATHS = [
   '/dashboard/admin/services',
   '/dashboard/admin/packages',
   '/dashboard/admin/promotions',
+  '/dashboard/admin/blog',
   '/dashboard/admin/diagnosis',
   '/dashboard/admin/crm',
 ]
@@ -65,6 +68,32 @@ function clampNumber(value: number, fallback = 0) {
 function normalizeEmail(value: string | null | undefined) {
   const normalized = trimToNull(value)
   return normalized ? normalized.toLowerCase() : null
+}
+
+function normalizeSlug(value: string | null | undefined, fallback: string) {
+  const source = trimToNull(value) ?? fallback
+  const normalized = source
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return normalized || `item-${Date.now()}`
+}
+
+function normalizePublishedAt(value: string | null | undefined) {
+  const normalized = trimToNull(value)
+
+  if (!normalized) {
+    return new Date().toISOString()
+  }
+
+  const parsed = new Date(normalized)
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
+}
+
+function isSupportedCtaLink(value: string) {
+  return value.startsWith('/') || /^https?:\/\//i.test(value)
 }
 
 function formatStaffAccountError(message: string, role: string) {
@@ -799,6 +828,111 @@ export async function deletePromotion(id: string): Promise<AdminActionResult> {
 
   revalidateAdminAndPublic()
   return ok('Урамшуулал устгагдлаа.')
+}
+
+export async function saveBlogCategory(
+  input: BlogCategoryInput
+): Promise<AdminActionResult> {
+  if (!input.name.trim()) {
+    return fail('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð°Ð½Ð³Ð¸Ð»Ð»Ñ‹Ð½ Ð½ÑÑ€ ÑˆÐ°Ð°Ñ€Ð´Ð»Ð°Ð³Ð°Ñ‚Ð°Ð¹.')
+  }
+
+  const supabase = await getAdminSupabase()
+  const payload = {
+    name: input.name.trim(),
+    slug: normalizeSlug(input.slug, input.name.trim()),
+    description: trimToNull(input.description),
+    sort_order: clampNumber(input.sort_order),
+    is_active: input.is_active,
+  }
+
+  const query = input.id
+    ? supabase.from('blog_categories').update(payload).eq('id', input.id)
+    : supabase.from('blog_categories').insert(payload)
+
+  const { error } = await query
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð°Ð½Ð³Ð¸Ð»Ð°Ð» Ñ…Ð°Ð´Ð³Ð°Ð»Ð°Ð³Ð´Ð»Ð°Ð°.')
+}
+
+export async function deleteBlogCategory(id: string): Promise<AdminActionResult> {
+  const supabase = await getAdminSupabase()
+  const { error } = await supabase.from('blog_categories').delete().eq('id', id)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð°Ð½Ð³Ð¸Ð»Ð°Ð» ÑƒÑÑ‚Ð³Ð°Ð³Ð´Ð»Ð°Ð°.')
+}
+
+export async function saveBlogArticle(
+  input: BlogArticleInput
+): Promise<AdminActionResult> {
+  if (!input.title.trim() || !input.content.trim()) {
+    return fail('Ð“Ð°Ñ€Ñ‡Ð¸Ð³ Ð±Ð¾Ð»Ð¾Ð½ Ð½Ð¸Ð¹Ñ‚Ð»ÑÐ»Ð¸Ð¹Ð½ Ð°Ð³ÑƒÑƒÐ»Ð³Ð° ÑˆÐ°Ð°Ñ€Ð´Ð»Ð°Ð³Ð°Ñ‚Ð°Ð¹.')
+  }
+
+  const ctaLabel = trimToNull(input.cta_label)
+  const ctaLink = trimToNull(input.cta_link)
+
+  if ((ctaLabel && !ctaLink) || (!ctaLabel && ctaLink)) {
+    return fail('CTA Ð³Ð°Ñ€Ñ‡Ð¸Ð³ Ð±Ð¾Ð»Ð¾Ð½ link-Ð¸Ð¹Ð³ Ñ…Ð¾Ñ‘ÑƒÐ»Ð°Ð½Ð³ Ð¾Ñ€ÑƒÑƒÐ»Ð½Ð°.')
+  }
+
+  if (ctaLink && !isSupportedCtaLink(ctaLink)) {
+    return fail('CTA link Ð½ÑŒ `/` ÑÑÐ²ÑÐ» `http/https`-ÑÑÑ€ ÑÑ…ÑÐ»ÑÑÐ½ Ð±Ð°Ð¹Ñ… ÑˆÐ°Ð°Ñ€Ð´Ð»Ð°Ð³Ð°Ñ‚Ð°Ð¹.')
+  }
+
+  const publishedAt = normalizePublishedAt(input.published_at)
+  if (!publishedAt) {
+    return fail('ÐÐ¸Ð¹Ñ‚Ð»ÑÐ»Ð¸Ð¹Ð½ Ð¾Ð³Ð½Ð¾Ð¾ Ñ…Ò¯Ñ‡Ð¸Ð½Ñ‚ÑÐ¹ Ð±Ð°Ð¹Ñ… ÑˆÐ°Ð°Ñ€Ð´Ð»Ð°Ð³Ð°Ñ‚Ð°Ð¹.')
+  }
+
+  const supabase = await getAdminSupabase()
+  const payload = {
+    category_id: trimToNull(input.category_id),
+    title: input.title.trim(),
+    slug: normalizeSlug(input.slug, input.title.trim()),
+    excerpt: trimToNull(input.excerpt),
+    content: input.content.trim(),
+    image_url: trimToNull(input.image_url),
+    cta_label: ctaLabel,
+    cta_link: ctaLink,
+    is_published: input.is_published,
+    published_at: publishedAt,
+  }
+
+  const query = input.id
+    ? supabase.from('blog_articles').update(payload).eq('id', input.id)
+    : supabase.from('blog_articles').insert(payload)
+
+  const { error } = await query
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð½Ð¸Ð¹Ñ‚Ð»ÑÐ» Ñ…Ð°Ð´Ð³Ð°Ð»Ð°Ð³Ð´Ð»Ð°Ð°.')
+}
+
+export async function deleteBlogArticle(id: string): Promise<AdminActionResult> {
+  const supabase = await getAdminSupabase()
+  const { error } = await supabase.from('blog_articles').delete().eq('id', id)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateAdminAndPublic(['/dashboard/admin/blog'])
+  return ok('Ð‘Ð»Ð¾Ð³Ð¸Ð¹Ð½ Ð½Ð¸Ð¹Ñ‚Ð»ÑÐ» ÑƒÑÑ‚Ð³Ð°Ð³Ð´Ð»Ð°Ð°.')
 }
 
 export async function saveSymptomCategory(

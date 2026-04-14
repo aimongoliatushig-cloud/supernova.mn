@@ -18,6 +18,36 @@ interface NavbarProps {
   phone?: string | null
 }
 
+function isSectionLink(href: string) {
+  return href.startsWith('/#')
+}
+
+function NavItem({
+  href,
+  label,
+  className,
+  onClick,
+}: {
+  href: string
+  label: string
+  className: string
+  onClick?: () => void
+}) {
+  if (isSectionLink(href)) {
+    return (
+      <a href={href} onClick={onClick} className={className}>
+        {label}
+      </a>
+    )
+  }
+
+  return (
+    <Link href={href} onClick={onClick} className={className}>
+      {label}
+    </Link>
+  )
+}
+
 export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -37,9 +67,10 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const headerClassName = mounted && scrolled
-    ? 'sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/98 shadow-sm backdrop-blur-md transition-all duration-300'
-    : 'sticky top-0 z-50 border-b border-transparent bg-white transition-all duration-300'
+  const headerClassName =
+    mounted && scrolled
+      ? 'sticky top-0 z-50 border-b border-[#E5E7EB] bg-white/98 shadow-sm backdrop-blur-md transition-all duration-300'
+      : 'sticky top-0 z-50 border-b border-transparent bg-white transition-all duration-300'
 
   return (
     <header className={headerClassName}>
@@ -52,7 +83,7 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
                 alt="СУПЕРНОВА эмнэлэг"
                 fill
                 sizes="(max-width: 768px) 176px, 208px"
-                className="object-contain object-left scale-[1.55] origin-left md:scale-[1.7]"
+                className="origin-left scale-[1.55] object-contain object-left md:scale-[1.7]"
                 priority
               />
             </span>
@@ -60,13 +91,12 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
 
           <nav className="hidden items-center gap-1 xl:flex">
             {navLinks.map((link) => (
-              <a
+              <NavItem
                 key={link.href}
                 href={link.href}
+                label={link.label}
                 className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-[#4B5563] transition-colors hover:bg-[#EAF3FF] hover:text-[#1E63B5]"
-              >
-                {link.label}
-              </a>
+              />
             ))}
           </nav>
 
@@ -112,18 +142,17 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
         </div>
       </div>
 
-      {open && (
+      {open ? (
         <div className="border-t border-[#E5E7EB] bg-white px-4 py-3 shadow-lg xl:hidden">
           <div className="space-y-0.5">
             {navLinks.map((link) => (
-              <a
+              <NavItem
                 key={link.href}
                 href={link.href}
+                label={link.label}
                 onClick={() => setOpen(false)}
                 className="flex items-center rounded-lg px-2 py-3 text-sm font-medium text-[#1F2937] transition-colors hover:bg-[#EAF3FF] hover:text-[#1E63B5]"
-              >
-                {link.label}
-              </a>
+              />
             ))}
           </div>
 
@@ -160,7 +189,7 @@ export default function Navbar({ phone = '7000 0303' }: NavbarProps) {
             </Link>
           </div>
         </div>
-      )}
+      ) : null}
     </header>
   )
 }

@@ -10,12 +10,15 @@ import {
   Phone,
   Save,
   ShieldAlert,
+  Trash2,
   UserRoundPlus,
 } from 'lucide-react'
 import {
   createAppointmentForStaff,
   addLeadNoteForStaff,
   assignConsultationDoctor,
+  deleteAppointmentForStaff,
+  deleteLeadForStaff,
   toggleLeadBlacklistForStaff,
   updateConsultationStatusForStaff,
   updateLeadStatusForStaff,
@@ -573,10 +576,13 @@ export default function CrmManager({
     viewerRole === 'office_assistant' || viewerRole === 'super_admin'
   const canCreateAppointments =
     viewerRole === 'office_assistant' || viewerRole === 'super_admin'
+  const canDeleteAppointments =
+    viewerRole === 'office_assistant' || viewerRole === 'super_admin'
   const canManageLeadStatus =
     viewerRole === 'office_assistant' ||
     viewerRole === 'organization_consultant' ||
     viewerRole === 'super_admin'
+  const canDeleteLeads = viewerRole === 'office_assistant' || viewerRole === 'super_admin'
   const followUpStatuses =
     viewerRole === 'operator' || viewerRole === 'super_admin'
       ? (['called', 'closed'] as const)
@@ -732,6 +738,7 @@ export default function CrmManager({
           doctors={doctors}
           services={services}
           canCreateAppointments={canCreateAppointments}
+          canDeleteAppointments={canDeleteAppointments}
         />
       ) : null}
 
@@ -1090,6 +1097,28 @@ export default function CrmManager({
                           <p className="mt-1 text-sm text-[#6B7280]">
                             Эмч: {appointment.doctors?.full_name ?? 'Оноогоогүй'}
                           </p>
+                          {canDeleteAppointments ? (
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="danger"
+                                size="sm"
+                                disabled={pending}
+                                onClick={() => {
+                                  if (!window.confirm('Энэ appointment-ийг устгах уу?')) {
+                                    return
+                                  }
+
+                                  runAction(() => deleteAppointmentForStaff(appointment.id), {
+                                    successMessage: 'Appointment устгагдлаа.',
+                                  })
+                                }}
+                              >
+                                <Trash2 size={14} />
+                                Appointment устгах
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -1445,6 +1474,41 @@ export default function CrmManager({
                       </button>
                     </div>
                   </div>
+
+                  {canDeleteLeads ? (
+                    <div className="rounded-3xl border border-[#F9D2D6] bg-[#FFF7F8] p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-[#C2253D]">Lead устгах</p>
+                          <p className="mt-1 text-sm text-[#9F1239]">
+                            Lead-ийг устгахад холбоотой appointment, consultation, note мэдээлэл хамт
+                            устахыг анхаарна уу.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          disabled={pending}
+                          onClick={() => {
+                            if (
+                              !window.confirm(
+                                'Энэ lead-ийг холбоотой бүх CRM мэдээлэлтэй нь хамт устгах уу?'
+                              )
+                            ) {
+                              return
+                            }
+
+                            runAction(() => deleteLeadForStaff(selectedLead.id), {
+                              successMessage: 'Lead устгагдлаа.',
+                            })
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          Lead устгах
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

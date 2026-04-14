@@ -544,7 +544,7 @@ CREATE POLICY "public_read_doctors"        ON doctors             FOR SELECT USI
 CREATE POLICY "public_read_services"       ON services            FOR SELECT USING (is_active = TRUE);
 CREATE POLICY "public_read_promotions"     ON promotions          FOR SELECT USING (is_active = TRUE);
 
--- Leads: anyone can INSERT (lead capture), staff can SELECT/UPDATE
+-- Leads: anyone can INSERT (lead capture), staff can SELECT/UPDATE/DELETE
 CREATE POLICY "anon_insert_leads"     ON leads FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "staff_select_leads"    ON leads FOR SELECT
   USING (
@@ -581,6 +581,8 @@ CREATE POLICY "staff_update_leads"    ON leads FOR UPDATE
       AND (source IS NULL OR source <> 'organization_consultation_request')
     )
   );
+CREATE POLICY "staff_delete_leads"    ON leads FOR DELETE
+  USING (current_user_role() IN ('office_assistant', 'super_admin'));
 
 -- Assessments & answers: anon insert, staff read
 CREATE POLICY "anon_insert_assessments"  ON assessments         FOR INSERT WITH CHECK (TRUE);

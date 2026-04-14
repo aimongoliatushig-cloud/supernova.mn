@@ -28,6 +28,7 @@ const NOTE_WRITER_ROLES: StaffViewerRole[] = [
 const CONSULTATION_ASSIGNER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 const CONSULTATION_FOLLOW_UP_ROLES: StaffViewerRole[] = ['operator', 'super_admin']
 const APPOINTMENT_MANAGER_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
+const LEAD_DELETE_ROLES: StaffViewerRole[] = ['office_assistant', 'super_admin']
 type StaffSupabase =
   | Awaited<ReturnType<typeof createClient>>
   | ReturnType<typeof createServiceRoleClient>
@@ -183,22 +184,34 @@ async function assertLeadScopeAccess(
   viewer: { role: Role },
   lead_id: string
 ) {
-  if (viewer.role !== 'organization_consultant') {
-    return null
-  }
-
   const { data: lead, error } = await supabase
     .from('leads')
     .select('source')
     .eq('id', lead_id)
-    .single()
+    .maybeSingle()
 
   if (error) {
     return error.message
   }
 
-  if (lead.source !== 'organization_consultation_request') {
-    return 'Байгууллагын зөвлөх зөвхөн компанийн хүсэлтүүд дээр ажиллана.'
+  if (!lead) {
+    return 'Lead олдсонгүй.'
+  }
+
+  if (viewer.role === 'super_admin') {
+    return null
+  }
+
+  if (viewer.role === 'organization_consultant') {
+    if (lead.source !== 'organization_consultation_request') {
+      return 'Байгууллагын зөвлөх зөвхөн компанийн хүсэлтүүд дээр ажиллана.'
+    }
+
+    return null
+  }
+
+  if (lead.source === 'organization_consultation_request') {
+    return 'Энэ lead нь байгууллагын хүсэлт тул зөвхөн super admin ажиллана.'
   }
 
   return null
@@ -491,12 +504,17 @@ export async function updateAppointmentForStaff(input: {
   const normalizedTime = normalizeAppointmentTime(input.appointment_time)
   const { data: appointment, error: appointmentError } = await supabase
     .from('appointments')
-    .select('id, doctor_id')
+    .select('id, doctor_id, lead_id')
     .eq('id', input.appointment_id)
     .maybeSingle()
 
   if (appointmentError || !appointment) {
     return fail(appointmentError?.message ?? 'Appointment олдсонгүй.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, appointment.lead_id)
+  if (accessError) {
+    return fail(accessError)
   }
 
   if (appointment.doctor_id && input.status !== 'cancelled') {
@@ -533,6 +551,62 @@ export async function updateAppointmentForStaff(input: {
 
   revalidateCrmPaths()
   return ok(undefined, 'Appointment шинэчлэгдлээ.')
+}
+
+export async function deleteAppointmentForStaff(
+  appointment_id: string
+): Promise<AdminActionResult> {
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, APPOINTMENT_MANAGER_ROLES)) {
+    return fail('Appointment-ийг зөвхөн оффисын ажилтан эсвэл супер админ устгана.')
+  }
+
+  const { data: appointment, error: appointmentError } = await supabase
+    .from('appointments')
+    .select('id, lead_id')
+    .eq('id', appointment_id)
+    .maybeSingle()
+
+  if (appointmentError || !appointment) {
+    return fail(appointmentError?.message ?? 'Appointment олдсонгүй.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, appointment.lead_id)
+  if (accessError) {
+    return fail(accessError)
+  }
+
+  const { error } = await supabase.from('appointments').delete().eq('id', appointment_id)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateCrmPaths()
+  return ok(undefined, 'Appointment устгагдлаа.')
+}
+
+export async function deleteLeadForStaff(lead_id: string): Promise<AdminActionResult> {
+  const { viewer, supabase } = await getStaffSupabase()
+
+  if (!hasViewerRole(viewer.role, LEAD_DELETE_ROLES)) {
+    return fail('Lead-ийг зөвхөн оффисын ажилтан эсвэл супер админ устгана.')
+  }
+
+  const accessError = await assertLeadScopeAccess(supabase, viewer, lead_id)
+  if (accessError) {
+    return fail(accessError)
+  }
+
+  const { error } = await supabase.from('leads').delete().eq('id', lead_id)
+
+  if (error) {
+    return fail(error.message)
+  }
+
+  revalidateCrmPaths()
+  return ok(undefined, 'Lead устгагдлаа.')
 }
 
 export async function createAppointmentForStaff(input: {

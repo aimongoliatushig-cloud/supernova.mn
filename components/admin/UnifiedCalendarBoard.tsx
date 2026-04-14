@@ -9,6 +9,7 @@ import {
   Plus,
   Save,
   Stethoscope,
+  Trash2,
   UserRound,
   X,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import {
   createAppointmentFromCalendarForStaff,
+  deleteAppointmentForStaff,
   updateAppointmentForStaff,
 } from '@/app/dashboard/staff/actions'
 
@@ -60,12 +62,14 @@ export default function UnifiedCalendarBoard({
   doctors = [],
   services = [],
   canCreateAppointments = false,
+  canDeleteAppointments = false,
 }: {
   appointments: UnifiedCalendarAppointment[]
   days: string[]
   doctors?: CalendarDoctor[]
   services?: CalendarService[]
   canCreateAppointments?: boolean
+  canDeleteAppointments?: boolean
 }) {
   const router = useRouter()
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week')
@@ -74,6 +78,7 @@ export default function UnifiedCalendarBoard({
   const [editTime, setEditTime] = useState('')
   const [editStatus, setEditStatus] = useState<UnifiedCalendarAppointment['status']>('pending')
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [editError, setEditError] = useState<string | null>(null)
 
   const [createDate, setCreateDate] = useState<string | null>(null)
@@ -132,6 +137,31 @@ export default function UnifiedCalendarBoard({
     })
 
     setIsSaving(false)
+
+    if (!result.ok) {
+      setEditError(result.error ?? 'Алдаа гарлаа.')
+      return
+    }
+
+    closeEditModal()
+    router.refresh()
+  }
+
+  async function handleDeleteAppointment() {
+    if (!editingAppointment) {
+      return
+    }
+
+    if (!window.confirm('Энэ appointment-ийг устгах уу?')) {
+      return
+    }
+
+    setIsDeleting(true)
+    setEditError(null)
+
+    const result = await deleteAppointmentForStaff(editingAppointment.id)
+
+    setIsDeleting(false)
 
     if (!result.ok) {
       setEditError(result.error ?? 'Алдаа гарлаа.')
@@ -391,18 +421,30 @@ export default function UnifiedCalendarBoard({
               </div>
 
               <div className="mt-6 flex gap-3">
+                {canDeleteAppointments ? (
+                  <Button
+                    variant="danger"
+                    onClick={handleDeleteAppointment}
+                    className="w-full"
+                    disabled={isSaving || isDeleting}
+                    loading={isDeleting}
+                  >
+                    <Trash2 size={16} />
+                    Устгах
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   onClick={closeEditModal}
                   className="w-full"
-                  disabled={isSaving}
+                  disabled={isSaving || isDeleting}
                 >
                   Болих
                 </Button>
                 <Button
                   onClick={handleEditSave}
                   className="w-full"
-                  disabled={isSaving}
+                  disabled={isSaving || isDeleting}
                   loading={isSaving}
                 >
                   <Save size={16} />

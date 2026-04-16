@@ -112,6 +112,8 @@ CREATE TABLE services (
   price               NUMERIC(10,2) NOT NULL DEFAULT 0,
   duration_minutes    INTEGER NOT NULL DEFAULT 30,
   preparation_notice  TEXT,
+  has_last_booking_time BOOLEAN NOT NULL DEFAULT FALSE,
+  last_booking_time   TIME,
   is_active           BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order          INTEGER NOT NULL DEFAULT 0,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()

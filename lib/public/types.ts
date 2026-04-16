@@ -52,6 +52,8 @@ export interface PublicService {
   duration_minutes: number
   preparation_notice: string | null
   promotion_flag: boolean
+  has_last_booking_time: boolean
+  last_booking_time: string | null
   category_id: string | null
   categories?: PublicServiceCategory | null
 }

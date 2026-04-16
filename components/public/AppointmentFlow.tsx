@@ -58,6 +58,10 @@ function formatPrice(price: number) {
   return `${new Intl.NumberFormat('mn-MN').format(price)}₮`
 }
 
+function normalizeClockTime(value: string | null | undefined) {
+  return value?.slice(0, 5) ?? ''
+}
+
 export default function AppointmentFlow({
   doctors,
   services,
@@ -197,16 +201,32 @@ export default function AppointmentFlow({
   }, [doctors, doctorsWithRelations, selectedServiceId])
 
   const disabledSlots = useMemo(() => {
-    if (!selectedDoctorId || !selectedDate || bookedAppointments.length === 0) return []
+    const disabled: string[] = []
+
+    if (selectedService?.has_last_booking_time && selectedService.last_booking_time) {
+      const lastBookingTime = normalizeClockTime(selectedService.last_booking_time)
+
+      for (const group of TIME_GROUPS) {
+        for (const slot of group.slots) {
+          if (slot > lastBookingTime) {
+            disabled.push(slot)
+          }
+        }
+      }
+    }
+
+    if (!selectedDoctorId || !selectedDate || bookedAppointments.length === 0) return disabled
 
     const doctorAppointments = bookedAppointments.filter(
       (appt) => appt.doctor_id === selectedDoctorId && appt.appointment_date === selectedDate
     )
-
-    const disabled: string[] = []
     
     for (const group of TIME_GROUPS) {
       for (const slot of group.slots) {
+        if (disabled.includes(slot)) {
+          continue
+        }
+
         let isBlocked = false
         for (const appt of doctorAppointments) {
           const apptTime = appt.appointment_time.slice(0, 5) // "10:30"
@@ -357,6 +377,12 @@ export default function AppointmentFlow({
                   </div>
                 </div>
               </div>
+            ) : null}
+
+            {selectedService.has_last_booking_time && selectedService.last_booking_time ? (
+              <p className="mt-3 text-sm font-medium text-[#5B6877]">
+                Энэ үйлчилгээг хамгийн сүүлд {normalizeClockTime(selectedService.last_booking_time)} хүртэл захиална.
+              </p>
             ) : null}
           </div>
         ) : null}
@@ -712,7 +738,12 @@ export default function AppointmentFlow({
                       </div>
                       {service.description ? (
                         <p className="mt-3 break-words text-sm leading-6 text-[#5B6877]">
-                          {service.description}
+                      {service.description}
+                    </p>
+                  ) : null}
+                      {service.has_last_booking_time && service.last_booking_time ? (
+                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[#D97706]">
+                          Сүүлийн захиалах цаг: {normalizeClockTime(service.last_booking_time)}
                         </p>
                       ) : null}
                       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -805,6 +836,13 @@ export default function AppointmentFlow({
               <p className="mt-2 text-sm leading-6 text-[#5B6877]">
                 Тохирох өдрөө товшоод дараа нь цагийн слот сонгоно уу.
               </p>
+
+              {selectedService?.has_last_booking_time && selectedService.last_booking_time ? (
+                <div className="mt-4 rounded-2xl border border-[#FDE9B6] bg-[#FFFBF1] px-4 py-3 text-sm font-medium leading-6 text-[#B45309]">
+                  {selectedService.name} үйлчилгээний сүүлийн захиалах цаг нь{' '}
+                  {normalizeClockTime(selectedService.last_booking_time)} байна.
+                </div>
+              ) : null}
 
               <div className="mt-5">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#1F2937]">

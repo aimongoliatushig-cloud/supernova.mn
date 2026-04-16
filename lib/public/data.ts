@@ -44,6 +44,8 @@ interface RawService {
   duration_minutes: number | string | null
   preparation_notice: string | null
   promotion_flag: boolean | null
+  has_last_booking_time: boolean | null
+  last_booking_time: string | null
   category_id: string | null
   categories?: RelationValue<PublicServiceCategory>
 }
@@ -100,6 +102,8 @@ function normalizeService(service: RawService): PublicService {
     duration_minutes: Number(service.duration_minutes ?? 0),
     preparation_notice: service.preparation_notice,
     promotion_flag: Boolean(service.promotion_flag),
+    has_last_booking_time: Boolean(service.has_last_booking_time),
+    last_booking_time: service.last_booking_time,
     category_id: service.category_id,
     categories: firstRelation(service.categories),
   }
@@ -175,7 +179,7 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
     supabase
       .from('services')
       .select(
-        'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, category_id, categories:service_categories(id, name, icon)'
+        'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
       )
       .eq('is_active', true)
       .eq('show_on_landing', true)
@@ -355,7 +359,7 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
     supabase
       .from('services')
       .select(
-        'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, category_id, categories:service_categories(id, name, icon)'
+        'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
       )
       .eq('is_active', true)
       .eq('show_on_booking', true)
@@ -426,7 +430,7 @@ export async function getResultPageData(assessmentId: string): Promise<PublicRes
       supabase
         .from('services')
         .select(
-          'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, category_id, categories:service_categories(id, name, icon)'
+          'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
         )
         .eq('is_active', true)
         .eq('show_on_result', true)

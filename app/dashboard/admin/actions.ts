@@ -660,6 +660,18 @@ export async function saveService(input: ServiceInput): Promise<AdminActionResul
     return fail('Үйлчилгээний нэр шаардлагатай.')
   }
 
+  const normalizedLastBookingTime = trimToNull(input.last_booking_time)
+
+  if (input.has_last_booking_time) {
+    if (!normalizedLastBookingTime) {
+      return fail('Сүүлийн захиалга авах цагийг оруулна уу.')
+    }
+
+    if (!/^\d{2}:\d{2}$/.test(normalizedLastBookingTime)) {
+      return fail('Сүүлийн захиалга авах цаг HH:MM форматтай байна.')
+    }
+  }
+
   const supabase = await getAdminSupabase()
   const payload = {
     name: input.name.trim(),
@@ -669,6 +681,8 @@ export async function saveService(input: ServiceInput): Promise<AdminActionResul
     duration_minutes: clampNumber(input.duration_minutes, 30),
     preparation_notice: trimToNull(input.preparation_notice),
     promotion_flag: input.promotion_flag,
+    has_last_booking_time: input.has_last_booking_time,
+    last_booking_time: input.has_last_booking_time ? normalizedLastBookingTime : null,
     is_active: input.is_active,
     show_on_landing: input.show_on_landing,
     show_on_result: input.show_on_result,

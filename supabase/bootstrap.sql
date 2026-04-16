@@ -127,6 +127,8 @@ CREATE TABLE services (
   price               NUMERIC(10,2) NOT NULL DEFAULT 0,
   duration_minutes    INTEGER NOT NULL DEFAULT 30,
   preparation_notice  TEXT,
+  has_last_booking_time BOOLEAN NOT NULL DEFAULT FALSE,
+  last_booking_time   TIME,
   is_active           BOOLEAN NOT NULL DEFAULT TRUE,
   sort_order          INTEGER NOT NULL DEFAULT 0,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -787,7 +789,9 @@ ALTER TABLE services
   ADD COLUMN IF NOT EXISTS category_id      UUID REFERENCES service_categories(id) ON DELETE SET NULL,
   ADD COLUMN IF NOT EXISTS show_on_landing  BOOLEAN NOT NULL DEFAULT TRUE,
   ADD COLUMN IF NOT EXISTS show_on_result   BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS show_on_booking  BOOLEAN NOT NULL DEFAULT TRUE;
+  ADD COLUMN IF NOT EXISTS show_on_booking  BOOLEAN NOT NULL DEFAULT TRUE,
+  ADD COLUMN IF NOT EXISTS has_last_booking_time BOOLEAN NOT NULL DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS last_booking_time TIME;
 
 -- ─── Alter doctors table ──────────────────────────────────────────────────
 ALTER TABLE doctors

@@ -42,6 +42,8 @@ const blankService: ServiceInput = {
   duration_minutes: 30,
   preparation_notice: '',
   promotion_flag: false,
+  has_last_booking_time: false,
+  last_booking_time: null,
   is_active: true,
   show_on_landing: true,
   show_on_result: false,
@@ -63,6 +65,8 @@ function toServiceInput(service?: Service | null): ServiceInput {
     duration_minutes: service.duration_minutes,
     preparation_notice: service.preparation_notice ?? '',
     promotion_flag: service.promotion_flag,
+    has_last_booking_time: service.has_last_booking_time,
+    last_booking_time: service.last_booking_time,
     is_active: service.is_active,
     show_on_landing: service.show_on_landing,
     show_on_result: service.show_on_result,
@@ -406,6 +410,40 @@ export default function ServicesManager({
                 </AdminField>
               </div>
 
+              <div className="grid gap-4 md:grid-cols-[0.8fr_1.2fr]">
+                <div className="flex items-end">
+                  <AdminToggle
+                    label="Limit last booking time"
+                    active={serviceForm.has_last_booking_time}
+                    onClick={() =>
+                      setServiceForm((current) => ({
+                        ...current,
+                        has_last_booking_time: !current.has_last_booking_time,
+                        last_booking_time: current.has_last_booking_time
+                          ? null
+                          : current.last_booking_time ?? '16:00',
+                      }))
+                    }
+                  />
+                </div>
+                <AdminField
+                  label="Last booking time"
+                  hint="If enabled, this service can only be booked from opening time up to this hour."
+                >
+                  <AdminInput
+                    type="time"
+                    value={serviceForm.last_booking_time ?? ''}
+                    disabled={!serviceForm.has_last_booking_time}
+                    onChange={(event) =>
+                      setServiceForm((current) => ({
+                        ...current,
+                        last_booking_time: event.target.value || null,
+                      }))
+                    }
+                  />
+                </AdminField>
+              </div>
+
               <AdminField label="Preparation notice">
                 <AdminTextArea
                   rows={3}
@@ -569,6 +607,11 @@ export default function ServicesManager({
                         <p className="mt-1 text-sm font-semibold text-[#1E63B5]">
                           {Number(service.price).toLocaleString('mn-MN')} MNT
                         </p>
+                        {service.has_last_booking_time && service.last_booking_time ? (
+                          <p className="mt-1 text-xs font-semibold text-[#D97706]">
+                            Last booking time: {service.last_booking_time.slice(0, 5)}
+                          </p>
+                        ) : null}
                       </button>
 
                       <div className="flex flex-wrap gap-2">

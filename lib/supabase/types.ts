@@ -70,6 +70,8 @@ export interface Service {
   price: number
   duration_minutes: number
   preparation_notice: string | null
+  has_last_booking_time: boolean
+  last_booking_time: string | null
   is_active: boolean
   sort_order: number
   created_at: string

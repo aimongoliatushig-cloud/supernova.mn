@@ -164,6 +164,8 @@ export interface Service {
   duration_minutes: number
   preparation_notice: string | null
   promotion_flag: boolean
+  has_last_booking_time: boolean
+  last_booking_time: string | null
   is_active: boolean
   show_on_landing: boolean
   show_on_result: boolean
@@ -180,6 +182,8 @@ export interface ServiceInput {
   duration_minutes: number
   preparation_notice: string
   promotion_flag: boolean
+  has_last_booking_time: boolean
+  last_booking_time: string | null
   is_active: boolean
   show_on_landing: boolean
   show_on_result: boolean

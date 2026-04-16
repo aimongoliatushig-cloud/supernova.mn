@@ -182,6 +182,7 @@ export interface PublicAppointmentSlot {
 export interface PublicBookingData extends PublicCmsContent {
   doctors: PublicDoctor[]
   services: PublicService[]
+  promotions: PublicPromotion[]
   bookedAppointments: PublicAppointmentSlot[]
 }
 

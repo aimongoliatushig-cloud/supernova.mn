@@ -342,7 +342,7 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
   const today = new Date().toISOString().split('T')[0]
   const protectedSupabase = await getProtectedPublicClient()
 
-  const [{ data: doctors }, { data: services }, { data: appointments }] = await Promise.all([
+  const [{ data: doctors }, { data: services }, { data: promotions }, { data: appointments }] = await Promise.all([
     supabase
       .from('doctors')
       .select(
@@ -362,6 +362,14 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
       .order('sort_order')
       .order('sort_order')
       .order('name'),
+    supabase
+      .from('promotions')
+      .select(
+        'id, title, description, discount_percent, discount_amount, free_gift, badge_text, badge_color, service_id, package_id'
+      )
+      .eq('is_active', true)
+      .not('service_id', 'is', null)
+      .order('created_at', { ascending: false }),
     protectedSupabase
       .from('appointments')
       .select('doctor_id, appointment_date, appointment_time, services(duration_minutes)')
@@ -373,6 +381,7 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
     ...cms,
     doctors: (doctors ?? []) as PublicDoctor[],
     services: (services ?? []).map((service) => normalizeService(service)),
+    promotions: (promotions ?? []) as PublicPromotion[],
     bookedAppointments: ((appointments ?? []) as BookedAppointmentRow[]).map((appt) => ({
       doctor_id: appt.doctor_id,
       appointment_date: appt.appointment_date,

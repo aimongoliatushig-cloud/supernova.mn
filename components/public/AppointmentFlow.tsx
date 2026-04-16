@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Gift,
   Shield,
   Sparkles,
   User,
@@ -20,11 +21,17 @@ import {
   findBestCategoryMatch,
   getCategoryMatchScore,
 } from '@/lib/public/category-matching'
-import type { PublicDoctor, PublicService, PublicAppointmentSlot } from '@/lib/public/types'
+import type {
+  PublicAppointmentSlot,
+  PublicDoctor,
+  PublicPromotion,
+  PublicService,
+} from '@/lib/public/types'
 
 interface AppointmentFlowProps {
   doctors: PublicDoctor[]
   services: PublicService[]
+  promotions: PublicPromotion[]
   privacyText: string
   dateOptions: BookingDateOption[]
   initialLeadId?: string | null
@@ -47,9 +54,14 @@ function normalizeCategoryName(name: string | null | undefined) {
   return name?.trim() || 'Бусад'
 }
 
+function formatPrice(price: number) {
+  return `${new Intl.NumberFormat('mn-MN').format(price)}₮`
+}
+
 export default function AppointmentFlow({
   doctors,
   services,
+  promotions,
   privacyText,
   dateOptions,
   initialLeadId,
@@ -135,6 +147,36 @@ export default function AppointmentFlow({
     matchedServiceCategories,
     initialSelectedCategories
   )
+  const promotionByServiceId = useMemo(
+    () =>
+      new Map(
+        promotions.filter((promotion) => promotion.service_id).map((promotion) => [
+          promotion.service_id as string,
+          promotion,
+        ])
+      ),
+    [promotions]
+  )
+  const selectedServicePromotion = selectedService
+    ? promotionByServiceId.get(selectedService.id) ?? null
+    : null
+  const selectedServiceDiscountedPrice = useMemo(() => {
+    if (!selectedService || !selectedServicePromotion) {
+      return null
+    }
+
+    const percentDiscount = selectedServicePromotion.discount_percent
+      ? Math.round((selectedService.price * selectedServicePromotion.discount_percent) / 100)
+      : 0
+    const amountDiscount = selectedServicePromotion.discount_amount ?? 0
+    const totalDiscount = percentDiscount + amountDiscount
+
+    if (totalDiscount <= 0) {
+      return null
+    }
+
+    return Math.max(selectedService.price - totalDiscount, 0)
+  }, [selectedService, selectedServicePromotion])
 
   const resultHref = initialAssessmentId
     ? `/result?assessment=${encodeURIComponent(initialAssessmentId)}`
@@ -253,12 +295,69 @@ export default function AppointmentFlow({
             <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
               Үйлчилгээний мэдээлэл
             </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#1E63B5]">
-              {publicPriceNote}
-            </p>
+            <div className="mt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                Үнэ
+              </p>
+              {selectedServiceDiscountedPrice != null ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <p className="text-2xl font-black text-[#1E63B5]">
+                    {formatPrice(selectedServiceDiscountedPrice)}
+                  </p>
+                  <p className="text-sm font-semibold text-[#9CA3AF] line-through">
+                    {formatPrice(selectedService.price)}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-2xl font-black text-[#1E63B5]">
+                  {formatPrice(selectedService.price)}
+                </p>
+              )}
+            </div>
             <p className="mt-2 text-sm text-[#5B6877]">
               {selectedService.duration_minutes} минут үргэлжилнэ
             </p>
+
+            {selectedServicePromotion ? (
+              <div className="mt-4 rounded-2xl border border-[#FDE3C3] bg-[#FFF8EC] px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <Gift size={16} className="mt-0.5 shrink-0 text-[#D97706]" />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-bold text-[#92400E]">
+                        {selectedServicePromotion.title}
+                      </p>
+                      <span
+                        className="rounded-full px-2.5 py-1 text-[11px] font-bold text-white"
+                        style={{ backgroundColor: selectedServicePromotion.badge_color }}
+                      >
+                        {selectedServicePromotion.badge_text}
+                      </span>
+                    </div>
+                    {selectedServicePromotion.description ? (
+                      <p className="mt-2 text-sm leading-6 text-[#92400E]">
+                        {selectedServicePromotion.description}
+                      </p>
+                    ) : null}
+                    {selectedServicePromotion.discount_percent ? (
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#B45309]">
+                        -{selectedServicePromotion.discount_percent}% хямдрал
+                      </p>
+                    ) : null}
+                    {selectedServicePromotion.discount_amount ? (
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-[#B45309]">
+                        -{formatPrice(selectedServicePromotion.discount_amount)} хямдарсан
+                      </p>
+                    ) : null}
+                    {selectedServicePromotion.free_gift ? (
+                      <p className="mt-2 text-sm font-medium text-[#92400E]">
+                        Бэлэг: {selectedServicePromotion.free_gift}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

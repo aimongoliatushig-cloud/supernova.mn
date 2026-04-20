@@ -78,13 +78,15 @@ function formatBlogTableError(message: string, code?: string | null) {
 }
 
 function isMissingServiceLastBookingColumnError(message: string, code?: string | null) {
-  if (code !== 'PGRST204') {
+  if (!['PGRST204', '42703'].includes(code ?? '')) {
     return false
   }
 
   return (
     message.includes("Could not find the 'has_last_booking_time' column of 'services'") ||
-    message.includes("Could not find the 'last_booking_time' column of 'services'")
+    message.includes("Could not find the 'last_booking_time' column of 'services'") ||
+    message.includes('column services.has_last_booking_time does not exist') ||
+    message.includes('column services.last_booking_time does not exist')
   )
 }
 

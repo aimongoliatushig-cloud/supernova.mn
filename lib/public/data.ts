@@ -237,14 +237,17 @@ function isMissingServiceBookingColumnsError(error: {
   details?: string | null
   hint?: string | null
 } | null) {
-  if (error?.code !== 'PGRST204') {
+  const errorText = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ')
+
+  if (!['PGRST204', '42703'].includes(error?.code ?? '')) {
     return false
   }
 
-  const errorText = [error.message, error.details, error.hint].filter(Boolean).join(' ')
-
   return (
-    errorText.includes('has_last_booking_time') || errorText.includes('last_booking_time')
+    errorText.includes('has_last_booking_time') ||
+    errorText.includes('last_booking_time') ||
+    errorText.includes('services.has_last_booking_time') ||
+    errorText.includes('services.last_booking_time')
   )
 }
 

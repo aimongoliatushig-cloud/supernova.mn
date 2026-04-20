@@ -48,14 +48,33 @@ const TIME_GROUPS = [
   { label: 'Үдээс хойш', slots: ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30'] },
 ] as const
 
-const publicPriceNote = 'Үнийн мэдээллийг зөвлөгөөн дээр өгнө.'
-
 function normalizeCategoryName(name: string | null | undefined) {
   return name?.trim() || 'Бусад'
 }
 
 function formatPrice(price: number) {
-  return `${new Intl.NumberFormat('mn-MN').format(price)}₮`
+  return `${new Intl.NumberFormat('mn-MN').format(price)}\u20AE`
+}
+
+function getDiscountedServicePrice(
+  servicePrice: number,
+  promotion: PublicPromotion | null | undefined
+) {
+  if (!promotion) {
+    return null
+  }
+
+  const percentDiscount = promotion.discount_percent
+    ? Math.round((servicePrice * promotion.discount_percent) / 100)
+    : 0
+  const amountDiscount = promotion.discount_amount ?? 0
+  const totalDiscount = percentDiscount + amountDiscount
+
+  if (totalDiscount <= 0) {
+    return null
+  }
+
+  return Math.max(servicePrice - totalDiscount, 0)
 }
 
 function normalizeClockTime(value: string | null | undefined) {
@@ -143,6 +162,7 @@ export default function AppointmentFlow({
       (service) => normalizeCategoryName(service.categories?.name) === selectedCategory
     )
   }, [recommendedServices, selectedCategory])
+  const visibleServices = filteredServices.length > 0 ? filteredServices : services
 
   const selectedService = services.find((service) => service.id === selectedServiceId) ?? null
   const selectedDoctor = doctors.find((doctor) => doctor.id === selectedDoctorId) ?? null
@@ -165,21 +185,11 @@ export default function AppointmentFlow({
     ? promotionByServiceId.get(selectedService.id) ?? null
     : null
   const selectedServiceDiscountedPrice = useMemo(() => {
-    if (!selectedService || !selectedServicePromotion) {
+    if (!selectedService) {
       return null
     }
 
-    const percentDiscount = selectedServicePromotion.discount_percent
-      ? Math.round((selectedService.price * selectedServicePromotion.discount_percent) / 100)
-      : 0
-    const amountDiscount = selectedServicePromotion.discount_amount ?? 0
-    const totalDiscount = percentDiscount + amountDiscount
-
-    if (totalDiscount <= 0) {
-      return null
-    }
-
-    return Math.max(selectedService.price - totalDiscount, 0)
+    return getDiscountedServicePrice(selectedService.price, selectedServicePromotion)
   }, [selectedService, selectedServicePromotion])
 
   const resultHref = initialAssessmentId
@@ -464,11 +474,11 @@ export default function AppointmentFlow({
   }
 
   useEffect(() => {
-    if (selectedServiceId && !filteredServices.some((service) => service.id === selectedServiceId)) {
+    if (selectedServiceId && !visibleServices.some((service) => service.id === selectedServiceId)) {
       setSelectedServiceId('')
       setSelectedDoctorId('')
     }
-  }, [filteredServices, selectedServiceId])
+  }, [selectedServiceId, visibleServices])
 
   useEffect(() => {
     if (selectedTime && disabledSlots.includes(selectedTime)) {
@@ -699,66 +709,90 @@ export default function AppointmentFlow({
                 ))}
               </div>
 
-              {filteredServices.length === 0 ? (
+              {visibleServices.length === 0 ? (
                 <div className="mt-5 rounded-3xl border border-dashed border-[#D6E6FA] bg-[#F7FAFF] px-5 py-8 text-sm leading-7 text-[#5B6877]">
                   Сонгосон шүүлтэд тохирох үйлчилгээ алга байна. Өөр ангилал сонгох эсвэл
                   оффисоос баталгаажуулах урсгалаар үргэлжлүүлж болно.
                 </div>
               ) : (
                 <div className="mt-5 min-w-0 grid gap-3 md:grid-cols-2">
-                  {filteredServices.map((service) => (
-                    <button
-                      key={service.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedServiceId(service.id)
-                        setSelectedDoctorId('')
-                      }}
-                      className={[
-                        'w-full min-w-0 overflow-hidden rounded-3xl border-2 p-4 text-left transition',
-                        selectedServiceId === service.id
-                          ? 'border-[#1E63B5] bg-[#F7FAFF]'
-                          : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
-                      ].join(' ')}
-                    >
-                      <div className="flex min-w-0 items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
-                            {normalizeCategoryName(service.categories?.name)}
-                          </p>
-                          <h3 className="mt-2 break-words text-base font-black text-[#1F2937]">
-                            {service.name}
-                          </h3>
+                  {visibleServices.map((service) => {
+                    const servicePromotion = promotionByServiceId.get(service.id) ?? null
+                    const discountedPrice = getDiscountedServicePrice(
+                      service.price,
+                      servicePromotion
+                    )
+
+                    return (
+                      <button
+                        key={service.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedServiceId(service.id)
+                          setSelectedDoctorId('')
+                        }}
+                        className={[
+                          'w-full min-w-0 overflow-hidden rounded-3xl border-2 p-4 text-left transition',
+                          selectedServiceId === service.id
+                            ? 'border-[#1E63B5] bg-[#F7FAFF]'
+                            : 'border-[#E5E7EB] bg-white hover:border-[#B8D5FB]',
+                        ].join(' ')}
+                      >
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                              {normalizeCategoryName(service.categories?.name)}
+                            </p>
+                            <h3 className="mt-2 break-words text-base font-black text-[#1F2937]">
+                              {service.name}
+                            </h3>
+                          </div>
+                          {service.promotion_flag ? (
+                            <span className="shrink-0 rounded-full bg-[#FFF1F2] px-3 py-1 text-xs font-bold text-[#F23645]">
+                              Онцлох
+                            </span>
+                          ) : null}
                         </div>
-                        {service.promotion_flag ? (
-                          <span className="shrink-0 rounded-full bg-[#FFF1F2] px-3 py-1 text-xs font-bold text-[#F23645]">
-                            Онцлох
-                          </span>
+                        {service.description ? (
+                          <p className="mt-3 break-words text-sm leading-6 text-[#5B6877]">
+                            {service.description}
+                          </p>
                         ) : null}
-                      </div>
-                      {service.description ? (
-                        <p className="mt-3 break-words text-sm leading-6 text-[#5B6877]">
-                      {service.description}
-                    </p>
-                  ) : null}
-                      {service.has_last_booking_time && service.last_booking_time ? (
-                        <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[#D97706]">
-                          Сүүлийн захиалах цаг: {normalizeClockTime(service.last_booking_time)}
-                        </p>
-                      ) : null}
-                      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <p className="max-w-[15rem] text-sm font-semibold leading-6 text-[#5B6877]">
-                          {publicPriceNote}
-                        </p>
-                        <div className="sm:text-right">
-                          <p className="text-xs text-[#9CA3AF]">Үргэлжлэх хугацаа</p>
-                          <p className="mt-1 text-sm font-semibold text-[#1F2937]">
-                            {service.duration_minutes} минут
+                        {service.has_last_booking_time && service.last_booking_time ? (
+                          <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-[#D97706]">
+                            Сүүлийн захиалах цаг: {normalizeClockTime(service.last_booking_time)}
                           </p>
+                        ) : null}
+                        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-[#9CA3AF]">
+                              Үнэ
+                            </p>
+                            {discountedPrice != null ? (
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                <p className="text-lg font-black text-[#1E63B5]">
+                                  {formatPrice(discountedPrice)}
+                                </p>
+                                <p className="text-sm font-semibold text-[#9CA3AF] line-through">
+                                  {formatPrice(service.price)}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="mt-1 text-lg font-black text-[#1E63B5]">
+                                {formatPrice(service.price)}
+                              </p>
+                            )}
+                          </div>
+                          <div className="sm:text-right">
+                            <p className="text-xs text-[#9CA3AF]">Үргэлжлэх хугацаа</p>
+                            <p className="mt-1 text-sm font-semibold text-[#1F2937]">
+                              {service.duration_minutes} минут
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </section>

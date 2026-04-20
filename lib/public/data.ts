@@ -79,6 +79,12 @@ interface RawPackage {
   package_services?: RawPackageService[]
 }
 
+const BASE_PUBLIC_SERVICE_SELECT =
+  'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, category_id, categories:service_categories(id, name, icon)'
+
+const EXTENDED_PUBLIC_SERVICE_SELECT =
+  'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
+
 function firstRelation<T>(value: T | T[] | null | undefined) {
   if (Array.isArray(value)) {
     return value[0] ?? null
@@ -163,7 +169,6 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
 
   const [
     { data: doctors },
-    { data: services },
     { data: packages },
     { data: promotions },
     { data: serviceCategories },
@@ -176,15 +181,6 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
       .eq('show_on_landing', true)
       .order('sort_order')
       .order('full_name'),
-    supabase
-      .from('services')
-      .select(
-        'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
-      )
-      .eq('is_active', true)
-      .eq('show_on_landing', true)
-      .order('sort_order')
-      .order('name'),
     supabase
       .from('service_packages')
       .select(
@@ -219,6 +215,8 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
       .limit(5),
   ])
 
+  const services = await loadPublicServices(supabase, 'show_on_landing')
+
   return {
     ...cms,
     doctors: (doctors ?? []) as PublicDoctor[],
@@ -231,6 +229,65 @@ export async function getLandingPageData(): Promise<PublicLandingData> {
       categories: firstRelation(article.categories),
     })) as PublicBlogArticle[],
   }
+}
+
+function isMissingServiceBookingColumnsError(error: {
+  code?: string | null
+  message?: string | null
+  details?: string | null
+  hint?: string | null
+} | null) {
+  if (error?.code !== 'PGRST204') {
+    return false
+  }
+
+  const errorText = [error.message, error.details, error.hint].filter(Boolean).join(' ')
+
+  return (
+    errorText.includes('has_last_booking_time') || errorText.includes('last_booking_time')
+  )
+}
+
+type PublicSupabaseClient = Awaited<ReturnType<typeof getPublicSupabase>>
+
+async function loadPublicServices(
+  supabase: PublicSupabaseClient,
+  visibilityColumn: 'show_on_landing' | 'show_on_booking' | 'show_on_result',
+  prioritizePromotions = false
+) {
+  const buildQuery = (selectClause: string) => {
+    let query = supabase
+      .from('services')
+      .select(selectClause)
+      .eq('is_active', true)
+      .eq(visibilityColumn, true)
+
+    if (prioritizePromotions) {
+      query = query.order('promotion_flag', { ascending: false })
+    }
+
+    return query.order('sort_order').order('name')
+  }
+
+  const primaryResult = await buildQuery(EXTENDED_PUBLIC_SERVICE_SELECT)
+
+  if (!primaryResult.error) {
+    return (primaryResult.data ?? []) as unknown as RawService[]
+  }
+
+  if (!isMissingServiceBookingColumnsError(primaryResult.error)) {
+    console.error('Failed to load public services.', primaryResult.error)
+    return []
+  }
+
+  const fallbackResult = await buildQuery(BASE_PUBLIC_SERVICE_SELECT)
+
+  if (fallbackResult.error) {
+    console.error('Failed to load public services with fallback query.', fallbackResult.error)
+    return []
+  }
+
+  return (fallbackResult.data ?? []) as unknown as RawService[]
 }
 
 export async function getPublicBlogArticleBySlug(
@@ -346,7 +403,7 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
   const today = new Date().toISOString().split('T')[0]
   const protectedSupabase = await getProtectedPublicClient()
 
-  const [{ data: doctors }, { data: services }, { data: promotions }, { data: appointments }] = await Promise.all([
+  const [{ data: doctors }, { data: promotions }, { data: appointments }] = await Promise.all([
     supabase
       .from('doctors')
       .select(
@@ -356,16 +413,6 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
       .eq('available_for_booking', true)
       .order('sort_order')
       .order('full_name'),
-    supabase
-      .from('services')
-      .select(
-        'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
-      )
-      .eq('is_active', true)
-      .eq('show_on_booking', true)
-      .order('sort_order')
-      .order('sort_order')
-      .order('name'),
     supabase
       .from('promotions')
       .select(
@@ -380,6 +427,8 @@ export async function getBookingPageData(): Promise<PublicBookingData> {
       .gte('appointment_date', today)
       .in('status', ['pending', 'confirmed'])
   ])
+
+  const services = await loadPublicServices(supabase, 'show_on_booking')
 
   return {
     ...cms,
@@ -418,7 +467,7 @@ export async function getResultPageData(assessmentId: string): Promise<PublicRes
     return null
   }
 
-  const [{ data: doctors }, { data: services }, { data: packages }, { data: promotions }] =
+  const [{ data: doctors }, { data: packages }, { data: promotions }] =
     await Promise.all([
       supabase
         .from('doctors')
@@ -427,16 +476,6 @@ export async function getResultPageData(assessmentId: string): Promise<PublicRes
         .eq('available_for_booking', true)
         .order('sort_order')
         .order('full_name'),
-      supabase
-        .from('services')
-        .select(
-          'id, name, description, price, duration_minutes, preparation_notice, promotion_flag, has_last_booking_time, last_booking_time, category_id, categories:service_categories(id, name, icon)'
-        )
-        .eq('is_active', true)
-        .eq('show_on_result', true)
-        .order('promotion_flag', { ascending: false })
-        .order('sort_order')
-        .order('name'),
       supabase
         .from('service_packages')
         .select(
@@ -455,6 +494,8 @@ export async function getResultPageData(assessmentId: string): Promise<PublicRes
         .eq('show_on_result', true)
         .order('created_at', { ascending: false }),
     ])
+
+  const services = await loadPublicServices(supabase, 'show_on_result', true)
 
   return {
     ...cms,

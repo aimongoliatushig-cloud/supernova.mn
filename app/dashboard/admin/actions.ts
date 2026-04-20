@@ -77,6 +77,21 @@ function formatBlogTableError(message: string, code?: string | null) {
   return message
 }
 
+function isMissingServiceLastBookingColumnError(message: string, code?: string | null) {
+  if (code !== 'PGRST204') {
+    return false
+  }
+
+  return (
+    message.includes("Could not find the 'has_last_booking_time' column of 'services'") ||
+    message.includes("Could not find the 'last_booking_time' column of 'services'")
+  )
+}
+
+function formatServiceLastBookingColumnError() {
+  return '“Сүүлийн захиалга авах цаг” тохиргоог ашиглахын тулд Supabase дээр `supabase/migrations/20260416133000_add_service_last_booking_time.sql` migration-ийг ажиллуулаад schema cache-аа refresh хийнэ үү.'
+}
+
 function trimToNull(value: string | null | undefined) {
   const normalized = value?.trim() ?? ''
   return normalized.length > 0 ? normalized : null
@@ -690,6 +705,21 @@ export async function saveService(input: ServiceInput): Promise<AdminActionResul
     sort_order: clampNumber(input.sort_order),
   }
 
+  const payloadWithoutLastBookingTime = {
+    name: payload.name,
+    category_id: payload.category_id,
+    description: payload.description,
+    price: payload.price,
+    duration_minutes: payload.duration_minutes,
+    preparation_notice: payload.preparation_notice,
+    promotion_flag: payload.promotion_flag,
+    is_active: payload.is_active,
+    show_on_landing: payload.show_on_landing,
+    show_on_result: payload.show_on_result,
+    show_on_booking: payload.show_on_booking,
+    sort_order: payload.sort_order,
+  }
+
   const query = input.id
     ? supabase.from('services').update(payload).eq('id', input.id)
     : supabase.from('services').insert(payload)
@@ -697,6 +727,27 @@ export async function saveService(input: ServiceInput): Promise<AdminActionResul
   const { error } = await query
 
   if (error) {
+    if (isMissingServiceLastBookingColumnError(error.message, error.code)) {
+      if (input.has_last_booking_time) {
+        return fail(formatServiceLastBookingColumnError())
+      }
+
+      const fallbackQuery = input.id
+        ? supabase.from('services').update(payloadWithoutLastBookingTime).eq('id', input.id)
+        : supabase.from('services').insert(payloadWithoutLastBookingTime)
+
+      const { error: fallbackError } = await fallbackQuery
+
+      if (fallbackError) {
+        return fail(fallbackError.message)
+      }
+
+      revalidateAdminAndPublic()
+      return ok(
+        'Үйлчилгээ хадгалагдлаа. “Сүүлийн захиалга авах цаг” тохиргоог ашиглахын тулд шинэ migration-аа Supabase дээр ажиллуулна уу.'
+      )
+    }
+
     return fail(error.message)
   }
 
